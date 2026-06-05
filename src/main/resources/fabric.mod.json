@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "enoughvisuals",
+  "version": "${version}",
+  "name": "EnoughVisuals",
+  "description": "EnoughVisuals - 1.21.4",
+  "authors": [],
+  "contact": {},
+  "license": "Apache-2.0",
+  "icon": "assets/enough/logo/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "fun.enoughvisuals.Enough"
+    ]
+  },
+  "mixins": [
+    "enoughvisuals.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}

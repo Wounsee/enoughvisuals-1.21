@@ -1,0 +1,184 @@
+package fun.enoughvisuals.mixins.minecraft.client.gui.hud;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+import fun.enoughvisuals.systems.gps.GpsSystem;
+import fun.enoughvisuals.systems.hud.DragAndDrop;
+import fun.enoughvisuals.systems.modules.api.ModuleManager;
+import fun.enoughvisuals.systems.modules.modules.utils.LockSlot;
+import fun.enoughvisuals.systems.modules.modules.visual.Cooldowns;
+import fun.enoughvisuals.systems.modules.modules.visual.Crosshair;
+import fun.enoughvisuals.systems.modules.modules.visual.CustomTab;
+import fun.enoughvisuals.systems.modules.modules.visual.CustomTheme;
+import fun.enoughvisuals.systems.modules.modules.visual.ItemLight;
+import fun.enoughvisuals.systems.modules.modules.visual.MouseParticles;
+import fun.enoughvisuals.systems.modules.modules.visual.NoRender;
+import fun.enoughvisuals.systems.modules.modules.utils.StreamerMode;
+import fun.enoughvisuals.utils.render.RenderUtil;
+import fun.enoughvisuals.utils.render.ScreenScaleUtil;
+import fun.enoughvisuals.utils.render.ShaderHandsRenderer;
+import fun.enoughvisuals.utils.render.StencilUtil;
+import fun.enoughvisuals.utils.render.blur.GlassUtil;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.hud.InGameHud;
+import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.scoreboard.ScoreboardObjective;
+import net.minecraft.util.Identifier;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(InGameHud.class)
+public abstract class InGameHudMixin {
+
+    @Unique
+    private float enough$smoothCooldown = 1.0f;
+
+    @Inject(method = "render", at = @At("HEAD"))
+    private void enough$beginBlur(DrawContext ctx, RenderTickCounter counter, CallbackInfo ci) {
+        RenderUtil.beginFrame();
+        // Safety reset: prevents leaked scissor state from clipping vanilla HUD
+        // (scoreboard/effect icons) after custom tab/watermark animations.
+        StencilUtil.resetRenderState();
+        GlassUtil.BLUR_OFFSET = CustomTheme.hudBlurLevel();
+        if (CustomTheme.hudBlurEnabled()) {
+            GlassUtil.beginFrame();
+        } else {
+            GlassUtil.skipFrame();
+        }
+
+        // Render hand post-effect before vanilla HUD/chat so it cannot cover
+        // chat preview, scoreboard or our HUD widgets.
+        ShaderHandsRenderer.render(ctx);
+    }
+
+    @Inject(method = "renderScoreboardSidebar(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/scoreboard/ScoreboardObjective;)V", at = @At("HEAD"), cancellable = true)
+    private void onRenderScoreboard(DrawContext context, ScoreboardObjective objective, CallbackInfo ci) {
+        StencilUtil.resetRenderState();
+        StreamerMode.captureFromScoreboard(objective);
+        if (NoRender.INSTANCE != null && NoRender.INSTANCE.isEnabled() && NoRender.INSTANCE.scoreboard.get()) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "renderScoreboardSidebar(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/scoreboard/ScoreboardObjective;)V", at = @At("RETURN"))
+    private void enough$resetStateAfterScoreboard(DrawContext context, ScoreboardObjective objective, CallbackInfo ci) {
+        StencilUtil.resetRenderState();
+    }
+
+    @Inject(method = "renderPortalOverlay", at = @At("HEAD"), cancellable = true)
+    private void onRenderPortal(DrawContext context, float nauseaStrength, CallbackInfo ci) {
+        if (NoRender.INSTANCE != null && NoRender.INSTANCE.isEnabled() && NoRender.INSTANCE.portal.get()) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "renderHotbar", at = @At("TAIL"))
+    private void onRenderHotbar(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
+        StencilUtil.resetRenderState();
+        LockSlot module = LockSlot.getInstance();
+
+        if (module != null && module.isEnabled()) {
+            MinecraftClient mc = MinecraftClient.getInstance();
+
+            // Используем 100% рабочий метод получения ширины/высоты экрана
+            int scaledWidth = mc.getWindow().getScaledWidth();
+            int scaledHeight = mc.getWindow().getScaledHeight();
+
+            context.getMatrices().push();
+            // Поднимаем Z-index (200), чтобы рисовать чётко поверх предметов и чар
+            context.getMatrices().translate(0, 0, 200f);
+
+            for (int slot = 0; slot < 9; slot++) {
+                if (module.isLocked(slot)) {
+                    // Идеальные ванильные координаты предмета в хотбаре
+                    int x = scaledWidth / 2 - 88 + slot * 20;
+                    int y = scaledHeight - 19;
+
+                    // Рисуем красный квадрат ровно по размеру предмета (16x16)
+                    context.fill(x, y, x + 16, y + 16, 0x60FF0000);
+                }
+            }
+
+            context.getMatrices().pop();
+        }
+    }
+
+    @Inject(method = "renderOverlay", at = @At("HEAD"), cancellable = true)
+    private void onRenderOverlay(DrawContext context, Identifier texture, float opacity, CallbackInfo ci) {
+        if (texture.getPath().contains("pumpkinblur") && NoRender.INSTANCE != null && NoRender.INSTANCE.isEnabled() && NoRender.INSTANCE.pumpkin.get()) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "render", at = @At("TAIL"))
+    private void enough$renderHud(DrawContext ctx, RenderTickCounter counter, CallbackInfo ci) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.options != null && client.options.hudHidden) {
+            StencilUtil.resetRenderState();
+            return;
+        }
+        StencilUtil.resetRenderState();
+        GpsSystem.getInstance().renderOverlay(ctx, counter.getTickDelta(true));
+        ItemLight.renderOverlay(ctx, counter.getTickDelta(true));
+        Cooldowns.renderHotbarOverlay(ctx, counter.getTickDelta(true));
+        CustomTab.tickAnimation(counter.getTickDelta(true));
+        // Vanilla chat preview and scoreboard queue text in DrawContext. Flush it
+        // before custom HUD elements open narrow scissor regions for animations.
+        ctx.draw();
+        DragAndDrop.getInstance().renderAll(ctx, counter.getTickDelta(true));
+        MouseParticles.renderHud(ctx, counter.getTickDelta(true));
+        StencilUtil.resetRenderState();
+    }
+
+    @Inject(method = "renderCrosshair", at = @At("HEAD"), cancellable = true)
+    private void onRenderCrosshair(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
+        Crosshair module = ModuleManager.getInstance().get(Crosshair.class);
+        if (module == null || !module.isEnabled()) {
+            return;
+        }
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.options != null && client.options.hudHidden) {
+            ci.cancel();
+            return;
+        }
+
+        ci.cancel();
+        if (client.player == null) return;
+
+        float fixedScale = ScreenScaleUtil.scale();
+        float x = ScreenScaleUtil.virtualWidth() / 2.0f;
+        float y = ScreenScaleUtil.virtualHeight() / 2.0f;
+        int color = module.color.get();
+        String type = module.type.get();
+
+        context.getMatrices().push();
+        context.getMatrices().scale(fixedScale, fixedScale, 1f);
+
+        if ("Орбиз".equals(type)) {
+            RenderUtil.drawCircle(context, x, y, 1.2f, color);
+            context.getMatrices().pop();
+            return;
+        }
+
+        if ("Круг".equals(type)) {
+            float rawProgress = client.player.getAttackCooldownProgress(0.0f);
+            float follow = Math.min(1f, 0.18f + tickCounter.getTickDelta(true) * 0.28f);
+            enough$smoothCooldown += (rawProgress - enough$smoothCooldown) * follow;
+            float progress = enough$smoothCooldown;
+
+            float radius = 3.35f;
+            float lineWidth = 0.95f;
+
+            if (progress >= 1.0f) {
+                RenderUtil.drawCircleOutline(context, x, y, radius, lineWidth, color);
+            } else if (progress > 0.001f) {
+                RenderUtil.drawArc(context, x, y, radius, lineWidth, color, progress);
+            }
+        }
+        context.getMatrices().pop();
+    }
+}

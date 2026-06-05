@@ -1,0 +1,22 @@
+{
+  "blend": {
+    "func": "add",
+    "srcrgb": "srcalpha",
+    "dstrgb": "1-srcalpha",
+    "srcalpha": "one",
+    "dstalpha": "1-srcalpha"
+  },
+  "vertex": "enoughvisuals:rounded_rect",
+  "fragment": "enoughvisuals:shadow",
+  "attributes": ["Position", "Color", "UV0"],
+  "samplers": [],
+  "uniforms": [
+    { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [1.0,0.0,0.0,0.0, 0.0,1.0,0.0,0.0, 0.0,0.0,1.0,0.0, 0.0,0.0,0.0,1.0] },
+    { "name": "ProjMat",     "type": "matrix4x4", "count": 16, "values": [1.0,0.0,0.0,0.0, 0.0,1.0,0.0,0.0, 0.0,0.0,1.0,0.0, 0.0,0.0,0.0,1.0] },
+    { "name": "Rect",        "type": "float", "count": 4, "values": [0.0, 0.0, 100.0, 100.0] },
+    { "name": "Radii",       "type": "float", "count": 4, "values": [10.0, 10.0, 10.0, 10.0] },
+    { "name": "ShadowColor", "type": "float", "count": 4, "values": [0.0, 0.0, 0.0, 0.5] },
+    { "name": "ShadowSize",  "type": "float", "count": 1, "values": [10.0] },
+    { "name": "Smoothing",   "type": "float", "count": 2, "values": [0.5, 0.0] }
+  ]
+}

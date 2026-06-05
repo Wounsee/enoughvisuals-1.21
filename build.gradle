@@ -1,0 +1,334 @@
+plugins {
+    id 'fabric-loom' version '1.15-SNAPSHOT'
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+loom {
+    mods {
+        "enoughvisuals" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+fabricApi {
+    configureDataGeneration {
+        client = true
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+configurations {
+    guardTool
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    guardTool 'org.ow2.asm:asm:9.7'
+    guardTool 'org.ow2.asm:asm-commons:9.7'
+    guardTool 'org.ow2.asm:asm-tree:9.7'
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "minecraft_version", project.minecraft_version
+    inputs.property "loader_version", project.loader_version
+    filteringCharset "UTF-8"
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version,
+                "minecraft_version": project.minecraft_version,
+                "loader_version": project.loader_version
+    }
+}
+
+task buildWounseeNative(type: Exec) {
+    group = 'protection'
+    description = 'Build lightweight native anti-debug layer'
+
+    onlyIf { org.gradle.internal.os.OperatingSystem.current().isWindows() }
+
+    doFirst {
+        def javacPath = org.gradle.internal.jvm.Jvm.current().javacExecutable
+        def jdkHome = javacPath.parentFile.parentFile.absolutePath
+        def outDir = file('src/main/resources/META-INF/.ev/n')
+        outDir.mkdirs()
+        delete file('src/main/resources/META-INF/wg/wg/wg_x64.dll')
+        delete file('src/main/resources/META-INF/.ev/n/wg_x64.dll')
+
+        commandLine 'g++',
+                '-shared', '-O2', '-s', '-std=c++17',
+                "-I${jdkHome}/include",
+                "-I${jdkHome}/include/win32",
+                'guard/native/guard.cpp',
+                '-o', 'src/main/resources/META-INF/.ev/n/wg_x64.dll',
+                '-Wl,--kill-at'
+    }
+}
+
+processResources.dependsOn buildWounseeNative
+
+def targetJavaVersion = 21
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
+        it.options.release.set(targetJavaVersion)
+    }
+}
+
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    }
+    withSourcesJar()
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.archives_base_name}" }
+    }
+}
+
+task compileGuard(type: JavaCompile) {
+    group = 'protection'
+    description = 'Compile Protection.java'
+
+    source = fileTree('guard') {
+        include '**/*.java'
+    }
+
+    classpath = configurations.guardTool
+    destinationDirectory = file("${buildDir}/guard-classes")
+    sourceCompatibility = '21'
+    targetCompatibility = '21'
+    options.encoding = 'UTF-8'
+}
+
+task guardJar(type: Jar) {
+    group = 'protection'
+    description = 'Package Protection.java into guard.jar'
+    dependsOn compileGuard
+
+    from "${buildDir}/guard-classes"
+    archiveFileName = 'guard.jar'
+    destinationDirectory = file("${buildDir}/guard")
+
+    manifest {
+        attributes 'Main-Class': 'fun.wounsee.guard.Protection'
+    }
+}
+
+task prepareSkidLibs {
+    group = 'protection'
+    description = 'Collect compile/runtime jars for Skidfuscator library resolver'
+    dependsOn classes
+
+    doLast {
+        def outDir = file("${buildDir}/skid-libs")
+        outDir.mkdirs()
+
+        def all = [] as Set<File>
+        all.addAll(configurations.compileClasspath.resolve().findAll { it.name.endsWith('.jar') })
+        all.addAll(configurations.runtimeClasspath.resolve().findAll { it.name.endsWith('.jar') })
+
+        all.each { jarFile ->
+            copy {
+                from jarFile
+                into outDir
+            }
+        }
+
+        // Skidfuscator verifies against intermediary names in remapped jars.
+        // Include Loom's minecraft-merged-intermediary jar explicitly.
+        def loomCache = new File(System.getProperty('user.home'), '.gradle/caches/fabric-loom/minecraftMaven/net/minecraft/minecraft-merged-intermediary')
+        if (loomCache.exists()) {
+            def intermediaryCandidates = fileTree(loomCache) {
+                include '**/minecraft-merged-intermediary-*.jar'
+            }.files
+
+            intermediaryCandidates.each { jarFile ->
+                copy {
+                    from jarFile
+                    into outDir
+                }
+            }
+        }
+    }
+}
+
+task skidfuscate(type: Exec) {
+    group = 'protection'
+    description = 'Run Skidfuscator on remapped jar'
+    dependsOn remapJar, prepareSkidLibs
+    workingDir = file('skidfuscator')
+
+    doFirst {
+        def skidJar = file('skidfuscator/skidfuscator.jar')
+        if (!skidJar.exists()) {
+            println '[Skid] skidfuscator.jar not found at skidfuscator/'
+            throw new org.gradle.api.tasks.StopExecutionException('Skidfuscator not found')
+        }
+
+        def inputJar = remapJar.archiveFile.get().asFile
+        def outputJar = new File(inputJar.parentFile, inputJar.name.replace('.jar', '-skid.jar'))
+        commandLine 'java',
+                '-Xmx4G', '-Xms512M',
+                '-jar', 'skidfuscator.jar',
+                'obfuscate',
+                '--config', 'skidfuscator.hocon',
+                '--libs', "${project.buildDir}/skid-libs",
+                '--output', outputJar.absolutePath,
+                inputJar.absolutePath
+
+        println "[Skid] Input:  ${inputJar.absolutePath}"
+        println "[Skid] Output: ${outputJar.absolutePath}"
+        println "[Skid] Libs:   ${project.buildDir}/skid-libs"
+    }
+
+    doLast {
+        def inputJar = remapJar.archiveFile.get().asFile
+        def outputJar = new File(inputJar.parentFile, inputJar.name.replace('.jar', '-skid.jar'))
+        if (!outputJar.exists()) {
+            throw new GradleException("Skidfuscator did not create output jar: ${outputJar.absolutePath}")
+        }
+    }
+}
+
+task stabilizeSkidMixins {
+    group = 'protection'
+    description = 'Restore original mixin/accessor/invoker classes into -skid.jar to avoid Mixin signature breakage'
+    dependsOn skidfuscate
+
+    doLast {
+        def remapped = remapJar.archiveFile.get().asFile
+        def skidOut = new File(remapped.parentFile, remapped.name.replace('.jar', '-skid.jar'))
+        if (!skidOut.exists()) {
+            throw new GradleException("Skid output not found: ${skidOut.absolutePath}")
+        }
+
+        def shouldRestore = { String entry ->
+            if (!entry.endsWith('.class')) return false
+            if (entry.startsWith('dev/redstones/mediaplayerinfo/')) return true
+            if (entry.startsWith('fun/enoughvisuals/')) return true
+            if (entry.contains('/mixin/') || entry.contains('/mixins/')) return true
+            if (entry.endsWith('Mixin.class') || entry.contains('Mixin$')) return true
+            if (entry.contains('Accessor') || entry.contains('Invoker')) return true
+            if (entry == 'fun/enoughvisuals/Enough.class') return true
+            return false
+        }
+
+        def originals = new LinkedHashMap<String, byte[]>()
+        def srcZip = new java.util.zip.ZipFile(remapped)
+        try {
+            def entries = srcZip.entries()
+            while (entries.hasMoreElements()) {
+                def e = entries.nextElement()
+                if (e.isDirectory()) continue
+                def name = e.getName()
+                if (!shouldRestore(name)) continue
+                originals.put(name, srcZip.getInputStream(e).bytes)
+            }
+        } finally {
+            srcZip.close()
+        }
+
+        if (originals.isEmpty()) {
+            println "[Skid] No mixin/accessor classes found to restore"
+            return
+        }
+
+        def tmp = new File(skidOut.parentFile, skidOut.name + '.tmp')
+        def inZip = new java.util.zip.ZipFile(skidOut)
+        def outZip = new java.util.zip.ZipOutputStream(new FileOutputStream(tmp))
+        def replaced = 0
+
+        try {
+            def entries = inZip.entries()
+            while (entries.hasMoreElements()) {
+                def e = entries.nextElement()
+                if (e.isDirectory()) continue
+                def name = e.getName()
+                def outEntry = new java.util.zip.ZipEntry(name)
+                outZip.putNextEntry(outEntry)
+                def data = originals.get(name)
+                if (data != null) {
+                    outZip.write(data)
+                    replaced++
+                } else {
+                    outZip.write(inZip.getInputStream(e).bytes)
+                }
+                outZip.closeEntry()
+            }
+        } finally {
+            outZip.close()
+            inZip.close()
+        }
+
+        if (skidOut.exists() && !skidOut.delete()) {
+            throw new GradleException("Failed to replace ${skidOut.absolutePath}")
+        }
+        if (!tmp.renameTo(skidOut)) {
+            throw new GradleException("Failed to move ${tmp.absolutePath} -> ${skidOut.absolutePath}")
+        }
+
+        println "[Skid] Restored mixin/accessor/invoker classes: ${replaced}"
+    }
+}
+
+task protectMod(type: JavaExec) {
+    group = 'protection'
+    description = 'Apply remapping + junk + antidebug to jar'
+
+    dependsOn stabilizeSkidMixins, guardJar
+
+    classpath = files("${buildDir}/guard/guard.jar") + configurations.guardTool
+    mainClass = 'fun.wounsee.guard.Protection'
+
+    doFirst {
+        def remapped = remapJar.archiveFile.get().asFile
+        def skidOut = new File(remapped.parentFile, remapped.name.replace('.jar', '-skid.jar'))
+        def inputJar = skidOut.exists() ? skidOut : remapped
+        def outputJar = new File(inputJar.parentFile, inputJar.name.replace('.jar', '-protected.jar'))
+        def guardFast = (project.findProperty('guardFast')?.toString()?.toBoolean())
+
+        args = [inputJar.absolutePath, outputJar.absolutePath]
+        if (guardFast) {
+            jvmArgs '-Dwounsee.guard.fast=true'
+        }
+
+        println ''
+        println '========================================'
+        println "[Guard] Input:  ${inputJar.absolutePath}"
+        println "[Guard] Output: ${outputJar.absolutePath}"
+        println "[Guard] Mode:   ${guardFast ? 'FAST' : 'FULL'}"
+        println '========================================'
+    }
+}
+
+build.finalizedBy protectMod
+
+publishing {
+    publications {
+        create('mavenJava', MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
+        }
+    }
+    repositories {}
+}

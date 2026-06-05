@@ -1,0 +1,18 @@
+{
+  "vertex": "enough:core/sky/sky_box",
+  "fragment": "enough:core/sky/sky_clouds",
+  "samplers": [],
+  "uniforms": [
+    { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
+    { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
+    { "name": "uTime", "type": "float", "count": 1, "values": [0.0] },
+    { "name": "uResolution", "type": "float", "count": 2, "values": [1920.0, 1080.0] },
+    { "name": "uColor", "type": "float", "count": 3, "values": [0.23, 0.91, 0.88] },
+    { "name": "uAlpha", "type": "float", "count": 1, "values": [1.0] },
+    { "name": "uSpeed", "type": "float", "count": 1, "values": [0.1] },
+    { "name": "uScale", "type": "float", "count": 1, "values": [18.0] },
+    { "name": "uIntensity", "type": "float", "count": 1, "values": [0.2] },
+    { "name": "uCameraDir", "type": "float", "count": 2, "values": [0.0, 0.0] },
+    { "name": "uFov", "type": "float", "count": 1, "values": [70.0] }
+  ]
+}

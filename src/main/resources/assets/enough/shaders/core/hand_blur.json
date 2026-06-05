@@ -1,0 +1,28 @@
+{
+  "vertex": "enough:core/hand_blur",
+  "fragment": "enough:core/hand_blur",
+  "samplers": [
+    { "name": "Sampler0" },
+    { "name": "Sampler1" },
+    { "name": "Sampler2" }
+  ],
+  "uniforms": [
+    { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
+    { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
+    { "name": "BlurRadius", "type": "float", "count": 1, "values": [12.0] },
+    { "name": "Threshold", "type": "float", "count": 1, "values": [0.01] },
+    { "name": "TintColor", "type": "float", "count": 4, "values": [0.2, 0.9, 1.0, 0.65] },
+    { "name": "GlassColor", "type": "float", "count": 4, "values": [0.2, 0.9, 1.0, 0.14] },
+    { "name": "Mode", "type": "int", "count": 1, "values": [0] },
+    { "name": "GlassBlur", "type": "float", "count": 1, "values": [4.0] },
+    { "name": "GlassZoom", "type": "float", "count": 1, "values": [0.0] },
+    { "name": "GlowStrength", "type": "float", "count": 1, "values": [0.8] },
+    { "name": "UseItemColor", "type": "int", "count": 1, "values": [0] },
+    { "name": "Time", "type": "float", "count": 1, "values": [0.0] },
+    { "name": "WebOpacity", "type": "float", "count": 1, "values": [0.9] },
+    { "name": "WebGlow", "type": "float", "count": 1, "values": [0.85] },
+    { "name": "FlowEnabled", "type": "int", "count": 1, "values": [1] },
+    { "name": "FlowSpeed", "type": "float", "count": 1, "values": [0.75] },
+    { "name": "FlowStrength", "type": "float", "count": 1, "values": [0.75] }
+  ]
+}

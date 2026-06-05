@@ -1,0 +1,82 @@
+{
+  "ui.en": {
+    "sounds": [
+      {
+        "name": "enough:ui/en",
+        "stream": false
+      }
+    ]
+  },
+  "ui.dis": {
+    "sounds": [
+      {
+        "name": "enough:ui/dis",
+        "stream": false
+      }
+    ]
+  },
+  "ui.scroll": {
+    "sounds": [
+      {
+        "name": "enough:ui/scroll",
+        "stream": false
+      }
+    ]
+  },
+  "ui.warn": {
+    "sounds": [
+      {
+        "name": "enough:ui/warn",
+        "stream": false
+      }
+    ]
+  },
+  "ui.event": {
+    "sounds": [
+      {
+        "name": "enough:ui/event",
+        "stream": false
+      }
+    ]
+  },
+  "hit.bell": {
+    "sounds": [
+      {
+        "name": "enough:hit/bell",
+        "stream": false
+      }
+    ]
+  },
+  "hit.magic": {
+    "sounds": [
+      {
+        "name": "enough:hit/magic",
+        "stream": false
+      }
+    ]
+  },
+  "hit.pew": {
+    "sounds": [
+      {
+        "name": "enough:hit/pew",
+        "stream": false
+      }
+    ]
+  },
+  "hit.run": {
+    "sounds": [
+      {
+        "name": "enough:hit/run",
+        "stream": false
+      }
+    ]
+  },
+  "kill.kill": {
+    "sounds": [
+      {
+        "name": "enough:kill/kill",
+        "stream": false
+      }
+    ]
+  }
+}

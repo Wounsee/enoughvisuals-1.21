@@ -1,0 +1,453 @@
+package fun.enoughvisuals.utils.render;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import org.joml.Matrix4f;
+import org.joml.Vector4f;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL30;
+import org.lwjgl.system.MemoryStack;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.InputStream;
+import java.nio.FloatBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+
+public class ShaderManager {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("EnoughVisuals/Shaders");
+    private static final String SHADER_PATH = "/assets/enough/shaders/core/";
+
+    private static final Map<String, Integer> programs = new HashMap<>();
+    private static final Map<String, Map<String, Integer>> uniformCache = new HashMap<>();
+
+    private static boolean initialized = false;
+    private static boolean failed = false;
+
+    private static int quadVAO = 0;
+    private static int texVAO = 0;
+    private static int texVBO = 0;
+    private static int quadVBO = 0;
+
+    private static int previousProgram = 0;
+
+    
+    private static int savedVAO = 0;
+    private static boolean programActive = false;
+
+    public static final String ROUNDED_RECT = "rounded_rect";
+    public static final String ROUNDED_RECT_OUTLINE = "rounded_rect_outline";
+    public static final String ROUNDED_RECT_GRADIENT = "rounded_rect_gradient";
+    public static final String CIRCLE = "circle";
+    public static final String SHADOW = "shadow";
+    public static final String ROUNDED_TEXTURE = "rounded_texture";
+
+
+
+
+
+
+    public static void init() {
+        if (initialized || failed) return;
+        try {
+            RenderSystem.assertOnRenderThread();
+            String vertSrc = readShader("rounded_rect.vsh");
+            int vertShader = compileShader(GL20.GL_VERTEX_SHADER, vertSrc, "rounded_rect.vsh");
+
+            // Твои старые шейдеры
+            linkProgram(ROUNDED_RECT, vertShader, "rounded_rect.fsh");
+            linkProgram(ROUNDED_RECT_OUTLINE, vertShader, "rounded_rect_outline.fsh");
+            linkProgram(ROUNDED_RECT_GRADIENT, vertShader, "rounded_rect_gradient.fsh");
+            linkProgram(CIRCLE, vertShader, "circle.fsh");
+            linkProgram(SHADOW, vertShader, "shadow.fsh");
+            GL20.glDeleteShader(vertShader);
+
+            // --- ДОБАВЛЕНО ДЛЯ АВАТАРКИ ---
+            String texVertSrc = readShader("rounded_texture.vsh");
+            int texVertShader = compileShader(GL20.GL_VERTEX_SHADER, texVertSrc, "rounded_texture.vsh");
+            linkProgram(ROUNDED_TEXTURE, texVertShader, "rounded_texture.fsh");
+            GL20.glDeleteShader(texVertShader);
+
+            initQuad();
+            initTexQuad(); // --- ДОБАВЛЕНО ---
+
+            initialized = true;
+        } catch (Exception e) {
+            LOGGER.error("Shader init failed", e);
+            failed = true;
+            cleanup();
+        }
+    }
+
+    public static void drawTexturedQuad(String shaderName, DrawContext ctx, float x, float y, float w, float h, float pad,
+                                        float u, float v, float uW, float vH, float tW, float tH) {
+        Integer program = programs.get(shaderName);
+        if (program == null) return;
+
+        try {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            int fbW = mc.getWindow().getFramebufferWidth();
+            int fbH = mc.getWindow().getFramebufferHeight();
+            float scale = (float) mc.getWindow().getScaleFactor();
+
+            Matrix4f mat = ctx != null ? ctx.getMatrices().peek().getPositionMatrix() : new Matrix4f().identity();
+
+            // Расширяем геометрию на pad для сглаживания краев
+            float minX = x - pad; float minY = y - pad;
+            float maxX = x + w + pad; float maxY = y + h + pad;
+
+            // UV тоже сдвигаем
+            float uvStartX = (u - pad * (uW / w)) / tW;
+            float uvStartY = (v - pad * (vH / h)) / tH;
+            float uvEndX = (u + uW + pad * (uW / w)) / tW;
+            float uvEndY = (v + vH + pad * (vH / h)) / tH;
+
+            // Применяем 3D трансформацию
+            Vector4f p1 = mat.transform(new Vector4f(minX, minY, 0f, 1f));
+            Vector4f p2 = mat.transform(new Vector4f(minX, maxY, 0f, 1f));
+            Vector4f p3 = mat.transform(new Vector4f(maxX, maxY, 0f, 1f));
+            Vector4f p4 = mat.transform(new Vector4f(maxX, minY, 0f, 1f));
+
+            // Переводим в экранные координаты (NDC)
+            float ndcP1X = (p1.x * scale / fbW) * 2f - 1f; float ndcP1Y = 1f - (p1.y * scale / fbH) * 2f;
+            float ndcP2X = (p2.x * scale / fbW) * 2f - 1f; float ndcP2Y = 1f - (p2.y * scale / fbH) * 2f;
+            float ndcP3X = (p3.x * scale / fbW) * 2f - 1f; float ndcP3Y = 1f - (p3.y * scale / fbH) * 2f;
+            float ndcP4X = (p4.x * scale / fbW) * 2f - 1f; float ndcP4Y = 1f - (p4.y * scale / fbH) * 2f;
+
+            // Структура: NDC X, NDC Y, UV X, UV Y, Local X, Local Y
+            float[] vertices = {
+                    ndcP1X, ndcP1Y, uvStartX, uvStartY, -pad, -pad,
+                    ndcP2X, ndcP2Y, uvStartX, uvEndY,   -pad, h + pad,
+                    ndcP3X, ndcP3Y, uvEndX,   uvEndY,   w + pad, h + pad,
+                    ndcP1X, ndcP1Y, uvStartX, uvStartY, -pad, -pad,
+                    ndcP3X, ndcP3Y, uvEndX,   uvEndY,   w + pad, h + pad,
+                    ndcP4X, ndcP4Y, uvEndX,   uvStartY, w + pad, -pad
+            };
+
+            int locTexture = getUniformLocation(program, shaderName, "uTexture");
+            if (locTexture >= 0) GL20.glUniform1i(locTexture, 0);
+
+            int prevVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+            GL30.glBindVertexArray(texVAO);
+            GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, texVBO);
+
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                FloatBuffer fb = stack.mallocFloat(vertices.length);
+                fb.put(vertices).flip();
+                GL20.glBufferSubData(GL20.GL_ARRAY_BUFFER, 0, fb);
+            }
+
+            GL20.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+
+            GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);
+            GL30.glBindVertexArray(prevVAO);
+        } catch (Exception e) {
+            LOGGER.error("drawTexturedQuad failed", e);
+        }
+    }
+
+    private static void initTexQuad() {
+        texVAO = GL30.glGenVertexArrays();
+        texVBO = GL20.glGenBuffers();
+        int prevVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+
+        GL30.glBindVertexArray(texVAO);
+        GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, texVBO);
+        // 6 вершин * 6 float (x,y, u,v, localX,localY) * 4 bytes
+        GL20.glBufferData(GL20.GL_ARRAY_BUFFER, 6 * 6 * 4, GL20.GL_DYNAMIC_DRAW);
+
+        GL20.glEnableVertexAttribArray(0);
+        GL20.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 6 * 4, 0); // Position
+
+        GL20.glEnableVertexAttribArray(1);
+        GL20.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 6 * 4, 2 * 4); // UV
+
+        GL20.glEnableVertexAttribArray(2);
+        GL20.glVertexAttribPointer(2, 2, GL20.GL_FLOAT, false, 6 * 4, 4 * 4); // LocalPos
+
+        GL30.glBindVertexArray(prevVAO);
+        GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);
+    }
+
+    private static void linkProgram(String name, int vertShader, String fragFile) {
+        String fragSrc = readShader(fragFile);
+        if (fragSrc == null) {
+            LOGGER.warn("Fragment shader not found: {}", fragFile);
+            return;
+        }
+
+        int fragShader = compileShader(GL20.GL_FRAGMENT_SHADER, fragSrc, fragFile);
+        int program = GL20.glCreateProgram();
+
+        GL20.glBindAttribLocation(program, 0, "Position");
+        if (ROUNDED_TEXTURE.equals(name)) {
+            GL20.glBindAttribLocation(program, 1, "UV");
+            GL20.glBindAttribLocation(program, 2, "LocalPos");
+        }
+
+        GL20.glAttachShader(program, vertShader);
+        GL20.glAttachShader(program, fragShader);
+        GL20.glLinkProgram(program);
+
+        if (GL20.glGetProgrami(program, GL20.GL_LINK_STATUS) == 0) {
+            String log = GL20.glGetProgramInfoLog(program, 32768);
+            LOGGER.error("Link error ({}): {}", name, log);
+            GL20.glDeleteProgram(program);
+            GL20.glDeleteShader(fragShader);
+            return;
+        }
+
+        GL20.glDetachShader(program, vertShader);
+        GL20.glDetachShader(program, fragShader);
+        GL20.glDeleteShader(fragShader);
+
+        programs.put(name, program);
+        uniformCache.put(name, new HashMap<>());
+
+        LOGGER.debug("Shader '{}' linked (id={})", name, program);
+    }
+
+    private static int compileShader(int type, String source, String name) {
+        int id = GL20.glCreateShader(type);
+        GL20.glShaderSource(id, source);
+        GL20.glCompileShader(id);
+
+        if (GL20.glGetShaderi(id, GL20.GL_COMPILE_STATUS) == 0) {
+            String log = GL20.glGetShaderInfoLog(id, 32768);
+            GL20.glDeleteShader(id);
+            throw new RuntimeException("Compile error (" + name + "): " + log);
+        }
+        return id;
+    }
+
+    private static void initQuad() {
+        quadVAO = GL30.glGenVertexArrays();
+        quadVBO = GL20.glGenBuffers();
+
+        
+        int prevVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+
+        GL30.glBindVertexArray(quadVAO);
+        GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, quadVBO);
+        GL20.glBufferData(GL20.GL_ARRAY_BUFFER, 6 * 2 * 4, GL20.GL_DYNAMIC_DRAW);
+        GL20.glEnableVertexAttribArray(0);
+        GL20.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 2 * 4, 0);
+
+        
+        GL30.glBindVertexArray(prevVAO);
+        GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);
+    }
+
+    
+    
+    
+
+    public static void useProgram(String name) {
+        Integer program = programs.get(name);
+        if (program == null) return;
+
+        RenderSystem.assertOnRenderThread();
+
+        
+        previousProgram = GL20.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+        GL20.glUseProgram(program);
+        programActive = true;
+    }
+
+    public static void stopProgram() {
+        if (!programActive) return;
+
+        GL20.glUseProgram(previousProgram);
+        previousProgram = 0;
+        programActive = false;
+    }
+
+    public static void drawQuad(String shaderName, DrawContext ctx, float x, float y, float w, float h, float pad) {
+        Integer program = programs.get(shaderName);
+        if (program == null) return;
+
+        try {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            int fbW = mc.getWindow().getFramebufferWidth();
+            int fbH = mc.getWindow().getFramebufferHeight();
+            float scale = (float) mc.getWindow().getScaleFactor();
+
+            Matrix4f mat = ctx != null ? ctx.getMatrices().peek().getPositionMatrix() : new Matrix4f().identity();
+            Vector4f p1 = mat.transform(new Vector4f(x - pad,     y - pad,     0f, 1f));
+            Vector4f p2 = mat.transform(new Vector4f(x + w + pad, y - pad,     0f, 1f));
+            Vector4f p3 = mat.transform(new Vector4f(x + w + pad, y + h + pad, 0f, 1f));
+            Vector4f p4 = mat.transform(new Vector4f(x - pad,     y + h + pad, 0f, 1f));
+
+            float minX = Math.min(Math.min(p1.x, p2.x), Math.min(p3.x, p4.x));
+            float minY = Math.min(Math.min(p1.y, p2.y), Math.min(p3.y, p4.y));
+            float maxX = Math.max(Math.max(p1.x, p2.x), Math.max(p3.x, p4.x));
+            float maxY = Math.max(Math.max(p1.y, p2.y), Math.max(p3.y, p4.y));
+
+            float px1 = minX * scale;
+            float py1 = minY * scale;
+            float px2 = maxX * scale;
+            float py2 = maxY * scale;
+
+            float ndcX1 = (px1 / fbW) * 2f - 1f;
+            float ndcY1 = 1f - (py1 / fbH) * 2f;
+            float ndcX2 = (px2 / fbW) * 2f - 1f;
+            float ndcY2 = 1f - (py2 / fbH) * 2f;
+
+            float[] vertices = {
+                    ndcX1, ndcY1,
+                    ndcX1, ndcY2,
+                    ndcX2, ndcY2,
+                    ndcX1, ndcY1,
+                    ndcX2, ndcY2,
+                    ndcX2, ndcY1,
+            };
+
+            int loc = getUniformLocation(program, shaderName, "uScreenSize");
+            if (loc >= 0) GL20.glUniform2f(loc, (float) fbW, (float) fbH);
+
+            
+            int prevVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+
+            GL30.glBindVertexArray(quadVAO);
+            GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, quadVBO);
+
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                FloatBuffer fb = stack.mallocFloat(vertices.length);
+                fb.put(vertices).flip();
+                GL20.glBufferSubData(GL20.GL_ARRAY_BUFFER, 0, fb);
+            }
+
+            GL20.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+
+            GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);
+            GL30.glBindVertexArray(prevVAO);
+
+        } catch (Exception e) {
+            LOGGER.error("drawQuad failed for '{}': {}", shaderName, e.getMessage());
+            
+            try {
+                GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);
+                GL30.glBindVertexArray(0);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    
+    
+    
+
+    public static void setUniform1f(String shaderName, String uniformName, float value) {
+        int program = programs.getOrDefault(shaderName, 0);
+        if (program == 0) return;
+        int loc = getUniformLocation(program, shaderName, uniformName);
+        if (loc >= 0) GL20.glUniform1f(loc, value);
+    }
+
+    public static void setUniform2f(String shaderName, String uniformName, float x, float y) {
+        int program = programs.getOrDefault(shaderName, 0);
+        if (program == 0) return;
+        int loc = getUniformLocation(program, shaderName, uniformName);
+        if (loc >= 0) GL20.glUniform2f(loc, x, y);
+    }
+
+    public static void setUniform4f(String shaderName, String uniformName, float x, float y, float z, float w) {
+        int program = programs.getOrDefault(shaderName, 0);
+        if (program == 0) return;
+        int loc = getUniformLocation(program, shaderName, uniformName);
+        if (loc >= 0) GL20.glUniform4f(loc, x, y, z, w);
+    }
+
+    private static int getUniformLocation(int program, String shaderName, String uniformName) {
+        Map<String, Integer> cache = uniformCache.computeIfAbsent(shaderName, k -> new HashMap<>());
+        return cache.computeIfAbsent(uniformName, name -> GL20.glGetUniformLocation(program, name));
+    }
+
+    
+    
+    
+
+    public static boolean isAvailable() {
+        if (!initialized && !failed) {
+            if (RenderSystem.isOnRenderThread()) {
+                init();
+            } else {
+                RenderSystem.recordRenderCall(ShaderManager::init);
+                return false;
+            }
+        }
+        return initialized;
+    }
+
+    public static void cleanup() {
+        if (!RenderSystem.isOnRenderThread()) {
+            RenderSystem.recordRenderCall(ShaderManager::cleanupInternal);
+        } else {
+            cleanupInternal();
+        }
+    }
+
+    private static void cleanupInternal() {
+        
+        if (programActive) {
+            stopProgram();
+        }
+
+        for (int program : programs.values()) {
+            GL20.glDeleteProgram(program);
+        }
+        programs.clear();
+        uniformCache.clear();
+
+        if (quadVAO != 0) {
+            GL30.glDeleteVertexArrays(quadVAO);
+            quadVAO = 0;
+        }
+        if (quadVBO != 0) {
+            GL20.glDeleteBuffers(quadVBO);
+            quadVBO = 0;
+        }
+
+        initialized = false;
+        failed = false;
+    }
+
+    public static void reload() {
+        cleanupInternal();
+        init();
+    }
+
+    public static int getProgram(String name) {
+        return programs.getOrDefault(name, 0);
+    }
+
+    private static String readShader(String fileName) {
+        String path = SHADER_PATH + fileName;
+        try {
+            InputStream is = ShaderManager.class.getResourceAsStream(path);
+            if (is == null) {
+                String alt = path.startsWith("/") ? path.substring(1) : "/" + path;
+                is = ShaderManager.class.getResourceAsStream(alt);
+            }
+            if (is == null) {
+                is = Thread.currentThread().getContextClassLoader()
+                        .getResourceAsStream(path.startsWith("/") ? path.substring(1) : path);
+            }
+            if (is == null) {
+                LOGGER.warn("Shader not found: {}", path);
+                return null;
+            }
+            byte[] bytes = is.readAllBytes();
+            is.close();
+            return new String(bytes, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            LOGGER.error("Error reading shader: {}", path, e);
+            return null;
+        }
+    }
+}
