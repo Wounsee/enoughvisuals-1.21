@@ -1,7 +1,6 @@
 package fun.enoughvisuals.systems.hud;
 
-import fun.enoughvisuals.ui.clickgui.MenuScreen;
-import fun.enoughvisuals.systems.modules.modules.visual.CustomTheme;
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.settings.Setting;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.StencilUtil;

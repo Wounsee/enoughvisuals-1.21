@@ -1,6 +1,7 @@
 package fun.enoughvisuals.mixins.minecraft.client.world;
 
 import fun.enoughvisuals.systems.modules.modules.visual.CustomWorld;
+import fun.enoughvisuals.systems.modules.modules.utils.FakePlayer;
 import fun.enoughvisuals.systems.modules.modules.utils.HitSound;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.sound.SoundEvent;
@@ -29,11 +30,25 @@ public class MixinClientWorld {
 
     @Inject(method = "playSound(DDDLnet/minecraft/sound/SoundEvent;Lnet/minecraft/sound/SoundCategory;FFZJ)V", at = @At("HEAD"), cancellable = true)
     private void onPlaySound(double x, double y, double z, SoundEvent sound, net.minecraft.sound.SoundCategory category, float volume, float pitch, boolean useDistance, long seed, CallbackInfo ci) {
-        if (HitSound.INSTANCE != null && HitSound.INSTANCE.isEnabled() && HitSound.INSTANCE.shouldReplaceCrit()) {
-                                                                         
-            if (sound == SoundEvents.ENTITY_PLAYER_ATTACK_CRIT || sound == SoundEvents.ENTITY_PLAYER_ATTACK_KNOCKBACK) {
-                ci.cancel();
-            }
+        if (FakePlayer.shouldSuppressLocalAttackSound() && isAttackSound(sound)) {
+            ci.cancel();
+            return;
         }
+
+        if (HitSound.INSTANCE != null
+                && HitSound.INSTANCE.isEnabled()
+                && HitSound.INSTANCE.shouldReplaceCrit()
+                && isAttackSound(sound)) {
+            ci.cancel();
+        }
+    }
+
+    private static boolean isAttackSound(SoundEvent sound) {
+        return sound == SoundEvents.ENTITY_PLAYER_ATTACK_CRIT
+                || sound == SoundEvents.ENTITY_PLAYER_ATTACK_KNOCKBACK
+                || sound == SoundEvents.ENTITY_PLAYER_ATTACK_NODAMAGE
+                || sound == SoundEvents.ENTITY_PLAYER_ATTACK_STRONG
+                || sound == SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP
+                || sound == SoundEvents.ENTITY_PLAYER_ATTACK_WEAK;
     }
 }

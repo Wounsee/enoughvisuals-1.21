@@ -1,18 +1,22 @@
 package fun.enoughvisuals;
 
-import fun.enoughvisuals.rt.guard.QRuntime;
 import fun.enoughvisuals.systems.config.ConfigSystem;
 import fun.enoughvisuals.systems.hud.DragAndDrop;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
+import fun.enoughvisuals.systems.modules.modules.client.*;
 import fun.enoughvisuals.systems.modules.modules.utils.*;
 import fun.enoughvisuals.systems.modules.modules.visual.*;
+import fun.enoughvisuals.systems.network.RemoteConfig;
+import fun.enoughvisuals.ui.gate.GateScreen;
 import fun.enoughvisuals.ui.hud.BindsHud;
 import fun.enoughvisuals.ui.hud.CustomScoreboardHud;
 import fun.enoughvisuals.ui.hud.EffectsHud;
+import fun.enoughvisuals.ui.hud.InventoryHud;
 import fun.enoughvisuals.ui.hud.TargetHud;
 import fun.enoughvisuals.ui.hud.WatermarkHud;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.render.CustomModelRenderer;
+import fun.enoughvisuals.utils.render.ShaderEspRenderer;
 import fun.enoughvisuals.utils.sound.CombatSoundService;
 import fun.enoughvisuals.utils.system.FuntimeEventSystem;
 import fun.enoughvisuals.utils.system.NowPlayingService;
@@ -34,26 +38,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public final class EnoughCore {
+    private static boolean windowIconApplied;
 
     private EnoughCore() {
     }
 
     public static void initializeClient() {
-        boolean strictRuntime = isStrictRuntime();
-        if (!QRuntime.javaChecks() && strictRuntime) {
-            Runtime.getRuntime().halt(0xE01);
-        }
-
-        if (!QRuntime.integrityChecks() && strictRuntime) {
-            Runtime.getRuntime().halt(0xE02);
-        }
-
-        if (!QRuntime.nativeChecks() && strictRuntime) {
-            Runtime.getRuntime().halt(0xE03);
-        }
-
-        QRuntime.startWatchdog();
         initCustomFontRendererCompat();
+
+        RemoteConfig.getInstance().start();
 
         ModuleManager manager = ModuleManager.getInstance();
         manager.register(
@@ -69,11 +62,13 @@ public final class EnoughCore {
                 new CustomHitbox(),
                 new GuiSize(),
                 new CustomTheme(),
+                new Friends(),
+                new Configs(),
+                new GPS(),
                 new HitParticles(),
                 new WorldParticles(),
                 new MouseParticles(),
                 new JumpEffect(),
-                new Trails(),
                 new Fullbright(),
                 new ItemPhysics(),
                 new ItemLight(),
@@ -82,6 +77,7 @@ public final class EnoughCore {
                 new ViewModel(),
                 new BetterHands(),
                 new ShaderHands(),
+                new EchoHands(),
                 new Pet(),
                 new FriendMarker(),
                 new TargetESP(),
@@ -94,6 +90,10 @@ public final class EnoughCore {
                 new AutoPotion(),
                 new AutoReconnect(),
                 new AutoRespawn(),
+                new AutoSprint(),
+                new PvPSave(),
+                new SendCord(),
+                new CustomSphereSkin(),
                 new FastSwap(),
                 new ItemPickupLogger(),
                 new AutoResell(),
@@ -107,6 +107,7 @@ public final class EnoughCore {
                 new Zoom());
 
         manager.init();
+        WorldRenderEvents.BEFORE_ENTITIES.register(ShaderEspRenderer::beginWorldFrame);
         WorldRenderEvents.LAST.register(BlockOverlay::renderInWorld);
         WorldRenderEvents.LAST.register(CustomModelRenderer::renderInWorld);
         WorldRenderEvents.LAST.register(TargetESP::renderInWorld);
@@ -115,8 +116,17 @@ public final class EnoughCore {
         WorldRenderEvents.LAST.register(WorldParticles::renderInWorld);
         WorldRenderEvents.LAST.register(JumpEffect::renderInWorld);
         WorldRenderEvents.LAST.register(Trails::renderInWorld);
+        WorldRenderEvents.LAST.register(ShaderEspRenderer::renderInWorld);
         HudRenderCallback.EVENT.register((drawContext, tickCounter) ->
                 ModuleManager.getInstance().onRender(tickCounter.getTickDelta(true)));
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (!windowIconApplied && client.getWindow() != null) {
+                setIcon();
+                windowIconApplied = true;
+                client.updateWindowTitle();
+            }
+        });
+        ClientTickEvents.END_CLIENT_TICK.register(EnoughCore::tickGate);
         ClientTickEvents.END_CLIENT_TICK.register(CombatSoundService::onClientTick);
         ClientTickEvents.END_CLIENT_TICK.register(client -> ModuleManager.getInstance().onTick());
         ClientTickEvents.END_CLIENT_TICK.register(client -> ConfigSystem.getInstance().onClientTick(client));
@@ -141,7 +151,8 @@ public final class EnoughCore {
         dad.register("targethud", "Таргет Худ", null, TargetHud::new);
         dad.register("effects", "Эффекты", null, EffectsHud::new);
         dad.register("binds", "Бинды", null, BindsHud::new);
-        dad.register("custom_scoreboard", "Скорборд", null, CustomScoreboardHud::new);
+        dad.register("inventory_hud", "Inventory Hud", null, InventoryHud::new);
+        dad.register("custom_scoreboard", "Custom Scoreboard", null, CustomScoreboardHud::new);
 
         ConfigSystem configSystem = ConfigSystem.getInstance();
         configSystem.initialize();
@@ -201,6 +212,24 @@ public final class EnoughCore {
         }
     }
 
+    private static void tickGate(MinecraftClient client) {
+        if (client == null) {
+            return;
+        }
+        boolean gated = RemoteConfig.getInstance().isGated();
+        if (client.currentScreen instanceof GateScreen) {
+            if (!gated) {
+                client.setScreen(new net.minecraft.client.gui.screen.TitleScreen());
+            }
+            return;
+        }
+        // Gate only while in menus so we never interrupt an active world session,
+        // but the player can never proceed past the menu to join while gated.
+        if (gated && client.world == null && client.currentScreen != null) {
+            client.setScreen(new GateScreen());
+        }
+    }
+
     private static void initCustomFontRendererCompat() {
         try {
             CustomFontRenderer.init();
@@ -218,9 +247,4 @@ public final class EnoughCore {
         }
     }
 
-    public static boolean isStrictRuntime() {
-        String env = System.getenv("WOUNSEE_STRICT_RUNTIME");
-        if (env == null) return true;
-        return !("0".equals(env) || "false".equalsIgnoreCase(env));
-    }
 }

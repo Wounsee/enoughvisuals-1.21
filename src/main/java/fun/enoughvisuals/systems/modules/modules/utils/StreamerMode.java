@@ -27,6 +27,7 @@ public class StreamerMode extends Module {
     private static final Pattern XYZ_SLASH = Pattern.compile("(?iu)\\bXYZ\\s*:\\s*(-?\\d+(?:[\\.,]\\d+)?)(\\s*/\\s*)(-?\\d+(?:[\\.,]\\d+)?)(\\s*/\\s*)(-?\\d+(?:[\\.,]\\d+)?)");
     private static final Pattern XYZ_SINGLE = Pattern.compile("(?iu)\\b([XYZ])\\s*[:=]\\s*(-?\\d+(?:[\\.,]\\d+)?)");
     private static final Pattern COORD_TRIPLE = Pattern.compile("(?<!\\d)(-?\\d{1,7})(\\s*[,; ]\\s*)(-?\\d{1,4})(\\s*[,; ]\\s*)(-?\\d{1,7})(?!\\d)");
+    private static final Pattern COORD_CONTEXT = Pattern.compile("(?iu)(\\bXYZ\\b|\\bcoords?\\b|\\bpos\\b|targeted\\s+(?:block|fluid|entity)|\\bblock\\s*:\\s*-?\\d|коорд|позици|координат)");
 
     private static volatile String trackedAnarchy = null;
 
@@ -93,7 +94,9 @@ public class StreamerMode extends Module {
         collectRegexSpans(plain, ANARCHY_WITH_ID, covered, spans, m -> REPLACEMENT_DOMAIN);
         collectRegexSpans(plain, XYZ_SLASH, covered, spans, m -> "XYZ: 0" + m.group(2) + "0" + m.group(4) + "0");
         collectRegexSpans(plain, XYZ_SINGLE, covered, spans, m -> m.group(1) + ": 0");
-        collectRegexSpans(plain, COORD_TRIPLE, covered, spans, m -> "0" + m.group(2) + "0" + m.group(4) + "0");
+        if (hasCoordinateContext(plain)) {
+            collectRegexSpans(plain, COORD_TRIPLE, covered, spans, m -> "0" + m.group(2) + "0" + m.group(4) + "0");
+        }
 
         String tracked = trackedAnarchy;
         if (tracked != null && !tracked.isEmpty()) {
@@ -165,8 +168,14 @@ public class StreamerMode extends Module {
     private static String maskCoordinates(String input) {
         String out = replaceRegex(input, XYZ_SLASH, m -> "XYZ: 0" + m.group(2) + "0" + m.group(4) + "0");
         out = replaceRegex(out, XYZ_SINGLE, m -> m.group(1) + ": 0");
-        out = replaceRegex(out, COORD_TRIPLE, m -> "0" + m.group(2) + "0" + m.group(4) + "0");
+        if (hasCoordinateContext(out)) {
+            out = replaceRegex(out, COORD_TRIPLE, m -> "0" + m.group(2) + "0" + m.group(4) + "0");
+        }
         return out;
+    }
+
+    private static boolean hasCoordinateContext(String input) {
+        return input != null && COORD_CONTEXT.matcher(input).find();
     }
 
     private static String replaceRegex(String input, Pattern pattern, Function<Matcher, String> replacementFactory) {

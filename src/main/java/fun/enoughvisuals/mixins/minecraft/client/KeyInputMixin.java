@@ -1,8 +1,10 @@
 package fun.enoughvisuals.mixins.minecraft.client;
 
+import fun.enoughvisuals.mixins.accessors.GameOptionsAccessor;
 import fun.enoughvisuals.systems.gps.GpsSystem;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.modules.utils.FastSwap;
+import fun.enoughvisuals.systems.modules.modules.utils.SendCord;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
@@ -14,6 +16,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.Optional;
+
 @Mixin(Keyboard.class)
 public abstract class KeyInputMixin {
 
@@ -23,6 +27,10 @@ public abstract class KeyInputMixin {
     private void enough$onKey(long window, int key, int scancode, int action, int modifiers, CallbackInfo ci) {
         if (action != GLFW.GLFW_PRESS) return;
         if (key == GLFW.GLFW_KEY_UNKNOWN || key < 0) return;
+
+        if (key == GLFW.GLFW_KEY_F11) {
+            enough$forceCurrentFullscreenMode();
+        }
 
         if (key == GLFW.GLFW_KEY_RIGHT_SHIFT) {
             if (client.currentScreen == null) {
@@ -36,7 +44,17 @@ public abstract class KeyInputMixin {
                 return;
             }
             FastSwap.onKey(key);
+            SendCord.onKey(key);
             ModuleManager.getInstance().onKeyPress(key);
+        }
+    }
+
+    private void enough$forceCurrentFullscreenMode() {
+        try {
+            ((GameOptionsAccessor) client.options).enoughvisuals$setFullscreenResolution("");
+            client.getWindow().setFullscreenVideoMode(Optional.empty());
+            client.options.write();
+        } catch (Throwable ignored) {
         }
     }
 }

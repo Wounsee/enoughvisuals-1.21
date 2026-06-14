@@ -6,7 +6,7 @@ import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import net.minecraft.entity.effect.StatusEffects;
 
-@Register(name="NoRender", id="no_render", description="Удаляет мусор", category=Category.VISUAL)
+@Register(name="NoRender", id="no_render", description="Удаляет мусор", category = Category.VISUAL)
 public class NoRender extends Module {
 
     public static NoRender INSTANCE;

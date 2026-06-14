@@ -2,10 +2,10 @@ package fun.enoughvisuals.ui.hud;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.systems.hud.HudElement;
-import fun.enoughvisuals.systems.modules.modules.visual.CustomTheme;
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.modules.visual.TargetESP;
+import fun.enoughvisuals.systems.modules.modules.utils.NameProtect;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
-import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.render.RenderUtil;
@@ -89,11 +89,7 @@ public class TargetHud extends HudElement {
         }
         lastTargetSearchMs = now;
 
-        double maxDist = 4.0;
-        try {
-            maxDist = mc.player.getEntityInteractionRange();
-        } catch (Throwable ignored) {
-        }
+        double maxDist = TargetESP.effectiveAttackRange();
 
         Vec3d eyes = mc.player.getCameraPosVec(1.0f);
         Vec3d look = mc.player.getRotationVec(1.0f);
@@ -107,7 +103,7 @@ public class TargetHud extends HudElement {
             LivingEntity le = (LivingEntity) e;
             if (!le.isAlive() || le.isRemoved()) continue;
 
-            Box box = le.getBoundingBox().expand(0.3);
+            Box box = le.getBoundingBox().expand(0.05);
             Optional<Vec3d> hit = box.raycast(eyes, end);
 
             if (hit.isPresent()) {
@@ -183,7 +179,7 @@ public class TargetHud extends HudElement {
         float baseH = 34f * s;
 
         if (displayTarget != null) {
-            float nameW = CustomFontRenderer.getTextWidth(displayTarget.getName().getString(), 7f * s, FontWeight.SEMIBOLD);
+            float nameW = CustomFontRenderer.getTextWidth(protectedName(displayTarget), 7f * s, FontWeight.SEMIBOLD);
             float neededW = (5f + 24f + 6f + 30f + 5f) * s + Math.min(nameW, 72f * s);
             baseW = Math.max(baseW, neededW);
         }
@@ -260,7 +256,7 @@ public class TargetHud extends HudElement {
 
         float nameFontSize = 7f * s;
         float nameMaxX = hpNumX - 4f * s;
-        String originalName = displayTarget.getName().getString();
+        String originalName = protectedName(displayTarget);
         float nameLimitW = CustomFontRenderer.getTextWidth("abcdefghijkl", nameFontSize, FontWeight.SEMIBOLD);
         float nameMaxW = Math.min(Math.max(8f * s, nameMaxX - textX), nameLimitW);
         int nameColor = RenderUtil.withAlpha(0xFFFFFF, alpha);
@@ -293,6 +289,11 @@ public class TargetHud extends HudElement {
         RenderSystem.enableDepthTest();
         RenderSystem.enableCull();
         ctx.getMatrices().pop();
+    }
+
+    private String protectedName(LivingEntity entity) {
+        if (entity == null || entity.getName() == null) return "";
+        return NameProtect.protect(entity.getName().getString());
     }
 
     private void trackHitState(LivingEntity entity, float currentHealth, long now) {

@@ -42,7 +42,10 @@ public class CustomFontRenderer {
         POTIONS("potions"),
         BINDS("binds"),
         HEART("heart"),
-        CLIENT("client");
+        CLIENT("client"),
+        WP("wp"),
+        VC("vc"),
+        LOGO("logo");
 
         final String atlasName;
 

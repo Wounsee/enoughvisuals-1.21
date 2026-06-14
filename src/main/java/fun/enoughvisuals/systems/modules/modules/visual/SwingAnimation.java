@@ -39,6 +39,11 @@ public class SwingAnimation extends Module {
         INSTANCE = this;
     }
 
+    @Override
+    protected boolean canEnable() {
+        return BetterHands.INSTANCE == null || !BetterHands.INSTANCE.isEnabled();
+    }
+
     public boolean shouldApplyAnimation(ItemStack itemStack) {
         if (itemStack == null || itemStack.isEmpty()) return false;
         Item item = itemStack.getItem();

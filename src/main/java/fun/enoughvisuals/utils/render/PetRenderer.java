@@ -3,15 +3,20 @@ package fun.enoughvisuals.utils.render;
 import fun.enoughvisuals.systems.friends.FriendRepo;
 import fun.enoughvisuals.systems.modules.modules.visual.Pet;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.entity.EntityRenderer;
+import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
 import net.minecraft.entity.EntityPose;
+import net.minecraft.entity.passive.AllayEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
-import org.joml.Matrix4f;
+import net.minecraft.world.World;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -20,6 +25,8 @@ import java.util.Map;
 public final class PetRenderer {
 
     private static final Map<Integer, Vec3d> SMOOTH_OFFSETS = new HashMap<>();
+    private static AllayEntity vanillaAllay;
+    private static World vanillaAllayWorld;
     private static long lastCleanupMs = 0L;
 
     private PetRenderer() {
@@ -30,10 +37,12 @@ public final class PetRenderer {
         MinecraftClient client = MinecraftClient.getInstance();
         if (module == null || client.player == null || client.world == null) {
             SMOOTH_OFFSETS.clear();
+            vanillaAllay = null;
+            vanillaAllayWorld = null;
             return;
         }
 
-        if (!module.creature.is("Allay")) {
+        if (!module.creature.is("Allay") || client.currentScreen instanceof InventoryScreen) {
             return;
         }
 
@@ -54,7 +63,7 @@ public final class PetRenderer {
             pose = EntityPose.STANDING;
         }
 
-        float bodyYaw = MathHelper.lerp(tickDelta, player.prevBodyYaw, player.bodyYaw);
+        float bodyYaw = MathHelper.lerpAngleDegrees(tickDelta, player.prevBodyYaw, player.bodyYaw);
         float yaw = (float) Math.toRadians(bodyYaw);
         float hover = MathHelper.sin(age * 0.22f) * 0.11f;
         float orbit = MathHelper.sin(age * 0.08f) * 0.10f;
@@ -66,29 +75,25 @@ public final class PetRenderer {
         Vec3d targetOffset = new Vec3d(offsetX, height + hover, offsetZ);
 
         Vec3d smoothOffset = SMOOTH_OFFSETS.get(stateId);
-        smoothOffset = smoothOffset == null ? targetOffset : smoothOffset.lerp(targetOffset, 0.18D);
+        smoothOffset = smoothOffset == null ? targetOffset : smoothOffset.lerp(targetOffset, 0.24D);
         SMOOTH_OFFSETS.put(stateId, smoothOffset);
         cleanupOffsets(client);
 
         float sway = MathHelper.sin(age * 0.16f) * 9.0f;
         float roll = MathHelper.cos(age * 0.18f) * 5.5f;
         float scale = 0.35f * module.size.get().floatValue();
+        AllayEntity allay = vanillaAllay(client);
+        if (allay == null) {
+            return;
+        }
+        prepareVanillaAllay(allay, client.player.age);
 
         matrices.push();
         matrices.translate(smoothOffset.x, smoothOffset.y, smoothOffset.z);
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw + sway));
         matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(roll));
         matrices.scale(scale, scale, scale);
-        CustomModelRenderer.renderModel(
-                module.modelPath(),
-                new Matrix4f(matrices.peek().getPositionMatrix()),
-                vertexConsumers,
-                0.0f,
-                0.0f,
-                0.0f,
-                0.0f,
-                age
-        );
+        renderVanillaAllay(client, allay, matrices, vertexConsumers, light, tickDelta);
         matrices.pop();
 
         if (vertexConsumers instanceof VertexConsumerProvider.Immediate immediate) {
@@ -102,6 +107,37 @@ public final class PetRenderer {
         }
 
         return player == self || FriendRepo.isFriend(player.getName().getString());
+    }
+
+    private static AllayEntity vanillaAllay(MinecraftClient client) {
+        if (client.world == null) {
+            return null;
+        }
+        if (vanillaAllay == null || vanillaAllayWorld != client.world) {
+            vanillaAllay = new AllayEntity(EntityType.ALLAY, client.world);
+            vanillaAllayWorld = client.world;
+        }
+        return vanillaAllay;
+    }
+
+    private static void prepareVanillaAllay(AllayEntity allay, int age) {
+        allay.age = age;
+        allay.setDancing(false);
+        allay.setPose(EntityPose.STANDING);
+        allay.updatePositionAndAngles(0.0D, 0.0D, 0.0D, 0.0f, 0.0f);
+        allay.prevYaw = 0.0f;
+        allay.prevPitch = 0.0f;
+        allay.prevBodyYaw = 0.0f;
+        allay.bodyYaw = 0.0f;
+        allay.prevHeadYaw = 0.0f;
+        allay.headYaw = 0.0f;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void renderVanillaAllay(MinecraftClient client, AllayEntity allay, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta) {
+        EntityRenderer renderer = client.getEntityRenderDispatcher().getRenderer(allay);
+        EntityRenderState state = (EntityRenderState) renderer.getAndUpdateRenderState(allay, tickDelta);
+        renderer.render(state, matrices, vertexConsumers, light);
     }
 
     private static void cleanupOffsets(MinecraftClient client) {

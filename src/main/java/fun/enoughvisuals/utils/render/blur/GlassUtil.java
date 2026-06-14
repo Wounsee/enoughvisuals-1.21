@@ -1,9 +1,8 @@
 package fun.enoughvisuals.utils.render.blur;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import fun.enoughvisuals.mixins.accessors.FramebufferAccessor;
 import fun.enoughvisuals.mixins.accessors.ShaderProgramAccessor;
-import fun.enoughvisuals.systems.modules.modules.visual.CustomTheme;
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.*;
@@ -303,10 +302,12 @@ public class GlassUtil {
                                       float u0, float v0, float u1, float v1) {
         BufferBuilder builder = Tessellator.getInstance().begin(
                 VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
-        int c00 = packLocalCoord(0f, 0f);
-        int c01 = packLocalCoord(0f, 1f);
-        int c11 = packLocalCoord(1f, 1f);
-        int c10 = packLocalCoord(1f, 0f);
+
+        // Кодируем LocalCoord (X, Y) от 0.0f до 1.0f в RG каналы цвета
+        int c00 = packLocalCoord(0f, 0f); // Левый верхний
+        int c01 = packLocalCoord(0f, 1f); // Левый нижний
+        int c11 = packLocalCoord(1f, 1f); // Правый нижний
+        int c10 = packLocalCoord(1f, 0f); // Правый верхний
 
         builder.vertex(mat, x, y, 0)        .texture(u0, v0).color(c00);
         builder.vertex(mat, x, y + h, 0)    .texture(u0, v1).color(c01);

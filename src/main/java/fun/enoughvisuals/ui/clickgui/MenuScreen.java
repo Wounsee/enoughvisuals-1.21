@@ -5,8 +5,8 @@ import fun.enoughvisuals.systems.hud.HudElement;
 import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
-import fun.enoughvisuals.systems.modules.modules.visual.CustomTheme;
-import fun.enoughvisuals.systems.modules.modules.visual.GuiSize;
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
+import fun.enoughvisuals.systems.modules.modules.client.GuiSize;
 import fun.enoughvisuals.systems.modules.modules.visual.MouseParticles;
 import fun.enoughvisuals.ui.clickgui.components.MenuModule;
 import fun.enoughvisuals.ui.clickgui.components.MenuSettings;
@@ -58,10 +58,6 @@ public class MenuScreen extends Screen {
     public static float SEARCH_TINT_ALPHA = 0.82f;
 
     private static final Map<Category, Identifier> CATEGORY_ICONS = new HashMap<>();
-    static {
-        CATEGORY_ICONS.put(Category.VISUAL, Identifier.of("enough", "icons/category/visual.png"));
-        CATEGORY_ICONS.put(Category.UTILS,  Identifier.of("enough", "icons/category/utils.png"));
-    }
 
     public static final Identifier MODULE_ON_ICON =
             Identifier.of("enough", "icons/category/moduleon.png");
@@ -84,7 +80,8 @@ public class MenuScreen extends Screen {
     private static final long PANEL_STAGGER_MS = 100L;
     private static final float SEARCH_W = 220f;
     private static final float SEARCH_ROW_H = 14f;
-    private static final int SEARCH_MAX_RESULTS = 6;
+    private static final int SEARCH_MAX_RESULTS = 40;
+    private static final int SEARCH_VISIBLE_ROWS = 10;
 
     private final List<PanelData> panels = new ArrayList<>();
     private final List<SearchResult> searchResults = new ArrayList<>();
@@ -99,6 +96,10 @@ public class MenuScreen extends Screen {
     private String searchQuery = "";
     private int searchSelection = 0;
     private float searchAnim = 0f;
+    private float searchHeightAnim = 0f;
+    private float searchScrollOffset = 0f;
+    private float searchScrollTarget = 0f;
+
     private int typedCharIndex = -1;
     private long typedCharStartMs = 0L;
     private String removedChar = "";
@@ -164,7 +165,6 @@ public class MenuScreen extends Screen {
         return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
-
     @Override
     protected void init() {
         super.init();
@@ -175,6 +175,9 @@ public class MenuScreen extends Screen {
         searchQuery = "";
         searchSelection = 0;
         searchAnim = 0f;
+        searchHeightAnim = 0f;
+        searchScrollOffset = 0f;
+        searchScrollTarget = 0f;
         typedCharIndex = -1;
         typedCharStartMs = 0L;
         removedChar = "";
@@ -355,9 +358,24 @@ public class MenuScreen extends Screen {
             return;
         }
 
+        float globalAlpha = 1f;
+        if (!closing) {
+            float progress = Math.max(0f, Math.min(1f, (now - openTime) / (float) PANEL_OPEN_MS));
+            globalAlpha = RenderUtil.easeOutQuad(progress);
+        } else {
+            float closeProgress = Math.max(0f, Math.min(1f, (now - closeStart) / (float) PANEL_CLOSE_MS));
+            globalAlpha = Math.max(0f, Math.min(1f, 1f - RenderUtil.easeInOutCubic(closeProgress)));
+        }
+
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         float frameDelta = RenderUtil.getFrameDelta();
         searchAnim = RenderUtil.animate(searchAnim, searchActive ? 1f : 0f, 0.32f, frameDelta);
+
+        float targetHeight = 30f + Math.min(searchResults.size(), SEARCH_VISIBLE_ROWS) * SEARCH_ROW_H;
+        if (!searchActive) targetHeight = 0f;
+        searchHeightAnim = RenderUtil.animate(searchHeightAnim, targetHeight, 0.26f, frameDelta);
+        searchScrollOffset = RenderUtil.animate(searchScrollOffset, searchScrollTarget, 0.32f, frameDelta);
+
         hoveredDescription = null;
 
         ctx.getMatrices().push();
@@ -387,8 +405,8 @@ public class MenuScreen extends Screen {
                 renderPanel(ctx, panels.get(i), virtualMx, virtualMy, delta, panelAlpha, panelYOffset, panelScale, currentGuiScale);
             }
 
+            renderSearchHint(ctx, globalAlpha);
             if (!closing) {
-                renderSearchHint(ctx);
                 renderDescription(ctx, delta);
                 renderSearchOverlay(ctx, virtualMx, virtualMy);
                 renderBindHint(ctx);
@@ -400,6 +418,22 @@ public class MenuScreen extends Screen {
         RenderSystem.depthMask(true);
         StencilUtil.resetRenderState();
         MouseParticles.renderScreen(ctx, mx, my, delta);
+    }
+
+    private void renderUpdateLock(DrawContext ctx) {
+        float boxW = Math.min(310f, screenWidth() - 28f);
+        float boxH = 58f;
+        float x = screenWidth() * 0.5f - boxW * 0.5f;
+        float y = Math.max(18f, (panels.isEmpty() ? screenHeight() * 0.5f : panels.get(0).y) - 74f);
+
+        GlassUtil.drawBlurPanel(ctx, x, y, boxW, boxH, 9f, 0.92f);
+        RenderUtil.drawRoundedRect(ctx, x, y, boxW, boxH, 9f, RenderUtil.withAlpha(0x000000, 0.78f));
+        CustomFontRenderer.drawCenteredText(ctx,
+                "Обновите клиент",
+                screenWidth() * 0.5f, y + 14f, 10f, TEXT_WHITE, FontWeight.SEMIBOLD);
+        CustomFontRenderer.drawCenteredText(ctx,
+                "Критическое обновление. Настройки отключены.",
+                screenWidth() * 0.5f, y + 34f, 6.6f, RenderUtil.withAlpha(TEXT_GRAY, 0.94f), FontWeight.REGULAR);
     }
 
     private float getOpenProgress(long now, int index) {
@@ -456,12 +490,20 @@ public class MenuScreen extends Screen {
         return bindingModule == module;
     }
 
-    private void renderSearchHint(DrawContext ctx) {
-        if (panels.isEmpty()) return;
-        float y = panels.get(0).y + PANEL_H * currentGuiScale + 9f * currentGuiScale;
-        float pulse = 0.76f + 0.24f * ((float) Math.sin(System.currentTimeMillis() / 430.0) * 0.5f + 0.5f);
-        CustomFontRenderer.drawCenteredText(ctx, ClientLanguage.text("ui.search_hint", "Ctrl+F для поиска"), screenWidth() * 0.5f, y, 6.2f,
-                RenderUtil.withAlpha(TEXT_WHITE, pulse), FontWeight.REGULAR);
+    private void renderSearchHint(DrawContext ctx, float alpha) {
+        if (panels.isEmpty() || alpha <= 0.01f) return;
+        float searchFade = 1f - searchAnim;
+        if (searchFade <= 0.01f) return;
+
+        float baseY = panels.get(0).y + PANEL_H * currentGuiScale + 9f * currentGuiScale;
+
+        // Одинаковое смещение (+), так как в обоих случаях (открытие/закрытие)
+        // вне экрана текст должен находиться ниже базовой позиции (baseY + 12f)
+        float yOffset = (1f - alpha) * 12f;
+
+        CustomFontRenderer.drawCenteredText(ctx, ClientLanguage.text("ui.search_hint", "Ctrl+F для поиска"),
+                screenWidth() * 0.5f, baseY + yOffset, 6.2f,
+                RenderUtil.withAlpha(TEXT_WHITE, alpha * searchFade * 0.75f), FontWeight.REGULAR);
     }
 
     private void renderBindHint(DrawContext ctx) {
@@ -477,7 +519,8 @@ public class MenuScreen extends Screen {
         if (visible <= 0.01f) return;
 
         SearchLayout layout = buildSearchLayout();
-        float boxH = 30f + searchResults.size() * SEARCH_ROW_H;
+        float boxH = searchHeightAnim;
+        if (boxH <= 5f) return;
 
         GlassUtil.drawBlurPanel(ctx, layout.x, layout.y, SEARCH_W, boxH, 8f,
                 0.92f * visible);
@@ -505,22 +548,46 @@ public class MenuScreen extends Screen {
                     RenderUtil.withAlpha(TEXT_WHITE, 0.95f * visible));
         }
 
-        float rowY = layout.y + 29f;
-        for (int i = 0; i < searchResults.size(); i++) {
-            SearchResult result = searchResults.get(i);
-            boolean selected = i == searchSelection;
-            boolean hovered = mx >= layout.x + 4f && mx <= layout.x + SEARCH_W - 4f
-                    && my >= rowY && my <= rowY + SEARCH_ROW_H;
-            if (selected || hovered) {
-                RenderUtil.drawRoundedRect(ctx, layout.x + 4f, rowY, SEARCH_W - 8f, SEARCH_ROW_H - 1f, 4f,
-                        RenderUtil.withAlpha(ACCENT, (selected ? 0.20f : 0.13f) * visible));
-            }
+        float rowYStart = layout.y + 29f;
+        float rowHeightWindow = boxH - 30f;
 
-            CustomFontRenderer.drawText(ctx, result.module().getModule().getName(), layout.x + 8f, rowY + 3.6f, 6.2f,
-                    RenderUtil.withAlpha(TEXT_WHITE, 0.98f * visible), FontWeight.REGULAR);
-            CustomFontRenderer.drawRightText(ctx, result.panel().category.getDisplayName(), layout.x + SEARCH_W - 8f, rowY + 3.6f, 5.8f,
-                    RenderUtil.withAlpha(TEXT_DIM, 0.9f * visible), FontWeight.REGULAR);
-            rowY += SEARCH_ROW_H;
+        if (rowHeightWindow > 1f) {
+            StencilUtil.enableScissor(layout.x, rowYStart, SEARCH_W, rowHeightWindow);
+
+            float currY = rowYStart + searchScrollOffset;
+            for (int i = 0; i < searchResults.size(); i++) {
+                SearchResult result = searchResults.get(i);
+                boolean hovered = mx >= layout.x + 4f && mx <= layout.x + SEARCH_W - 4f
+                        && my >= currY && my <= currY + SEARCH_ROW_H;
+
+                if (hovered) {
+                    RenderUtil.drawRoundedRect(ctx, layout.x + 4f, currY, SEARCH_W - 8f, SEARCH_ROW_H - 1f, 4f,
+                            RenderUtil.withAlpha(0xFFFFFFFF, 0.12f * visible));
+                }
+
+                String iconStr;
+                FontWeight fontW;
+                switch (result.panel().category) {
+                    case CLIENT -> { iconStr = "\uF001"; fontW = FontWeight.CLIENT; }
+                    // case WORLD -> { iconStr = "\uF002"; fontW = FontWeight.WP; }
+                    // case PLAYER -> { iconStr = "\uF001"; fontW = FontWeight.WP; }
+                    case VISUAL -> { iconStr = "\uF001"; fontW = FontWeight.VC; }
+                    case UTILS -> { iconStr = "\uF000"; fontW = FontWeight.VC; }
+                    default -> { iconStr = "•"; fontW = FontWeight.REGULAR; }
+                }
+
+                CustomFontRenderer.drawText(ctx, iconStr, layout.x + 8f, currY + 3.6f, 6.2f,
+                        RenderUtil.withAlpha(TEXT_DIM, 0.90f * visible), fontW);
+
+                CustomFontRenderer.drawText(ctx, result.module().getModule().getName(), layout.x + 20f, currY + 3.6f, 6.2f,
+                        RenderUtil.withAlpha(TEXT_WHITE, 0.98f * visible), FontWeight.REGULAR);
+
+                CustomFontRenderer.drawRightText(ctx, result.panel().category.getDisplayName(), layout.x + SEARCH_W - 8f, currY + 3.6f, 5.8f,
+                        RenderUtil.withAlpha(TEXT_DIM, 0.9f * visible), FontWeight.REGULAR);
+
+                currY += SEARCH_ROW_H;
+            }
+            StencilUtil.disableScissor();
         }
     }
 
@@ -538,20 +605,6 @@ public class MenuScreen extends Screen {
                 if (!searchQuery.isEmpty()) {
                     onSearchQueryChanged(searchQuery.substring(0, searchQuery.length() - 1));
                     refreshSearchResults();
-                    EnoughSoundPlayer.playScroll();
-                }
-                return true;
-            }
-            case GLFW.GLFW_KEY_UP -> {
-                if (!searchResults.isEmpty()) {
-                    searchSelection = (searchSelection - 1 + searchResults.size()) % searchResults.size();
-                    EnoughSoundPlayer.playScroll();
-                }
-                return true;
-            }
-            case GLFW.GLFW_KEY_DOWN -> {
-                if (!searchResults.isEmpty()) {
-                    searchSelection = (searchSelection + 1) % searchResults.size();
                     EnoughSoundPlayer.playScroll();
                 }
                 return true;
@@ -574,6 +627,9 @@ public class MenuScreen extends Screen {
     private void openSearch() {
         searchActive = true;
         searchAnim = 0f;
+        searchHeightAnim = 30f;
+        searchScrollOffset = 0f;
+        searchScrollTarget = 0f;
         typedCharIndex = -1;
         typedCharStartMs = 0L;
         removedChar = "";
@@ -648,7 +704,10 @@ public class MenuScreen extends Screen {
     private void refreshSearchResults() {
         searchResults.clear();
         String q = searchQuery.trim().toLowerCase(Locale.ROOT);
-        if (q.isEmpty()) return;
+        if (q.isEmpty()) {
+            searchScrollTarget = 0f;
+            return;
+        }
 
         for (PanelData panel : panels) {
             for (MenuModule module : panel.modules) {
@@ -671,8 +730,11 @@ public class MenuScreen extends Screen {
         if (searchResults.size() > SEARCH_MAX_RESULTS) {
             searchResults.subList(SEARCH_MAX_RESULTS, searchResults.size()).clear();
         }
-        if (searchSelection >= searchResults.size()) {
-            searchSelection = Math.max(0, searchResults.size() - 1);
+        searchSelection = 0;
+
+        float maxScroll = Math.max(0, (searchResults.size() - SEARCH_VISIBLE_ROWS) * SEARCH_ROW_H);
+        if (-searchScrollTarget > maxScroll) {
+            searchScrollTarget = -maxScroll;
         }
     }
 
@@ -729,7 +791,6 @@ public class MenuScreen extends Screen {
         p.scrollOffset = RenderUtil.animate(p.scrollOffset, p.scrollTarget, 0.36f, frameDelta);
         p.swapAnim = RenderUtil.animate(p.swapAnim, p.swapTarget, 0.14f, frameDelta);
 
-                                                
         if (p.swapTarget == 0f && p.swapAnim < 0.01f) {
             p.swapAnim = 0f;
             p.lastSettingsView = null;
@@ -829,11 +890,51 @@ public class MenuScreen extends Screen {
         ctx.draw();
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
-        if (p.category == Category.CUSTOM) {
+        if (p.category == Category.CLIENT) {
             float iconSize = 9f * uiScale;
             CustomFontRenderer.drawRightText(ctx, "\uF001",
-                    px + pw - 8f * uiScale, py + (headerH - iconSize) * 0.5f,
-                    iconSize, RenderUtil.withAlpha(TEXT_WHITE, alpha * 0.98f), FontWeight.CLIENT);
+                    px + pw - 8f * uiScale,
+                    py + (headerH - iconSize) * 0.5f,
+                    iconSize,
+                    RenderUtil.withAlpha(TEXT_WHITE, alpha * 0.98f),
+                    FontWeight.CLIENT);
+/*
+        } else if (p.category == Category.WORLD) {
+            float iconSize = 11f * uiScale;
+            CustomFontRenderer.drawRightText(ctx, "\uF002",
+                    px + pw - 8f * uiScale,
+                    py + (headerH - iconSize) * 0.5f,
+                    iconSize,
+                    RenderUtil.withAlpha(TEXT_WHITE, alpha * 0.98f),
+                    FontWeight.WP);
+
+        } else if (p.category == Category.PLAYER) {
+            float iconSize = 10f * uiScale;
+            CustomFontRenderer.drawRightText(ctx, "\uF001",
+                    px + pw - 8f * uiScale,
+                    py + (headerH - iconSize) * 0.5f,
+                    iconSize,
+                    RenderUtil.withAlpha(TEXT_WHITE, alpha * 0.98f),
+                    FontWeight.WP);
+*/
+        } else if (p.category == Category.VISUAL) {
+            float iconSize = 10f * uiScale;
+            CustomFontRenderer.drawRightText(ctx, "\uF001",
+                    px + pw - 8f * uiScale,
+                    py + (headerH - iconSize) * 0.5f,
+                    iconSize,
+                    RenderUtil.withAlpha(TEXT_WHITE, alpha * 0.98f),
+                    FontWeight.VC);
+
+        } else if (p.category == Category.UTILS) {
+            float iconSize = 9f * uiScale;
+            CustomFontRenderer.drawRightText(ctx, "\uF000",
+                    px + pw - 8f * uiScale,
+                    py + (headerH - iconSize) * 0.5f,
+                    iconSize,
+                    RenderUtil.withAlpha(TEXT_WHITE, alpha * 0.98f),
+                    FontWeight.VC);
+
         } else {
             Identifier catIcon = CATEGORY_ICONS.get(p.category);
             if (catIcon != null) {
@@ -897,18 +998,21 @@ public class MenuScreen extends Screen {
         float my = ScreenScaleUtil.screenToVirtual(mouseY);
         if (searchActive) {
             SearchLayout layout = buildSearchLayout();
-            float boxH = 30f + searchResults.size() * SEARCH_ROW_H;
+            float boxH = searchHeightAnim;
+            float rowYStart = layout.y + 29f;
+            float rowHeightWindow = Math.min(searchResults.size(), SEARCH_VISIBLE_ROWS) * SEARCH_ROW_H;
 
             if (mx >= layout.x && mx <= layout.x + SEARCH_W && my >= layout.y && my <= layout.y + boxH) {
-                float rowY = layout.y + 29f;
-                for (int i = 0; i < searchResults.size(); i++) {
-                    if (mx >= layout.x + 4f && mx <= layout.x + SEARCH_W - 4f
-                            && my >= rowY && my <= rowY + SEARCH_ROW_H) {
-                        searchSelection = i;
-                        selectSearchResult(i);
-                        return true;
+                if (my >= rowYStart && my <= rowYStart + rowHeightWindow) {
+                    float currY = rowYStart + searchScrollOffset;
+                    for (int i = 0; i < searchResults.size(); i++) {
+                        if (mx >= layout.x + 4f && mx <= layout.x + SEARCH_W - 4f
+                                && my >= currY && my <= currY + SEARCH_ROW_H) {
+                            selectSearchResult(i);
+                            return true;
+                        }
+                        currY += SEARCH_ROW_H;
                     }
-                    rowY += SEARCH_ROW_H;
                 }
                 return true;
             }
@@ -947,13 +1051,26 @@ public class MenuScreen extends Screen {
             float modY = contentY + p.scrollOffset;
             for (MenuModule mod : p.modules) {
                 if (mx >= p.x && mx <= p.x + panelW && my >= modY && my <= modY + moduleH) {
+                    boolean blocked = ModuleManager.getInstance().isBlocked(mod.getModule());
                     if (button == 0) {
+                        if (blocked || (!mod.getModule().isAvailable() && !mod.getModule().isEnabled())) {
+                            mod.shake();
+                            return true;
+                        }
                         mod.getModule().toggle();
                         return true;
                     } else if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+                        if (blocked) {
+                            mod.shake();
+                            return true;
+                        }
                         openSettings(mod, p);
                         return true;
                     } else if (button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE) {
+                        if (blocked) {
+                            mod.shake();
+                            return true;
+                        }
                         startBinding(mod.getModule(), p);
                         return true;
                     }
@@ -1002,11 +1119,9 @@ public class MenuScreen extends Screen {
         float my = ScreenScaleUtil.screenToVirtual(mouseY);
         if (searchActive) {
             if (!searchResults.isEmpty()) {
-                if (v > 0) {
-                    searchSelection = (searchSelection - 1 + searchResults.size()) % searchResults.size();
-                } else if (v < 0) {
-                    searchSelection = (searchSelection + 1) % searchResults.size();
-                }
+                float maxScroll = Math.max(0, (searchResults.size() - SEARCH_VISIBLE_ROWS) * SEARCH_ROW_H);
+                searchScrollTarget += (float) (v * 14);
+                searchScrollTarget = Math.max(-maxScroll, Math.min(0, searchScrollTarget));
                 EnoughSoundPlayer.playScroll();
             }
             return true;

@@ -8,7 +8,6 @@ import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.render.RenderUtil;
-import fun.enoughvisuals.utils.render.images.Draw;
 import fun.enoughvisuals.utils.system.IslandFeed;
 import fun.enoughvisuals.systems.modules.modules.utils.MineRadar;
 import fun.enoughvisuals.utils.system.ModuleToggleFeed;
@@ -32,8 +31,8 @@ public class WatermarkHud extends HudElement {
     public final BooleanSetting showFps    = addSetting(new BooleanSetting("FPS", "show_fps", true));
     public final BooleanSetting showPing   = addSetting(new BooleanSetting("Пинг", "show_ping", true));
 
-    private static final Identifier LOGO = Identifier.of("enough", "logo/logo.png");
     private static final Identifier MUSIC_FALLBACK = Identifier.of("enough", "logo/icon.png");
+    private static final String LOGO_ICON = "\uF002";
 
     private static final float H = 17.5f; // Уменьшена высота
     private static final float SECOND_H = 12f;
@@ -68,6 +67,7 @@ public class WatermarkHud extends HudElement {
     private float rollPing = 0f;
     private float fpsWidthAnim = 0f;
     private float pingWidthAnim = 0f;
+    private float watermarkContentAlpha = 1f;
 
     private long lastFpsTickMs = 0L;
     private long lastPingTickMs = 0L;
@@ -193,6 +193,9 @@ public class WatermarkHud extends HudElement {
 
         float targetH = H + (mineTierActive ? (SECOND_GAP + SECOND_H) : 0f);
         float tabMorph = CustomTab.getAnimationProgress();
+        float tabEased = RenderUtil.easeInOutCubic(tabMorph);
+        watermarkContentAlpha = RenderUtil.animate(watermarkContentAlpha, 1f - tabEased,
+                tabMorph > 0.001f ? 0.30f : 0.26f, frameDelta);
         if (tabMorph > 0.001f) {
             float[] tabSize = CustomTab.getPreferredSize();
             if (tabSize != null) {
@@ -202,9 +205,14 @@ public class WatermarkHud extends HudElement {
         }
 
         float morphSpeed = CustomTab.getAnimationProgress() > 0.001f ? 0.38f : 0.22f;
-        setWidth(RenderUtil.animate(getWidth(), targetW, morphSpeed, frameDelta));
-        setHeight(RenderUtil.animate(getHeight(), targetH, morphSpeed, frameDelta));
-        setX(RenderUtil.animate(getX(), client.getWindow().getScaledWidth() * 0.5f - getWidth() * 0.5f, morphSpeed, frameDelta));
+        float currentCenterX = getX() + getWidth() * 0.5f;
+        float targetCenterX = client.getWindow().getScaledWidth() * 0.5f;
+        float nextW = RenderUtil.animate(getWidth(), targetW, morphSpeed, frameDelta);
+        float nextH = RenderUtil.animate(getHeight(), targetH, morphSpeed, frameDelta);
+        float nextCenterX = RenderUtil.animate(currentCenterX, targetCenterX, morphSpeed, frameDelta);
+        setWidth(nextW);
+        setHeight(nextH);
+        setX(nextCenterX - nextW * 0.5f);
         setY(RenderUtil.animate(getY(), 6f, morphSpeed, frameDelta));
     }
 
@@ -225,7 +233,7 @@ public class WatermarkHud extends HudElement {
             float wavesWidth = (BAR_COUNT - 1) * BAR_GAP + BAR_W;
             w = 10.5f + 3.5f + clamp(CustomFontRenderer.getTextWidth(songText, 5.9f, FontWeight.REGULAR), 18f, TRACK_MAX_W) + 5f + wavesWidth;
         } else {
-            w = 12.4f + 3.5f + CustomFontRenderer.getTextWidth("enoughvisuals.fun", 6.0f, FontWeight.SEMIBOLD);
+            w = 14.2f + 3.2f + CustomFontRenderer.getTextWidth("enoughvisuals.fun", 6.0f, FontWeight.SEMIBOLD);
         }
         return new RenderBlock(BlockType.LOGO, w);
     }
@@ -235,7 +243,7 @@ public class WatermarkHud extends HudElement {
         float tabMorph = CustomTab.getAnimationProgress();
         float tabEased = RenderUtil.easeInOutCubic(tabMorph);
         float tabAlpha = alpha * tabEased;
-        float contentAlpha = alpha * (1f - tabEased);
+        float contentAlpha = alpha * watermarkContentAlpha;
         float topH = H;
 
         boolean tabVisible = tabMorph > 0.001f;
@@ -246,11 +254,18 @@ public class WatermarkHud extends HudElement {
         }
 
         if (tabAlpha > 0.01f) {
-            CustomTab.renderInPanel(ctx, x, y, w, h, tabAlpha);
+            RenderUtil.enableScissor(x, y, w, h);
+            try {
+                CustomTab.renderInPanel(ctx, x, y, w, h, tabAlpha);
+            } finally {
+                RenderUtil.disableScissor();
+            }
         }
 
         if (currentBlocks.isEmpty() || contentAlpha <= 0.01f) return;
 
+        RenderUtil.enableScissor(x, y, w, tabVisible ? h : topH);
+        try {
         float totalContentW = 0f;
         RenderBlock prevW = null;
         for (RenderBlock b : currentBlocks) {
@@ -300,9 +315,13 @@ public class WatermarkHud extends HudElement {
                         drawTrackMarquee(ctx, songText, curTrack, y + 5f, 5.9f, targetTrackW, contentAlpha);
                         drawWaves(ctx, curTrack + targetTrackW + 5f, y + H * 0.5f, contentAlpha);
                     } else {
-                        float logoSize = 12.4f;
-                        Draw.image(ctx, LOGO, cursor, y + (H - logoSize) * 0.5f, logoSize, logoSize, 64, 64, contentAlpha * 0.98f);
-                        CustomFontRenderer.drawText(ctx, "enoughvisuals.fun", cursor + logoSize + 3.5f, y + 4.87f, 6.0f, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, contentAlpha * 0.98f), FontWeight.SEMIBOLD);
+                        float logoSize = 17.2f;
+                        float logoHeight = CustomFontRenderer.getTextHeight(logoSize, FontWeight.LOGO);
+                        float logoY = y + (H - logoHeight) * 0.5f;
+                        int logoColor = 0xFFC88DFF;
+                        CustomFontRenderer.drawText(ctx, LOGO_ICON, cursor, logoY, logoSize,
+                                RenderUtil.withAlpha(logoColor, contentAlpha * 0.98f), FontWeight.LOGO);
+                        CustomFontRenderer.drawText(ctx, "enoughvisuals.fun", cursor + logoSize, y + 4.87f, 6.0f, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, contentAlpha * 0.98f), FontWeight.SEMIBOLD);
                     }
                 }
             }
@@ -322,6 +341,9 @@ public class WatermarkHud extends HudElement {
             float drawX = tierX + Math.max(6f, (tierW - contentW) * 0.5f);
             RenderUtil.drawRoundedGradientH(ctx, drawX, tierY + SECOND_H * 0.5f - 2.2f, 4.8f, 4.8f, 2.4f, RenderUtil.withAlpha(style.from(), alpha * 0.95f), RenderUtil.withAlpha(style.to(), alpha * 0.95f));
             drawGradientText(ctx, mineTierText, drawX + 8.8f, tierY + 3.0f, 5.8f, style.from(), style.to(), alpha * 0.98f, FontWeight.SEMIBOLD);
+        }
+        } finally {
+            RenderUtil.disableScissor();
         }
     }
 

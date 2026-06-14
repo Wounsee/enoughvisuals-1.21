@@ -1,6 +1,7 @@
 package fun.enoughvisuals.ui.clickgui.components;
 
 import fun.enoughvisuals.systems.modules.Module;
+import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.system.BindKeyUtil;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
@@ -8,8 +9,16 @@ import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.images.Draw;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.util.Identifier;
+
+import java.util.Map;
 
 public class MenuModule {
+    private static final Map<String, Identifier> MODULE_ICONS = Map.of(
+            "configs", Identifier.of("enough", "icons/client/configs.png"),
+            "friends", Identifier.of("enough", "icons/client/friends.png"),
+            "gps", Identifier.of("enough", "icons/client/gps.png")
+    );
 
     private final Module module;
     private final MenuScreen screen;
@@ -34,6 +43,7 @@ public class MenuModule {
         if (alpha <= 0.01f) return;
 
         boolean hovered = isHovered(mx, my, x, y, w, h);
+        boolean available = module.isAvailable();
         float frameDelta = RenderUtil.getFrameDelta();
         hoverAnim = RenderUtil.animate(hoverAnim, hovered ? 1f : 0f, 0.58f, frameDelta);
         enableAnim = RenderUtil.animate(enableAnim, module.isEnabled() ? 1f : 0f, 0.26f, frameDelta);
@@ -57,13 +67,25 @@ public class MenuModule {
         }
         float fontSize = 7f * uiScale;
         float leftPad = 8f * uiScale;
-        float textOffset = leftPad + enableAnim * 9f * uiScale;
+        Identifier moduleIcon = MODULE_ICONS.get(module.getId());
+        float iconReserve = moduleIcon == null ? 0f : 11f * uiScale;
+        float textOffset = leftPad + iconReserve + (moduleIcon == null ? enableAnim * 9f * uiScale : 0f);
         float rightPad = 8f * uiScale;
         boolean hasSettings = !module.getSettings().isEmpty();
         boolean binding = screen.isBindingModule(module);
+        boolean blocked = ModuleManager.getInstance().isBlocked(module);
 
         if (hovered && module.getDescription() != null && !module.getDescription().isEmpty()) {
             screen.setHoveredDescription(module.getDescription());
+        }
+
+        if (moduleIcon != null) {
+            float iconSize = 8f * uiScale;
+            float iconX = drawX + leftPad;
+            float iconY = y + (h - iconSize) * 0.5f;
+            Draw.imageTinted(ctx, moduleIcon, iconX, iconY, iconSize, iconSize,
+                    module.isEnabled() ? MenuScreen.ACCENT_LIGHT : MenuScreen.TEXT_DIM,
+                    alpha * (0.72f + hoverAnim * 0.22f));
         }
 
         float bindW = 0f;
@@ -78,16 +100,17 @@ public class MenuModule {
 
         float rightReserve = (hasSettings ? 14f * uiScale : 8f * uiScale) + bindW;
         float maxTextW = Math.max(18f * uiScale, w - textOffset - rightReserve);
-        String name = CustomFontRenderer.trimToWidth(module.getName(), maxTextW, fontSize, FontWeight.REGULAR);
-        int nameColor = RenderUtil.lerpColor(
-                RenderUtil.withAlpha(MenuScreen.TEXT_GRAY, alpha * 0.95f),
-                RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha),
+        String label = blocked ? module.getName() + " locked" : module.getName();
+        String name = CustomFontRenderer.trimToWidth(label, maxTextW, fontSize, FontWeight.REGULAR);
+        int nameColor = blocked ? RenderUtil.withAlpha(0xFFFF8F8F, alpha * 0.92f) : RenderUtil.lerpColor(
+                RenderUtil.withAlpha(available ? MenuScreen.TEXT_GRAY : MenuScreen.TEXT_DIM, alpha * (available ? 0.95f : 0.48f)),
+                RenderUtil.withAlpha(available ? MenuScreen.TEXT_WHITE : MenuScreen.TEXT_GRAY, alpha * (available ? 1.0f : 0.58f)),
                 0.16f + 0.72f * enableAnim + 0.20f * hoverAnim
         );
         CustomFontRenderer.drawText(ctx, name, drawX + textOffset, y + (h - fontSize) / 2f, fontSize,
                 nameColor, FontWeight.REGULAR);
 
-        if (module.isEnabled() || enableAnim > 0.01f) {
+        if (moduleIcon == null && (module.isEnabled() || enableAnim > 0.01f)) {
             float onSize = 7f * uiScale;
             float onX = drawX + leftPad + (1f - enableAnim) * (-2f * uiScale);
             float onY = y + (h - onSize) * 0.5f + 0.35f * uiScale;

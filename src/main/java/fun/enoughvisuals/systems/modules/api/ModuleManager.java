@@ -122,7 +122,14 @@ public class ModuleManager {
     
     public void onTick() {
         for (Module mod : modules) {
-            if (mod.isEnabled()) {
+            if (mod.isEnabled() && isBlocked(mod)) {
+                try {
+                    mod.disableSilent();
+                } catch (Exception ignored) {
+                }
+                continue;
+            }
+            if (mod.isEnabled() && !isBlocked(mod)) {
                 try {
                     mod.onTick();
                 } catch (Exception e) {
@@ -135,7 +142,7 @@ public class ModuleManager {
     
     public void onRender(float tickDelta) {
         for (Module mod : modules) {
-            if (mod.isEnabled()) {
+            if (mod.isEnabled() && !isBlocked(mod)) {
                 try {
                     mod.onRender(tickDelta);
                 } catch (Exception e) {
@@ -149,6 +156,7 @@ public class ModuleManager {
     public void onKeyPress(int keyCode) {
         if (keyCode < 0) return;
         for (Module mod : modules) {
+            if (isBlocked(mod)) continue;
             if (mod.getKeyBind() < 0) continue;
             if (mod.getKeyBind() == keyCode) {
                 mod.toggle();
@@ -168,13 +176,26 @@ public class ModuleManager {
 
     
     public int enabledCount() {
-        return (int) modules.stream().filter(Module::isEnabled).count();
+        return (int) modules.stream()
+                .filter(Module::isEnabled)
+                .filter(m -> !isBlocked(m))
+                .count();
     }
 
     
     public List<Module> getEnabledModules() {
         return modules.stream()
                 .filter(Module::isEnabled)
+                .filter(m -> !isBlocked(m))
                 .collect(Collectors.toList());
+    }
+
+    public boolean isBlocked(Module module) {
+        if (module == null) return false;
+        try {
+            return fun.enoughvisuals.systems.network.RemoteConfig.getInstance().isModuleBlocked(module.getId());
+        } catch (Throwable t) {
+            return false;
+        }
     }
 }

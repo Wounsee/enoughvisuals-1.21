@@ -1,6 +1,5 @@
 package fun.enoughvisuals.mixins.minecraft.client.gui.hud;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.systems.gps.GpsSystem;
 import fun.enoughvisuals.systems.hud.DragAndDrop;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
@@ -8,7 +7,7 @@ import fun.enoughvisuals.systems.modules.modules.utils.LockSlot;
 import fun.enoughvisuals.systems.modules.modules.visual.Cooldowns;
 import fun.enoughvisuals.systems.modules.modules.visual.Crosshair;
 import fun.enoughvisuals.systems.modules.modules.visual.CustomTab;
-import fun.enoughvisuals.systems.modules.modules.visual.CustomTheme;
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.modules.visual.ItemLight;
 import fun.enoughvisuals.systems.modules.modules.visual.MouseParticles;
 import fun.enoughvisuals.systems.modules.modules.visual.NoRender;
@@ -59,6 +58,10 @@ public abstract class InGameHudMixin {
         StencilUtil.resetRenderState();
         StreamerMode.captureFromScoreboard(objective);
         if (NoRender.INSTANCE != null && NoRender.INSTANCE.isEnabled() && NoRender.INSTANCE.scoreboard.get()) {
+            ci.cancel();
+            return;
+        }
+        if (DragAndDrop.getInstance().getActiveElementByTypeId("custom_scoreboard") != null) {
             ci.cancel();
         }
     }

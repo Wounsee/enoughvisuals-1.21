@@ -10,7 +10,7 @@ import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.Identifier;
 
-@Register(name="HitSound", id="hit_sound", description="Звук при ударе", category=Category.UTILS)
+@Register(name="HitSound", id="hit_sound", description="Звук при ударе", category = Category.UTILS)
 public class HitSound extends Module {
 
     public static HitSound INSTANCE;

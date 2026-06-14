@@ -123,13 +123,51 @@ public class BindsHud extends HudElement {
                 if (currentY > y + h) break;
 
                 // 1. Иконка категории через Draw.image
-                Identifier catIcon = m.getCategory() == Category.VISUAL
-                        ? Identifier.of("enough", "icons/category/visual.png")
-                        : Identifier.of("enough", "icons/category/utils.png");
-
+                String icon = "";
+                FontWeight font = FontWeight.VC;
                 float iconSize = 9f * s;
-                // Параметры 43, 43 взяты из MenuScreen.CAT_ICON_TEX
-                Draw.image(ctx, catIcon, x + 5f * s, currentY + 2.5f * s, iconSize, iconSize, 43, 43, alpha);
+
+                switch (m.getCategory()) {
+                    case CLIENT -> {
+                        icon = "\uF001";
+                        font = FontWeight.CLIENT;
+                        iconSize = 9f * s;
+                    }
+
+                    /* case WORLD -> {
+                        icon = "\uF002";
+                        font = FontWeight.WP;
+                        iconSize = 11f * s;
+                    }
+
+                    case PLAYER -> {
+                        icon = "\uF001";
+                        font = FontWeight.WP;
+                        iconSize = 10f * s;
+                    } */
+
+                    case VISUAL -> {
+                        icon = "\uF001";
+                        font = FontWeight.VC;
+                        iconSize = 10f * s;
+                    }
+
+                    case UTILS -> {
+                        icon = "\uF000";
+                        font = FontWeight.VC;
+                        iconSize = 9f * s;
+                    }
+                }
+
+                CustomFontRenderer.drawText(
+                        ctx,
+                        icon,
+                        x + 5f * s,
+                        currentY + (rowH - iconSize) * 0.5f,
+                        iconSize,
+                        RenderUtil.withAlpha(0xFFFFFF, alpha),
+                        font
+                );
 
                 // 2. Название модуля (сдвинуто на x + 16f, чтобы не налезть на иконку)
                 CustomFontRenderer.drawText(ctx, m.getName(), x + 16f * s, currentY + 3.5f * s, 6.0f * s, RenderUtil.withAlpha(0xFFFFFF, alpha), FontWeight.SEMIBOLD);

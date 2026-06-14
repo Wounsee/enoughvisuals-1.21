@@ -1,10 +1,12 @@
 package fun.enoughvisuals.utils.player;
 
+import fun.enoughvisuals.Info;
 import fun.enoughvisuals.utils.font.TextGradientUtil;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.screen.slot.Slot;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
@@ -27,7 +29,7 @@ public final class ClientActionUtil {
 
     public static void clientMessage(String message) {
         if (mc.inGameHud != null) {
-            MutableText prefix = TextGradientUtil.gradient("EnoughVisuals \u00BB ", 0x6D3BFF, 0xD2D5FF);
+            MutableText prefix = TextGradientUtil.gradient(Info.CHAT_PREFIX, 0x6D3BFF, 0xD2D5FF);
             MutableText body = Text.literal(message == null ? "" : message).setStyle(Style.EMPTY.withColor(0xFFFFFF));
             mc.inGameHud.getChatHud().addMessage(prefix.append(body));
         }
@@ -88,9 +90,18 @@ public final class ClientActionUtil {
 
     public static boolean swapToHotbar(int inventorySlot, int hotbarSlot) {
         if (!inGame() || mc.interactionManager == null || hotbarSlot < 0 || hotbarSlot > 8) return false;
+        int screenSlot = -1;
+        for (Slot slot : mc.player.currentScreenHandler.slots) {
+            if (slot.inventory == mc.player.getInventory() && slot.getIndex() == inventorySlot) {
+                screenSlot = slot.id;
+                break;
+            }
+        }
+        if (screenSlot < 0) return false;
+
         mc.interactionManager.clickSlot(
                 mc.player.currentScreenHandler.syncId,
-                inventoryToScreenSlot(inventorySlot),
+                screenSlot,
                 hotbarSlot,
                 SlotActionType.SWAP,
                 mc.player

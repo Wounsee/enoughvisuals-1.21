@@ -3,9 +3,9 @@ package fun.enoughvisuals.systems.modules.api;
 import fun.enoughvisuals.utils.system.ClientLanguage;
 
 public enum Category {
-    VISUAL("Visuals", "Визуалы"),
-    UTILS("Utils", "Утилиты"),
-    CUSTOM("Client", "Client");
+    VISUAL("Визуалы", "Визуальные функции"),
+    UTILS("Утилиты", "Полезные функции"),
+    CLIENT("Клиент", "Настройки клиента");
 
     private final String displayName;
     private final String description;

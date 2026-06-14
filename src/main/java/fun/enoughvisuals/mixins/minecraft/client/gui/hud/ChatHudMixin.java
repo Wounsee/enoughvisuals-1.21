@@ -158,6 +158,11 @@ public abstract class ChatHudMixin {
 
     @Unique
     private float[] enough$messageAnimation(int currentTick, ChatHudLine.Visible line, boolean focused, int width) {
+        Animations animations = Animations.active();
+        if (animations == null || !animations.chatMessageAnimation.get()) {
+            return enough$messageAnimationValues(0f, 0f, 1f, 1f);
+        }
+
         if (focused || scrolledLines > 0) {
             return enough$messageAnimationValues(0f, 0f, 1f, 1f);
         }

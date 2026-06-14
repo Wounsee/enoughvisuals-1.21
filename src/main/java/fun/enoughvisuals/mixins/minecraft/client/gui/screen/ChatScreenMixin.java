@@ -8,7 +8,7 @@ import fun.enoughvisuals.systems.hud.ContextMenu;
 import fun.enoughvisuals.systems.hud.DragAndDrop;
 import fun.enoughvisuals.systems.hud.Grid;
 import fun.enoughvisuals.systems.modules.modules.visual.Animations;
-import fun.enoughvisuals.systems.modules.modules.visual.CustomTheme;
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.modules.visual.MouseParticles;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
 import net.minecraft.client.MinecraftClient;

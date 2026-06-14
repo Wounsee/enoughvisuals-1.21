@@ -1,7 +1,10 @@
 package fun.enoughvisuals.mixins.minecraft.client.network;
 
 import fun.enoughvisuals.systems.modules.modules.utils.LockSlot;
+import fun.enoughvisuals.systems.modules.modules.utils.PvPSave;
+import fun.enoughvisuals.systems.modules.modules.utils.FakePlayer;
 import net.minecraft.client.network.ClientPlayerInteractionManager;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
@@ -12,6 +15,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ClientPlayerInteractionManager.class)
 public class ClientPlayerInteractionManagerMixin {
+
+    @Inject(method = "attackEntity", at = @At("HEAD"), cancellable = true)
+    private void enough$recordPlayerAttack(PlayerEntity player, Entity target, CallbackInfo ci) {
+        if (FakePlayer.handleLocalAttack(target)) {
+            ci.cancel();
+            return;
+        }
+        PvPSave.recordAttack(target);
+    }
 
     @Inject(method = "clickSlot", at = @At("HEAD"), cancellable = true)
     private void onClickSlot(int syncId, int slotId, int button, SlotActionType actionType, PlayerEntity player, CallbackInfo ci) {

@@ -50,6 +50,11 @@ public class CustomTab extends Module {
     private static final float TOP_PAD = 7.5f;
     private static final float HEADER_H = 10.4f;
     private static final float BOTTOM_PAD = 7f;
+    private static boolean clipActive = false;
+    private static float clipX = 0f;
+    private static float clipY = 0f;
+    private static float clipW = 0f;
+    private static float clipH = 0f;
 
     private float anim = 0f;
 
@@ -119,6 +124,11 @@ public class CustomTab extends Module {
 
         float tabFade = INSTANCE == null ? 1f : RenderUtil.easeInOutCubic(Math.max(0f, Math.min(1f, INSTANCE.anim)));
         float contentAlpha = Math.max(0f, Math.min(1f, alpha)) * tabFade;
+        clipActive = true;
+        clipX = x;
+        clipY = y;
+        clipW = w;
+        clipH = h;
         RenderUtil.enableScissor(x, y, w, h);
         try {
 
@@ -164,6 +174,7 @@ public class CustomTab extends Module {
 
         } finally {
             RenderUtil.disableScissor();
+            clipActive = false;
         }
     }
 
@@ -416,11 +427,20 @@ public class CustomTab extends Module {
         }
 
         float w = mc.textRenderer.getWidth(run) * vanillaScale;
+        if (clipActive) {
+            RenderUtil.enableScissor(clipX, clipY, clipW, clipH);
+        }
         ctx.getMatrices().push();
-        ctx.getMatrices().translate(x, y + 0.35f, 0f);
-        ctx.getMatrices().scale(vanillaScale, vanillaScale, 1f);
-        ctx.drawText(mc.textRenderer, run, 0, 0, color, false);
-        ctx.getMatrices().pop();
+        try {
+            ctx.getMatrices().translate(x, y + 0.35f, 80f);
+            ctx.getMatrices().scale(vanillaScale, vanillaScale, 1f);
+            ctx.drawText(mc.textRenderer, run, 0, 0, color, false);
+        } finally {
+            ctx.getMatrices().pop();
+            if (clipActive) {
+                RenderUtil.disableScissor();
+            }
+        }
         return w;
     }
 

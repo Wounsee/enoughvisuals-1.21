@@ -14,10 +14,11 @@ public class CustomModel extends Module {
             "Модель",
             "model",
             "Модель игрока",
-            "Toy Chica",
-            "Toy Chica",
-            "Snowman",
-            "Glamrock Freddy"
+            "Glamrock Freddy",
+            "Car",
+            "Glamrock Freddy",
+            "Repo",
+            "Trashcan"
     ));
 
     public final SliderSetting size = add(new SliderSetting(
@@ -45,17 +46,20 @@ public class CustomModel extends Module {
     }
 
     public String modelPath() {
-        if (model.is("Snowman")) {
-            return "/assets/enough/models/custom/snowman.glb";
+        if (model.is("Car")) {
+            return "/assets/enough/models/custom/car.glb";
         }
-        if (model.is("Glamrock Freddy")) {
-            return "/assets/enough/models/custom/glamrock_freddy.glb";
+        if (model.is("Repo")) {
+            return "/assets/enough/models/custom/repo.glb";
         }
-        return "/assets/enough/models/custom/toy_chica.glb";
+        if (model.is("Trashcan")) {
+            return "/assets/enough/models/custom/trashcan.glb";
+        }
+        return "/assets/enough/models/custom/glamrock_freddy.glb";
     }
 
     public float modelYawOffset() {
-        if (model.is("Snowman")) {
+        if (model.is("Car")) {
             return 180.0f;
         }
         if (model.is("Glamrock Freddy")) {

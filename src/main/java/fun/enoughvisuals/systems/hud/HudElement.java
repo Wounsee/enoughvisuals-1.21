@@ -1,6 +1,6 @@
 package fun.enoughvisuals.systems.hud;
 
-import fun.enoughvisuals.systems.modules.modules.visual.CustomTheme;
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.settings.Setting;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
 import fun.enoughvisuals.utils.render.RenderUtil;
@@ -134,6 +134,8 @@ public abstract class HudElement {
 
     protected final void drawMenuStyleBackground(DrawContext ctx, float x, float y, float w, float h,
                                                  float radius, float alpha) {
+        RenderUtil.drawShadow(ctx, x, y, w, h, radius, 8.5f,
+                RenderUtil.withAlpha(0x000000, alpha * 0.22f));
         GlassUtil.drawGlassPanel(ctx, x, y, w, h, radius,
                 CustomTheme.hudPanelTint(),
                 alpha * CustomTheme.hudPanelTintAlpha(),
@@ -310,6 +312,9 @@ public abstract class HudElement {
 
     public void setTypeId(String typeId) {
         this.typeId = typeId;
+        for (Setting<?> setting : settings) {
+            setting.setOwnerModuleId(typeId);
+        }
     }
 
     public String getDisplayName() {

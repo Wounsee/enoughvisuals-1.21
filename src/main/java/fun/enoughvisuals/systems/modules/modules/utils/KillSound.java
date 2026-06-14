@@ -5,7 +5,7 @@ import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 
-@Register(name="KillSound", id="kill_sound", description="Воспроизводит звук при убийстве", category=Category.UTILS)
+@Register(name="KillSound", id="kill_sound", description="Воспроизводит звук при убийстве", category = Category.UTILS)
 public class KillSound extends Module {
     private final SliderSetting volume = add(new SliderSetting(
             "Громкость",

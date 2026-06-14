@@ -27,13 +27,14 @@ void main() {
     vec2 p = pixelPos - center;
 
     float dist = roundedBoxSDF(p, halfSize, uRadii);
+    float shadowSize = max(uShadowSize, 0.001);
+    float outside = max(dist, 0.0);
+    float t = clamp(outside / shadowSize, 0.0, 1.0);
 
-    // Гауссово затухание тени
-    float shadowAlpha = 1.0 - smoothstep(0.0, uShadowSize, dist);
-    shadowAlpha = shadowAlpha * shadowAlpha; // Квадратичное затухание
+    float gaussian = exp(-t * t * 5.25);
+    float edgeFade = 1.0 - smoothstep(shadowSize * 0.72, shadowSize, outside);
+    float outsideMask = smoothstep(-uSmoothing, uSmoothing, dist);
+    float alpha = gaussian * edgeFade * outsideMask;
 
-    // Не рисуем внутри прямоугольника (тень только снаружи)
-    float insideMask = 1.0 - smoothstep(-uSmoothing, uSmoothing, -dist);
-
-    fragColor = uShadowColor * vec4(1.0, 1.0, 1.0, shadowAlpha * insideMask);
+    fragColor = vec4(uShadowColor.rgb, uShadowColor.a * alpha);
 }

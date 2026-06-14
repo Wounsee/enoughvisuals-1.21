@@ -21,12 +21,9 @@ public class BetterHands extends Module {
             "Обычная"
     ));
 
-    public final SliderSetting rightX = add(new SliderSetting("Правая X", "right_x", "Смещение правой руки по X", 0.0, -2.0, 2.0, 0.05));
-    public final SliderSetting rightY = add(new SliderSetting("Правая Y", "right_y", "Смещение правой руки по Y", 0.0, -2.0, 2.0, 0.05));
-    public final SliderSetting rightZ = add(new SliderSetting("Правая Z", "right_z", "Смещение правой руки по Z", 0.0, -2.0, 2.0, 0.05));
-    public final SliderSetting leftX = add(new SliderSetting("Левая X", "left_x", "Смещение левой руки по X", 0.0, -2.0, 2.0, 0.05));
-    public final SliderSetting leftY = add(new SliderSetting("Левая Y", "left_y", "Смещение левой руки по Y", 0.0, -2.0, 2.0, 0.05));
-    public final SliderSetting leftZ = add(new SliderSetting("Левая Z", "left_z", "Смещение левой руки по Z", 0.0, -2.0, 2.0, 0.05));
+    public final SliderSetting spread = add(new SliderSetting("Размах", "spread", "Насколько широко руки уходят влево и вправо", 0.65, 0.55, 1.65, 0.05));
+    public final SliderSetting animationDistance = add(new SliderSetting("Дальность анимации", "animation_distance", "Сила и дальность движения руки во время удара", 1.0, 0.15, 2.0, 0.05));
+    public final SliderSetting animationSpeed = add(new SliderSetting("Скорость анимации", "animation_speed", "Скорость swing-анимации и мягкой инерции рук", 1.0, 0.25, 2.5, 0.05));
 
     public BetterHands() {
         INSTANCE = this;
@@ -48,5 +45,13 @@ public class BetterHands extends Module {
 
     public boolean useNormalAttack() {
         return attackMode.is("Обычная");
+    }
+
+    public float animationDistance() {
+        return animationDistance.get().floatValue();
+    }
+
+    public float animationSpeed() {
+        return animationSpeed.get().floatValue();
     }
 }

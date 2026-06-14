@@ -1,5 +1,6 @@
 package fun.enoughvisuals.systems.friends;
 
+import fun.enoughvisuals.Info;
 import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
@@ -319,7 +320,7 @@ public final class FriendRepo {
             return;
         }
 
-        MutableText prefix = fun.enoughvisuals.utils.font.TextGradientUtil.gradient("EnoughVisuals » ", 0x6D3BFF, 0xD2D5FF);
+        MutableText prefix = fun.enoughvisuals.utils.font.TextGradientUtil.gradient(Info.CHAT_PREFIX, 0x6D3BFF, 0xD2D5FF);
         MutableText message = Text.literal(text).setStyle(Style.EMPTY.withColor(0xFFFFFF));
         client.inGameHud.getChatHud().addMessage(prefix.append(message));
     }

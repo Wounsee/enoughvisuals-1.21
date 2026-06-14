@@ -133,6 +133,7 @@ public final class CustomModelRenderer {
         private final List<Integer> roots = new ArrayList<>();
         private final List<Mesh> meshes = new ArrayList<>();
         private final List<MaterialInfo> materials = new ArrayList<>();
+        private final List<Skin> skins = new ArrayList<>();
         private Matrix4f normalize = new Matrix4f();
 
         static GlbModel read(String key, byte[] bytes) throws Exception {
@@ -165,6 +166,7 @@ public final class CustomModelRenderer {
             List<Accessor> accessors = readAccessors(accessorsJson);
 
             model.readTextures(key, json, bin, views);
+            model.readSkins(json, bin, views, accessors);
             model.readMeshes(json, bin, views, accessors);
             model.readNodes(json);
             model.readScene(json);
@@ -251,17 +253,27 @@ public final class CustomModelRenderer {
                     if (textureIndex < 0 && material.has("normalTexture")) {
                         textureIndex = intValue(material.getAsJsonObject("normalTexture"), "index", -1);
                     }
+                    if (textureIndex < 0 && material.has("extensions")) {
+                        JsonObject extensions = material.getAsJsonObject("extensions");
+                        if (extensions.has("KHR_materials_pbrSpecularGlossiness")) {
+                            JsonObject specGloss = extensions.getAsJsonObject("KHR_materials_pbrSpecularGlossiness");
+                            if (specGloss.has("diffuseTexture")) {
+                                textureIndex = intValue(specGloss.getAsJsonObject("diffuseTexture"), "index", -1);
+                            }
+                        }
+                    }
                     int imageIndex = -1;
                     if (textures != null && textureIndex >= 0 && textureIndex < textures.size()) {
                         imageIndex = intValue(textures.get(textureIndex).getAsJsonObject(), "source", -1);
                     }
                     Identifier texture = imageIndex >= 0 && imageIndex < imageIds.size() ? imageIds.get(imageIndex) : TextureManagerFallback.WHITE;
                     boolean doubleSided = material.has("doubleSided") && material.get("doubleSided").getAsBoolean();
-                    this.materials.add(new MaterialInfo(texture, factor[0], factor[1], factor[2], factor[3], doubleSided));
+                    String alphaMode = stringValue(material, "alphaMode", "OPAQUE");
+                    this.materials.add(new MaterialInfo(texture, factor[0], factor[1], factor[2], factor[3], doubleSided, alphaMode));
                 }
             }
             if (this.materials.isEmpty()) {
-                this.materials.add(new MaterialInfo(TextureManagerFallback.WHITE, 1.0f, 1.0f, 1.0f, 1.0f, true));
+                this.materials.add(new MaterialInfo(TextureManagerFallback.WHITE, 1.0f, 1.0f, 1.0f, 1.0f, true, "OPAQUE"));
             }
         }
 
@@ -278,8 +290,10 @@ public final class CustomModelRenderer {
                         float[] positions = readFloatAccessor(bin, views, accessors, intValue(attributes, "POSITION", -1), 3);
                         float[] normals = readFloatAccessor(bin, views, accessors, intValue(attributes, "NORMAL", -1), 3);
                         float[] uvs = readFloatAccessor(bin, views, accessors, intValue(attributes, "TEXCOORD_0", -1), 2);
+                        int[] joints = readJointAccessor(bin, views, accessors, intValue(attributes, "JOINTS_0", -1), positions.length / 3);
+                        float[] weights = readFloatAccessor(bin, views, accessors, intValue(attributes, "WEIGHTS_0", -1), 4);
                         int[] indices = readIndexAccessor(bin, views, accessors, intValue(primitive, "indices", -1), positions.length / 3);
-                        mesh.primitives.add(new Primitive(positions, normals, uvs, indices, intValue(primitive, "material", 0)));
+                        mesh.primitives.add(new Primitive(positions, normals, uvs, joints, weights, indices, intValue(primitive, "material", 0)));
                     }
                 }
                 meshes.add(mesh);
@@ -292,8 +306,10 @@ public final class CustomModelRenderer {
             for (JsonElement nodeElement : nodesJson) {
                 JsonObject object = nodeElement.getAsJsonObject();
                 Node node = new Node();
+                node.index = nodes.size();
                 node.name = stringValue(object, "name", "");
                 node.mesh = intValue(object, "mesh", -1);
+                node.skin = intValue(object, "skin", -1);
                 node.local = localMatrix(object);
                 JsonArray children = object.getAsJsonArray("children");
                 if (children != null) {
@@ -341,68 +357,102 @@ public final class CustomModelRenderer {
         }
 
         void render(Matrix4f base, VertexConsumerProvider consumers, Pose pose) {
-            Matrix4f normalizedBase = new Matrix4f(base).mul(normalize);
+            Matrix4f renderBase = new Matrix4f(base).mul(normalize);
+            Matrix4f[] localWorld = new Matrix4f[nodes.size()];
             for (int root : roots) {
-                renderNode(root, normalizedBase, new Matrix4f(), consumers, pose);
+                buildWorld(root, new Matrix4f(), localWorld, pose);
+            }
+            Matrix4f[] world = new Matrix4f[nodes.size()];
+            for (int i = 0; i < localWorld.length; i++) {
+                if (localWorld[i] != null) {
+                    world[i] = new Matrix4f(renderBase).mul(localWorld[i]);
+                }
+            }
+            for (int root : roots) {
+                renderNode(root, localWorld, world, consumers, pose);
             }
         }
 
-        private void renderNode(int index, Matrix4f base, Matrix4f parent, VertexConsumerProvider consumers, Pose pose) {
+        private void buildWorld(int index, Matrix4f parent, Matrix4f[] world, Pose pose) {
             if (index < 0 || index >= nodes.size()) return;
             Node node = nodes.get(index);
             if (shouldSkipNode(node, pose)) return;
             Matrix4f local = new Matrix4f(parent).mul(node.local).mul(animationFor(node, pose));
-            if (node.mesh >= 0 && node.mesh < meshes.size()) {
-                Matrix4f transform = new Matrix4f(base).mul(local);
-                renderMesh(meshes.get(node.mesh), transform, consumers);
-            }
+            world[index] = local;
             for (int child : node.children) {
-                renderNode(child, base, local, consumers, pose);
+                buildWorld(child, local, world, pose);
             }
         }
 
-        private void renderMesh(Mesh mesh, Matrix4f transform, VertexConsumerProvider consumers) {
-            Matrix3f normalMatrix = new Matrix3f(transform).invert().transpose();
+        private void renderNode(int index, Matrix4f[] localWorld, Matrix4f[] world, VertexConsumerProvider consumers, Pose pose) {
+            if (index < 0 || index >= nodes.size()) return;
+            Node node = nodes.get(index);
+            if (shouldSkipNode(node, pose)) return;
+            if (node.mesh >= 0 && node.mesh < meshes.size()) {
+                Skin skin = node.skin >= 0 && node.skin < skins.size() ? skins.get(node.skin) : null;
+                Matrix4f transform = world[index] != null ? world[index] : new Matrix4f();
+                Matrix4f localTransform = localWorld[index] != null ? localWorld[index] : new Matrix4f();
+                renderMesh(meshes.get(node.mesh), skin, localWorld, localTransform, transform, consumers);
+            }
+            for (int child : node.children) {
+                renderNode(child, localWorld, world, consumers, pose);
+            }
+        }
+
+        private void renderMesh(Mesh mesh, Skin skin, Matrix4f[] world, Matrix4f localTransform, Matrix4f transform, VertexConsumerProvider consumers) {
+            Matrix4f inverseMeshTransform = skin != null ? new Matrix4f(localTransform).invert() : new Matrix4f();
             for (Primitive primitive : mesh.primitives) {
                 MaterialInfo material = materials.get(Math.max(0, Math.min(materials.size() - 1, primitive.material)));
-                VertexConsumer consumer = consumers.getBuffer(RenderLayer.getEntityTranslucent(material.texture()));
+                VertexConsumer consumer = consumers.getBuffer(materialLayer(material));
                 for (int i = 0; i + 2 < primitive.indices.length; i += 3) {
                     int i0 = primitive.indices[i];
                     int i1 = primitive.indices[i + 1];
                     int i2 = primitive.indices[i + 2];
-                    writeVertex(consumer, transform, normalMatrix, primitive, i0, material, false);
-                    writeVertex(consumer, transform, normalMatrix, primitive, i1, material, false);
-                    writeVertex(consumer, transform, normalMatrix, primitive, i2, material, false);
+                    writeVertex(consumer, transform, primitive, skin, world, inverseMeshTransform, i0, material, false);
+                    writeVertex(consumer, transform, primitive, skin, world, inverseMeshTransform, i1, material, false);
+                    writeVertex(consumer, transform, primitive, skin, world, inverseMeshTransform, i2, material, false);
                     if (material.doubleSided()) {
-                        writeVertex(consumer, transform, normalMatrix, primitive, i2, material, true);
-                        writeVertex(consumer, transform, normalMatrix, primitive, i1, material, true);
-                        writeVertex(consumer, transform, normalMatrix, primitive, i0, material, true);
+                        writeVertex(consumer, transform, primitive, skin, world, inverseMeshTransform, i2, material, true);
+                        writeVertex(consumer, transform, primitive, skin, world, inverseMeshTransform, i1, material, true);
+                        writeVertex(consumer, transform, primitive, skin, world, inverseMeshTransform, i0, material, true);
                     }
                 }
             }
         }
 
-        private void writeVertex(VertexConsumer consumer, Matrix4f matrix, Matrix3f normalMatrix, Primitive primitive, int index, MaterialInfo material, boolean flipNormal) {
+        private void writeVertex(VertexConsumer consumer, Matrix4f matrix, Primitive primitive, Skin skin, Matrix4f[] localWorld, Matrix4f inverseMeshTransform, int index, MaterialInfo material, boolean flipNormal) {
             int pi = index * 3;
             int ti = index * 2;
             if (pi < 0 || pi + 2 >= primitive.positions.length) {
                 return;
             }
-            float nx = 0.0f;
-            float ny = 1.0f;
-            float nz = 0.0f;
-            if (primitive.normals.length >= pi + 3) {
-                Vector3f normal = new Vector3f(primitive.normals[pi], primitive.normals[pi + 1], primitive.normals[pi + 2]).mul(normalMatrix).normalize();
-                if (flipNormal) {
-                    normal.negate();
+            Vector3f pos = new Vector3f(primitive.positions[pi], primitive.positions[pi + 1], primitive.positions[pi + 2]);
+            Vector3f normal = primitive.normals.length >= pi + 3 ? new Vector3f(primitive.normals[pi], primitive.normals[pi + 1], primitive.normals[pi + 2]) : new Vector3f(0.0f, 1.0f, 0.0f);
+            if (skin != null && primitive.joints.length >= index * 4 + 4 && primitive.weights.length >= index * 4 + 4) {
+                Vector3f skinnedPos = new Vector3f();
+                Vector3f skinnedNormal = new Vector3f();
+                for (int i = 0; i < 4; i++) {
+                    float weight = primitive.weights[index * 4 + i];
+                    if (weight <= 0.0f) continue;
+                    int jointIndex = primitive.joints[index * 4 + i];
+                    Matrix4f jointMatrix = skin.jointMatrix(jointIndex, localWorld, inverseMeshTransform);
+                    Matrix3f normalMatrix = new Matrix3f(jointMatrix).invert().transpose();
+                    Vector3f jointPos = new Vector3f(pos).mulPosition(jointMatrix).mul(weight);
+                    Vector3f jointNormal = new Vector3f(normal).mul(normalMatrix).mul(weight);
+                    skinnedPos.add(jointPos);
+                    skinnedNormal.add(jointNormal);
                 }
-                nx = normal.x;
-                ny = normal.y;
-                nz = normal.z;
+                pos = skinnedPos;
+                normal = skinnedNormal.normalize();
+            }
+            Matrix3f normalMatrix = new Matrix3f(matrix).invert().transpose();
+            Vector3f transformedNormal = normal.mul(normalMatrix).normalize();
+            if (flipNormal) {
+                transformedNormal.negate();
             }
             float u = primitive.uvs.length >= ti + 2 ? primitive.uvs[ti] : 0.0f;
             float v = primitive.uvs.length >= ti + 2 ? primitive.uvs[ti + 1] : 0.0f;
-            consumer.vertex(matrix, primitive.positions[pi], primitive.positions[pi + 1], primitive.positions[pi + 2])
+            consumer.vertex(matrix, pos.x, pos.y, pos.z)
                     .color(
                             MathHelper.clamp((int) (material.r() * 255.0f), 0, 255),
                             MathHelper.clamp((int) (material.g() * 255.0f), 0, 255),
@@ -412,7 +462,38 @@ public final class CustomModelRenderer {
                     .texture(u, v)
                     .overlay(OverlayTexture.DEFAULT_UV)
                     .light(LightmapTextureManager.MAX_LIGHT_COORDINATE)
-                    .normal(nx, ny, nz);
+                    .normal(transformedNormal.x, transformedNormal.y, transformedNormal.z);
+        }
+
+        private void readSkins(JsonObject json, byte[] bin, List<BufferView> views, List<Accessor> accessors) {
+            JsonArray skinsJson = json.getAsJsonArray("skins");
+            if (skinsJson == null) return;
+            for (JsonElement skinElement : skinsJson) {
+                JsonObject skinObject = skinElement.getAsJsonObject();
+                JsonArray jointsJson = skinObject.getAsJsonArray("joints");
+                if (jointsJson == null || jointsJson.isEmpty()) {
+                    skins.add(Skin.empty());
+                    continue;
+                }
+                int[] joints = new int[jointsJson.size()];
+                for (int i = 0; i < jointsJson.size(); i++) {
+                    joints[i] = jointsJson.get(i).getAsInt();
+                }
+                int inverseIndex = intValue(skinObject, "inverseBindMatrices", -1);
+                float[] inverseValues = readFloatAccessor(bin, views, accessors, inverseIndex, 16);
+                Matrix4f[] inverse = new Matrix4f[joints.length];
+                for (int i = 0; i < joints.length; i++) {
+                    int base = i * 16;
+                    if (base + 15 < inverseValues.length) {
+                        float[] values = new float[16];
+                        System.arraycopy(inverseValues, base, values, 0, 16);
+                        inverse[i] = new Matrix4f().setTransposed(values);
+                    } else {
+                        inverse[i] = new Matrix4f();
+                    }
+                }
+                skins.add(new Skin(joints, inverse));
+            }
         }
 
         private void collectBounds(int index, Matrix4f parent, Bounds bounds) {
@@ -455,22 +536,66 @@ public final class CustomModelRenderer {
         String model = pose.modelKey == null ? "" : pose.modelKey.toLowerCase();
         Matrix4f matrix = new Matrix4f();
         float swing = MathHelper.sin(pose.limbPos * 0.6662f) * 0.52f * pose.limbSpeed;
-        boolean chica = model.contains("toy_chica");
         boolean freddy = model.contains("glamrock_freddy");
-        boolean snowman = model.contains("snowman");
+        boolean car = model.contains("car");
+        boolean repo = model.contains("repo");
+        boolean trashcan = model.contains("trashcan");
         boolean allay = model.contains("allay");
-        boolean rightArm = lower.startsWith("armr") || lower.contains("right_arm") || lower.contains("arm_right");
-        boolean leftArm = lower.startsWith("arml") || lower.contains("left_arm") || lower.contains("arm_left");
-        boolean rightLeg = lower.startsWith("legr") || lower.contains("right_leg");
-        boolean leftLeg = lower.startsWith("legl") || lower.contains("left_leg");
-        if (lower.startsWith("head")) {
+        boolean skinned = allay || model.contains("bear") || model.contains("warden");
+
+        if (car) {
+            return matrix;
+        }
+        if (lower.contains("_end")) {
+            return matrix;
+        }
+        if (skinned) {
+            return matrix;
+        }
+        if (trashcan) {
+            if (node.index == 2) {
+                float step = MathHelper.sin(pose.limbPos * 0.6662f) * pose.limbSpeed;
+                matrix.rotateX(step * 0.035f);
+                matrix.rotateZ(step * 0.08f);
+                return aroundBottomPivot(node, matrix);
+            }
+            return matrix;
+        }
+        if (repo) {
+            float step = MathHelper.sin(pose.limbPos * 0.6662f) * pose.limbSpeed;
+            if (node.index == 11) {
+                matrix.rotateX(-step * 0.55f);
+                return aroundTopPivot(node, matrix, 0.08f);
+            } else if (node.index == 16) {
+                matrix.rotateX(step * 0.55f);
+                return aroundTopPivot(node, matrix, 0.08f);
+            } else if (node.index == 6) {
+                matrix.rotateX(step * 0.65f);
+                return aroundTopPivot(node, matrix, 0.0f);
+            } else if (node.index == 8) {
+                matrix.rotateX(-step * 0.65f);
+                return aroundTopPivot(node, matrix, 0.0f);
+            }
+            return matrix;
+        }
+
+        boolean rightArm = lower.startsWith("rarm") || lower.startsWith("armr") || lower.contains("right_arm") || lower.contains("arm_right");
+        boolean leftArm = lower.startsWith("larm") || lower.startsWith("arml") || lower.contains("left_arm") || lower.contains("arm_left");
+        boolean rightLeg = lower.startsWith("rleg") || lower.startsWith("legr") || lower.startsWith("legrf") || lower.startsWith("legrb") || lower.contains("right_leg");
+        boolean leftLeg = lower.startsWith("lleg") || lower.startsWith("legl") || lower.startsWith("leglf") || lower.startsWith("leglb") || lower.contains("left_leg");
+
+        if (lower.startsWith("head") || lower.contains("_head")) {
+            if (freddy) {
+                return matrix;
+            }
             matrix.rotateY((float) Math.toRadians(-pose.headYaw * 0.75f));
             matrix.rotateX((float) Math.toRadians(pose.pitch * 0.75f));
         } else if (lower.contains("wing")) {
-            float flap = MathHelper.sin(pose.age * (allay ? 1.85f : 1.45f)) * (allay ? 0.42f : 0.55f);
-            float side = (lower.contains("_1") || lower.contains("left")) ? -1.0f : 1.0f;
-            matrix.rotateY(side * ((allay ? 0.34f : 0.22f) + flap * (allay ? 0.30f : 0.38f)));
-            matrix.rotateZ(side * ((allay ? 0.12f : 0.24f) + flap * (allay ? 0.13f : 0.20f)));
+            float flap = MathHelper.sin(pose.age * 1.85f) * (allay ? 0.42f : 0.32f);
+            boolean leftWing = lower.contains("wingl") || lower.contains("left") || lower.contains("_1");
+            float side = leftWing ? -1.0f : 1.0f;
+            matrix.rotateY(side * (0.34f + flap * 0.30f));
+            matrix.rotateZ(side * (0.12f + flap * 0.13f));
         } else if (rightArm) {
             float rest = armRest(model, true);
             matrix.rotateZ((float) Math.toRadians(rest));
@@ -491,42 +616,37 @@ public final class CustomModelRenderer {
             if (freddy) {
                 matrix.rotateZ(swing);
             } else {
-                matrix.rotateX(chica ? swing : -swing);
+                matrix.rotateX(-swing);
             }
         } else if (leftLeg) {
             if (freddy) {
                 matrix.rotateZ(-swing);
             } else {
-                matrix.rotateX(chica ? -swing : swing);
+                matrix.rotateX(swing);
             }
-        } else if (lower.startsWith("torso")) {
-            matrix.rotateX(pose.limbSpeed > 0.05f ? MathHelper.sin(pose.age * 0.12f) * 0.025f : 0.0f);
+        } else if (lower.startsWith("torso") || lower.startsWith("spine") || lower.startsWith("body")) {
+            float bob = pose.limbSpeed > 0.05f ? MathHelper.sin(pose.age * 0.12f) * 0.025f : 0.0f;
+            matrix.rotateX(bob);
+        }
+        if (skinned) {
+            return matrix;
         }
         return aroundPivot(node, matrix);
     }
 
     private static boolean shouldSkipNode(Node node, Pose pose) {
-        String model = pose.modelKey == null ? "" : pose.modelKey.toLowerCase();
-        if (!model.contains("snowman")) {
-            return false;
-        }
-
-        String lower = node.name == null ? "" : node.name.toLowerCase();
-        return lower.startsWith("left_arm") || lower.startsWith("right_arm");
+        return false;
     }
 
     private static float armRest(String model, boolean right) {
         if (model.contains("allay")) {
             return right ? -58.0f : 58.0f;
         }
-        if (model.contains("toy_chica")) {
-            return right ? -66.0f : 66.0f;
-        }
-        if (model.contains("snowman")) {
+        if (model.contains("bear") || model.contains("warden") || model.contains("glamrock_freddy")) {
             return 0.0f;
         }
-        if (model.contains("glamrock_freddy")) {
-            return 0.0f;
+        if (model.contains("car")) {
+            return right ? -45.0f : 45.0f;
         }
         return right ? -70.0f : 70.0f;
     }
@@ -542,13 +662,13 @@ public final class CustomModelRenderer {
         float pivotZ = (node.bounds.minZ + node.bounds.maxZ) * 0.5f;
 
         if (lower.contains("wing")) {
-            boolean left = lower.contains("_1") || lower.contains("left");
+            boolean left = lower.contains("wingl") || lower.contains("_1") || lower.contains("left");
             pivotX = left ? node.bounds.maxX : node.bounds.minX;
             pivotY = node.bounds.maxY;
             pivotZ = (node.bounds.minZ + node.bounds.maxZ) * 0.5f;
-        } else if (lower.startsWith("arm") || lower.startsWith("leg") || lower.contains("_arm") || lower.contains("arm_") || lower.contains("_leg")) {
+        } else if (lower.contains("arm") || lower.contains("leg") || lower.contains("spine") || lower.startsWith("body")) {
             pivotY = node.bounds.maxY;
-        } else if (lower.startsWith("head")) {
+        } else if (lower.startsWith("head") || lower.contains("_head")) {
             pivotY = node.bounds.minY;
         }
 
@@ -556,6 +676,42 @@ public final class CustomModelRenderer {
                 .translate(pivotX, pivotY, pivotZ)
                 .mul(rotation)
                 .translate(-pivotX, -pivotY, -pivotZ);
+    }
+
+    private static Matrix4f aroundTopPivot(Node node, Matrix4f rotation, float pivotYExtra) {
+        if (node.bounds == null || !node.bounds.valid) {
+            return rotation;
+        }
+
+        return aroundExplicitPivotY(node, rotation, node.bounds.maxY + pivotYExtra);
+    }
+
+    private static Matrix4f aroundBottomPivot(Node node, Matrix4f rotation) {
+        if (node.bounds == null || !node.bounds.valid) {
+            return rotation;
+        }
+
+        return aroundExplicitPivotY(node, rotation, node.bounds.minY);
+    }
+
+    private static Matrix4f aroundExplicitPivotY(Node node, Matrix4f rotation, float pivotY) {
+        float pivotX = (node.bounds.minX + node.bounds.maxX) * 0.5f;
+        float pivotZ = (node.bounds.minZ + node.bounds.maxZ) * 0.5f;
+
+        return new Matrix4f()
+                .translate(pivotX, pivotY, pivotZ)
+                .mul(rotation)
+                .translate(-pivotX, -pivotY, -pivotZ);
+    }
+
+    private static RenderLayer materialLayer(MaterialInfo material) {
+        if ("BLEND".equalsIgnoreCase(material.alphaMode())) {
+            return RenderLayer.getEntityTranslucent(material.texture());
+        }
+        if ("MASK".equalsIgnoreCase(material.alphaMode()) || material.doubleSided()) {
+            return RenderLayer.getEntityCutoutNoCull(material.texture());
+        }
+        return RenderLayer.getEntityCutout(material.texture());
     }
 
     private static Matrix4f localMatrix(JsonObject object) {
@@ -582,13 +738,19 @@ public final class CustomModelRenderer {
         Accessor accessor = accessors.get(accessorIndex);
         if (accessor.view < 0 || accessor.view >= views.size()) return new float[0];
         BufferView view = views.get(accessor.view);
-        int stride = view.stride > 0 ? view.stride : components * 4;
+        int stride = view.stride > 0 ? view.stride : components * componentSize(accessor.componentType);
         ByteBuffer data = ByteBuffer.wrap(bin).order(ByteOrder.LITTLE_ENDIAN);
         float[] result = new float[accessor.count * components];
         for (int i = 0; i < accessor.count; i++) {
             int base = view.offset + accessor.offset + i * stride;
             for (int c = 0; c < components; c++) {
-                result[i * components + c] = data.getFloat(base + c * 4);
+                result[i * components + c] = switch (accessor.componentType) {
+                    case 5126 -> data.getFloat(base + c * 4);
+                    case 5125 -> data.getInt(base + c * 4);
+                    case 5123 -> data.getShort(base + c * 2);
+                    case 5121 -> data.get(base + c) & 0xFF;
+                    default -> 0.0f;
+                };
             }
         }
         return result;
@@ -614,6 +776,30 @@ public final class CustomModelRenderer {
                 case 5125 -> data.getInt(base);
                 default -> 0;
             };
+        }
+        return result;
+    }
+
+    private static int[] readJointAccessor(byte[] bin, List<BufferView> views, List<Accessor> accessors, int accessorIndex, int vertexCount) {
+        if (accessorIndex < 0 || accessorIndex >= accessors.size()) {
+            return new int[vertexCount * 4];
+        }
+        Accessor accessor = accessors.get(accessorIndex);
+        if (accessor.view < 0 || accessor.view >= views.size()) return new int[0];
+        BufferView view = views.get(accessor.view);
+        ByteBuffer data = ByteBuffer.wrap(bin).order(ByteOrder.LITTLE_ENDIAN);
+        int[] result = new int[accessor.count * 4];
+        int stride = view.stride > 0 ? view.stride : componentSize(accessor.componentType) * 4;
+        for (int i = 0; i < accessor.count; i++) {
+            int base = view.offset + accessor.offset + i * stride;
+            for (int c = 0; c < 4; c++) {
+                result[i * 4 + c] = switch (accessor.componentType) {
+                    case 5121 -> data.get(base + c) & 0xFF;
+                    case 5123 -> data.getShort(base + c * 2) & 0xFFFF;
+                    case 5125 -> data.getInt(base + c * 4);
+                    default -> 0;
+                };
+            }
         }
         return result;
     }
@@ -661,15 +847,46 @@ public final class CustomModelRenderer {
         private final List<Primitive> primitives = new ArrayList<>();
     }
 
-    private record Primitive(float[] positions, float[] normals, float[] uvs, int[] indices, int material) {
+    private record Primitive(float[] positions, float[] normals, float[] uvs, int[] joints, float[] weights, int[] indices, int material) {
     }
 
-    private record MaterialInfo(Identifier texture, float r, float g, float b, float a, boolean doubleSided) {
+    private record MaterialInfo(Identifier texture, float r, float g, float b, float a, boolean doubleSided, String alphaMode) {
+    }
+
+    private static final class Skin {
+        private final int[] joints;
+        private final Matrix4f[] inverseBind;
+
+        private Skin(int[] joints, Matrix4f[] inverseBind) {
+            this.joints = joints;
+            this.inverseBind = inverseBind;
+        }
+
+        private static Skin empty() {
+            return new Skin(new int[0], new Matrix4f[0]);
+        }
+
+        private Matrix4f jointMatrix(int jointIndex, Matrix4f[] localWorld, Matrix4f inverseMeshTransform) {
+            if (jointIndex < 0 || jointIndex >= joints.length) {
+                return new Matrix4f();
+            }
+            int nodeIndex = joints[jointIndex];
+            if (nodeIndex < 0 || nodeIndex >= localWorld.length || localWorld[nodeIndex] == null) {
+                return new Matrix4f();
+            }
+            Matrix4f matrix = new Matrix4f(inverseMeshTransform).mul(localWorld[nodeIndex]);
+            if (jointIndex < inverseBind.length && inverseBind[jointIndex] != null) {
+                matrix.mul(inverseBind[jointIndex]);
+            }
+            return matrix;
+        }
     }
 
     private static final class Node {
+        private int index;
         private String name = "";
         private int mesh = -1;
+        private int skin = -1;
         private Matrix4f local = new Matrix4f();
         private Bounds bounds;
         private final List<Integer> children = new ArrayList<>();

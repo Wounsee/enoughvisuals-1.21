@@ -49,7 +49,13 @@ public abstract class HeldItemRendererMixin {
     @Unique
     private static final double enough$HMI_MAX_DELTA = 0.05D;
     @Unique
-    private static final double enough$HMI_ANIMATION_SPEED = 30.0D;
+    private static final double enough$HMI_ANIMATION_SPEED = 18.0D;
+    @Unique
+    private static final float enough$HMI_DEFAULT_SIZE = 0.65F;
+    @Unique
+    private static final float enough$HMI_DEFAULT_HAND_Y = 0.4F;
+    @Unique
+    private static final float enough$HMI_DEFAULT_HAND_Z = 0.25F;
     @Unique
     private double enough$hmiPrevFrameTime = System.nanoTime() / 1.0E9D;
     @Unique
@@ -219,10 +225,6 @@ public abstract class HeldItemRendererMixin {
         boolean rightHand = arm == Arm.RIGHT;
         matrices.push();
         if (stack.isEmpty()) {
-            enough$applyHmiSwing(matrices, player, hand, stack, swingProgress);
-            enough$applyHmiEnvironment(matrices, player, hand, arm, stack, swingProgress, tickDelta);
-            enough$applyHmiBaseHandPose(matrices, arm, equipProgress, swingProgress);
-            enough$renderPlayerArm(player, matrices, vertexConsumers, light, arm);
             matrices.pop();
             return;
         }
@@ -231,7 +233,7 @@ public abstract class HeldItemRendererMixin {
         enough$applyHmiEnvironment(matrices, player, hand, arm, stack, swingProgress, tickDelta);
         enough$applyHmiArmPrePose(matrices, stack, arm);
         enough$applyHmiBaseHandPose(matrices, arm, equipProgress, swingProgress);
-        enough$renderPlayerArm(player, matrices, vertexConsumers, light, arm);
+        enough$renderArmFirstPerson(player, matrices, vertexConsumers, light, 0.0F, 0.0F, arm);
         enough$applyHmiItemPose(matrices, player, hand, arm, stack, swingProgress);
         renderItem(player, stack, rightHand ? ModelTransformationMode.FIRST_PERSON_RIGHT_HAND : ModelTransformationMode.FIRST_PERSON_LEFT_HAND, !rightHand, matrices, vertexConsumers, light);
         matrices.pop();
@@ -250,7 +252,7 @@ public abstract class HeldItemRendererMixin {
         matrices.push();
         enough$applyHmiUseJitter(matrices, useTicks, draw);
         matrices.translate(rightHand ? -0.1D : 0.1D, 0.0D, draw * 0.15D);
-        enough$renderPlayerArm(player, matrices, vertexConsumers, light, arm);
+        enough$renderArmFirstPerson(player, matrices, vertexConsumers, light, equipProgress, swingProgress, arm);
         matrices.pop();
 
         matrices.push();
@@ -258,7 +260,7 @@ public abstract class HeldItemRendererMixin {
         matrices.multiply(RotationAxis.POSITIVE_X.rotation(0.3F));
         matrices.multiply((rightHand ? RotationAxis.NEGATIVE_Z : RotationAxis.POSITIVE_Z).rotation(-0.3F));
         matrices.multiply((rightHand ? RotationAxis.NEGATIVE_Y : RotationAxis.POSITIVE_Y).rotation(1.0F));
-        enough$renderPlayerArm(player, matrices, vertexConsumers, light, arm.getOpposite());
+        enough$renderArmFirstPerson(player, matrices, vertexConsumers, light, equipProgress, swingProgress, arm.getOpposite());
         matrices.pop();
 
         matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(75.0F));
@@ -288,10 +290,35 @@ public abstract class HeldItemRendererMixin {
         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(30.0F));
         matrices.scale(0.9F, 0.9F, 0.9F);
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(45.0F * progress * direction));
-        enough$renderPlayerArm(player, matrices, vertexConsumers, light, arm);
+        enough$renderArmFirstPerson(player, matrices, vertexConsumers, light, 0.0F, swingProgress, arm);
         enough$applyHmiItemPose(matrices, player, hand, arm, consumeStack, swingProgress);
         renderItem(player, consumeStack, arm == Arm.RIGHT ? ModelTransformationMode.FIRST_PERSON_RIGHT_HAND : ModelTransformationMode.FIRST_PERSON_LEFT_HAND, arm != Arm.RIGHT, matrices, vertexConsumers, light);
         matrices.pop();
+    }
+
+    @Unique
+    private void enough$renderArmFirstPerson(AbstractClientPlayerEntity player, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float equipProgress, float swingProgress, Arm arm) {
+        boolean rightHand = arm == Arm.RIGHT;
+        float direction = rightHand ? 1.0F : -1.0F;
+        float swingRoot = MathHelper.sqrt(swingProgress);
+        float xSwing = -0.3F * MathHelper.sin(swingRoot * (float) Math.PI);
+        float ySwing = 0.4F * MathHelper.sin(swingRoot * ((float) Math.PI * 2.0F));
+        float zSwing = -0.4F * MathHelper.sin(swingProgress * (float) Math.PI);
+        matrices.translate(direction * (xSwing + 0.64000005F), ySwing - 0.6F + equipProgress * -0.6F, zSwing - 0.71999997F);
+        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(direction * 45.0F));
+        float swingSquared = MathHelper.sin(swingProgress * swingProgress * (float) Math.PI);
+        float swingSqrt = MathHelper.sin(swingRoot * (float) Math.PI);
+        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(direction * swingSqrt * 70.0F));
+        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(direction * swingSquared * -20.0F));
+        matrices.translate(direction * -1.0F, 3.6F, 3.5D);
+        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(direction * 120.0F));
+        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(200.0F));
+        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(direction * -135.0F));
+        matrices.translate(direction * 5.6F, 0.0D, 0.0D);
+
+        matrices.translate(0.0F, enough$HMI_DEFAULT_HAND_Y, enough$HMI_DEFAULT_HAND_Z);
+
+        enough$renderPlayerArm(player, matrices, vertexConsumers, light, arm);
     }
 
     @Unique
@@ -310,21 +337,15 @@ public abstract class HeldItemRendererMixin {
     @Unique
     private void enough$applyHmiBaseHandPose(MatrixStack matrices, Arm arm, float equipProgress, float swingProgress) {
         int direction = arm == Arm.RIGHT ? 1 : -1;
-        matrices.translate(direction * 0.58D, 0.22D - equipProgress * 0.22D, 0.42D);
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(34.0F * direction));
-        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-28.0F * direction));
-        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(18.0F));
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(direction * -30.0F));
-        matrices.scale(0.78F, 0.78F, 0.78F);
-
         BetterHands better = BetterHands.INSTANCE;
-        if (better != null) {
-            if (arm == Arm.RIGHT) {
-                matrices.translate(better.rightX.get().floatValue(), better.rightY.get().floatValue(), better.rightZ.get().floatValue());
-            } else {
-                matrices.translate(-better.leftX.get().floatValue(), better.leftY.get().floatValue(), better.leftZ.get().floatValue());
-            }
-        }
+
+        float spread = better != null ? better.spread.get().floatValue() : 0.65F;
+        float scale = 0.9F * enough$HMI_DEFAULT_SIZE;
+        matrices.translate(direction * spread, 0.0D, 0.3D);
+        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(45.0F * direction));
+        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-40.0F * direction));
+        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(30.0F));
+        matrices.scale(scale, scale, scale);
     }
 
     @Unique
@@ -352,7 +373,7 @@ public abstract class HeldItemRendererMixin {
         double cross = motion.x * forwardZ - motion.z * forwardX;
         boolean climbing = player.isClimbing() && !player.isOnGround() && Math.abs(motion.y) > 0.0D;
         boolean crawling = player.isCrawling();
-        double tt = enough$hmiDeltaTime * enough$HMI_ANIMATION_SPEED;
+        double tt = enough$hmiDeltaTime * enough$getHmiAnimationSpeed();
         float handDirection = hand == Hand.MAIN_HAND ? 1.0F : -1.0F;
         int armDirection = arm == Arm.RIGHT ? 1 : -1;
 
@@ -480,17 +501,19 @@ public abstract class HeldItemRendererMixin {
         if (player.getMainArm() == Arm.LEFT) mainHand = !mainHand;
         float direction = mainHand ? 1.0F : -1.0F;
         float handDirection = hand == Hand.MAIN_HAND ? 1.0F : -1.0F;
-        float swingRot = enough$getHmiSwingRot(swingProgress);
-        float swing = enough$hmiEase(MathHelper.sin(swingProgress * (float) Math.PI));
+        float adjustedSwingProgress = enough$adjustHmiSwingProgress(swingProgress);
+        float animationDistance = enough$getHmiAnimationDistance();
+        float swingRot = enough$getHmiSwingRot(adjustedSwingProgress) * animationDistance;
+        float swing = enough$hmiEase(MathHelper.sin(adjustedSwingProgress * (float) Math.PI)) * animationDistance;
         BetterHands better = BetterHands.INSTANCE;
 
         if (stack.getItem() instanceof SwordItem && better != null && better.useForwardAttack()) {
-            matrices.translate(0.12D * direction * swingRot, 0.04D * swingRot, -0.95D * swing);
-            matrices.translate(0.02D * direction * swing, 0.10D * swing, -0.10D * swingRot);
-            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(8.0F * swingRot * direction));
-            matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(-14.0F * swingRot));
-            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-18.0F * swingRot * direction));
-            matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(32.0F * swing));
+            matrices.translate(0.08D * direction * swingRot, 0.03D * swingRot, -0.62D * swing);
+            matrices.translate(0.01D * direction * swing, 0.06D * swing, -0.06D * swingRot);
+            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(6.0F * swingRot * direction));
+            matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(-9.0F * swingRot));
+            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-12.0F * swingRot * direction));
+            matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(22.0F * swing));
             return;
         }
 
@@ -501,38 +524,38 @@ public abstract class HeldItemRendererMixin {
 
         if ((stack.getItem() instanceof AxeItem || enough$useAction(stack) == UseAction.SPEAR || enough$useAction(stack) == UseAction.BLOCK) && !(stack.getItem() instanceof ShovelItem)) {
             if (enough$isWeapon(stack)) {
-                matrices.translate(0.8D * direction * swingRot, 0.3D * swingRot, -0.5D * swing);
-                matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(15.0F * swingRot * direction));
-                matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(-20.0F * swingRot));
-                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-70.0F * swingRot * direction));
-                matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees((stack.getItem() instanceof SwordItem ? 40.0F : 30.0F) * swing));
+                matrices.translate(0.48D * direction * swingRot, 0.18D * swingRot, -0.34D * swing);
+                matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(10.0F * swingRot * direction));
+                matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(-13.0F * swingRot));
+                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-42.0F * swingRot * direction));
+                matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees((stack.getItem() instanceof SwordItem ? 26.0F : 20.0F) * swing));
                 return;
             }
 
             if (enough$useAction(stack) == UseAction.SPEAR) {
-                matrices.translate(0.0D, 0.0D, 0.45D * swingRot);
-                matrices.translate(-0.25D * handDirection * swing, -0.35D * swingRot, -0.6D * swing);
-                matrices.translate(0.0D, 0.1D * swing, 0.0D);
-                matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(15.0F * swingRot * direction));
-                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(30.0F * swingRot * direction));
+                matrices.translate(0.0D, 0.0D, 0.3D * swingRot);
+                matrices.translate(-0.16D * handDirection * swing, -0.22D * swingRot, -0.38D * swing);
+                matrices.translate(0.0D, 0.06D * swing, 0.0D);
+                matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(10.0F * swingRot * direction));
+                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(20.0F * swingRot * direction));
                 return;
             }
         }
 
         if (stack.getItem() instanceof SwordItem) {
-            matrices.translate(-0.55D * direction * swingRot, -0.8D * swingRot, -0.77D * swing);
-            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(5.0F * swingRot * direction));
-            matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(-30.0F * swingRot));
-            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(70.0F * swingRot * direction));
-            matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(50.0F * swing));
+            matrices.translate(-0.34D * direction * swingRot, 0.0D, -0.5D * swing);
+            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(4.0F * swingRot * direction));
+            matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(-18.0F * swingRot));
+            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(42.0F * swingRot * direction));
+            matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(32.0F * swing));
             return;
         }
 
         if (enough$isTool(stack)) {
-            matrices.translate(0.1D * direction * swingRot, 0.1D * swingRot, -0.5D * swing);
-            matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(-30.0F * swingRot));
-            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-20.0F * swingRot * direction));
-            matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(40.0F * swing));
+            matrices.translate(0.07D * direction * swingRot, 0.06D * swingRot, -0.32D * swing);
+            matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(-18.0F * swingRot));
+            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-13.0F * swingRot * direction));
+            matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(26.0F * swing));
             return;
         }
 
@@ -541,16 +564,16 @@ public abstract class HeldItemRendererMixin {
 
     @Unique
     private void enough$applyHmiGenericSwing(MatrixStack matrices, float direction, float swingRot, float swing) {
-        matrices.translate(0.1D * direction * swingRot, 0.1D * swingRot, -0.1D * swing);
-        matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(-30.0F * swingRot));
-        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-10.0F * swingRot * direction));
-        matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(40.0F * swing));
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(10.0F * swing * direction));
+        matrices.translate(0.07D * direction * swingRot, 0.06D * swingRot, -0.08D * swing);
+        matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(-18.0F * swingRot));
+        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-7.0F * swingRot * direction));
+        matrices.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(24.0F * swing));
+        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(7.0F * swing * direction));
     }
 
     @Unique
     private void enough$applyHmiLanternPose(MatrixStack matrices, AbstractClientPlayerEntity player, Arm arm, float swingProgress) {
-        float dt = (float) (enough$hmiDeltaTime * enough$HMI_ANIMATION_SPEED);
+        float dt = (float) (enough$hmiDeltaTime * enough$getHmiAnimationSpeed());
         int direction = arm == Arm.RIGHT ? 1 : -1;
         float yawDelta = player.prevYaw - player.getYaw();
         float pitchDelta = player.prevPitch - player.getPitch();
@@ -583,22 +606,46 @@ public abstract class HeldItemRendererMixin {
 
     @Unique
     private float enough$getHmiSwingRot(float swingProgress) {
-        if (swingProgress < 0.6F) {
-            return MathHelper.sin(MathHelper.clamp(swingProgress, 0.0F, 0.12506F) * 12.56F);
+        float clamped = MathHelper.clamp(swingProgress, 0.0F, 1.0F);
+        float arc = MathHelper.sin(clamped * (float) Math.PI);
+        float fade = 1.0F - 0.35F * clamped * clamped;
+        return arc * fade;
+    }
+
+    @Unique
+    private float enough$adjustHmiSwingProgress(float swingProgress) {
+        float speed = (float) MathHelper.clamp(enough$getHmiAnimationSpeedMultiplier(), 0.25D, 2.5D);
+        float clamped = MathHelper.clamp(swingProgress, 0.0F, 1.0F);
+        if (Math.abs(speed - 1.0F) < 0.001F) {
+            return clamped;
         }
-        return MathHelper.sin(MathHelper.clamp(swingProgress, 0.62532F, 0.75038F) * 12.56F);
+        if (speed > 1.0F) {
+            return 1.0F - (float) Math.pow(1.0F - clamped, speed);
+        }
+        return (float) Math.pow(clamped, 1.0F / speed);
+    }
+
+    @Unique
+    private double enough$getHmiAnimationSpeed() {
+        return enough$HMI_ANIMATION_SPEED * enough$getHmiAnimationSpeedMultiplier();
+    }
+
+    @Unique
+    private double enough$getHmiAnimationSpeedMultiplier() {
+        BetterHands better = BetterHands.INSTANCE;
+        return better != null ? MathHelper.clamp(better.animationSpeed(), 0.25F, 2.5F) : 1.0D;
+    }
+
+    @Unique
+    private float enough$getHmiAnimationDistance() {
+        BetterHands better = BetterHands.INSTANCE;
+        return better != null ? (float) MathHelper.clamp(better.animationDistance(), 0.15F, 2.0F) : 1.0F;
     }
 
     @Unique
     private float enough$hmiEase(float value) {
-        float c1 = 1.70158F;
-        float c2 = c1 * 1.525F;
-        if (value < 0.5F) {
-            float doubled = 2.0F * value;
-            return doubled * doubled * ((c2 + 1.0F) * doubled - c2) * 0.5F;
-        }
-        float shifted = 2.0F * value - 2.0F;
-        return (shifted * shifted * ((c2 + 1.0F) * shifted + c2) + 2.0F) * 0.5F;
+        value = MathHelper.clamp(value, 0.0F, 1.0F);
+        return value * value * value * (value * (value * 6.0F - 15.0F) + 10.0F);
     }
 
     @Unique

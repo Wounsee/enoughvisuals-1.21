@@ -5,6 +5,7 @@ import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BindSetting;
 import fun.enoughvisuals.utils.player.ClientActionUtil;
+import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 
@@ -13,6 +14,9 @@ import java.util.function.Predicate;
 @Register(name = "Fast Swap", id = "fast_swap", description = "", category = Category.UTILS)
 public class FastSwap extends Module {
     private static FastSwap INSTANCE;
+    private int pendingInventorySlot = -1;
+    private int pendingHotbarSlot = -1;
+    private long swapAtMs;
 
     private final BindSetting pearl = add(new BindSetting("Эндер-пёрл", "pearl", -1));
     private final BindSetting gapple = add(new BindSetting("Золотое яблоко", "gapple", -1));
@@ -42,7 +46,41 @@ public class FastSwap extends Module {
     private void select(Predicate<ItemStack> predicate) {
         ClientActionUtil.findHotbar(predicate).ifPresentOrElse(
                 ClientActionUtil::selectHotbar,
-                () -> ClientActionUtil.findInventory(predicate).ifPresent(slot -> ClientActionUtil.swapToHotbar(slot, mc.player.getInventory().selectedSlot))
+                () -> ClientActionUtil.findInventory(predicate).ifPresent(this::queueInventorySwap)
         );
+    }
+
+    private void queueInventorySwap(int inventorySlot) {
+        if (mc.currentScreen != null || inventorySlot < 9 || inventorySlot > 35) return;
+        pendingInventorySlot = inventorySlot;
+        pendingHotbarSlot = mc.player.getInventory().selectedSlot;
+        swapAtMs = System.currentTimeMillis() + 50L;
+        mc.setScreen(new InventoryScreen(mc.player));
+    }
+
+    @Override
+    public void onTick() {
+        if (pendingInventorySlot < 0) return;
+        if (!isInGame() || !(mc.currentScreen instanceof InventoryScreen)) {
+            clearPending();
+            return;
+        }
+        if (System.currentTimeMillis() < swapAtMs) return;
+
+        if (ClientActionUtil.swapToHotbar(pendingInventorySlot, pendingHotbarSlot)) {
+            clearPending();
+            mc.setScreen(null);
+        }
+    }
+
+    @Override
+    protected void onDisable() {
+        clearPending();
+    }
+
+    private void clearPending() {
+        pendingInventorySlot = -1;
+        pendingHotbarSlot = -1;
+        swapAtMs = 0L;
     }
 }

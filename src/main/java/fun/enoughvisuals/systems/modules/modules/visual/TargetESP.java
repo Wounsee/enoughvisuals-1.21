@@ -4,6 +4,7 @@ import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.ColorSetting;
+import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.utils.render.CrystalRenderer;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -20,7 +21,7 @@ import java.util.Optional;
         name        = "Target ESP",
         id          = "target_esp",
         description = "Кристалики",
-        category    = Category.VISUAL
+        category = Category.VISUAL
 )
 public class TargetESP extends Module {
 
@@ -33,6 +34,8 @@ public class TargetESP extends Module {
             add(new ColorSetting("Цвет 1", "color_a", "Первый цвет", 0xFF8A5CFF));
     public final ColorSetting colorB =
             add(new ColorSetting("Цвет 2", "color_b", "Второй цвет", 0xFF5CA0FF));
+    public final SliderSetting attackRange =
+            add(new SliderSetting("Дистанция удара", "attack_range", "Реальная дистанция подсветки цели", 3.0, 2.0, 6.0, 0.05, "б"));
 
     private LivingEntity displayTarget  = null;
     private float        displayAlpha   = 0f;
@@ -139,17 +142,19 @@ public class TargetESP extends Module {
     private LivingEntity findTarget() {
         if (mc.world == null || mc.player == null) return null;
 
-        // Получаем реальную дистанцию игрока
-        double maxDist = 3.0;
-        try {
-            maxDist = mc.player.getEntityInteractionRange(); // 1.21.4
-        } catch (Throwable t) {
-            if (mc.interactionManager != null) {
-                maxDist = mc.player.getEntityInteractionRange();
-            }
-        }
+        return raycastTarget(effectiveAttackRange());
+    }
 
-        return raycastTarget(maxDist);
+    public static double effectiveAttackRange() {
+        double configured = INSTANCE == null ? 3.0 : INSTANCE.attackRange.get().doubleValue();
+        double vanilla = 3.0;
+        try {
+            if (mc.player != null) {
+                vanilla = mc.player.getEntityInteractionRange();
+            }
+        } catch (Throwable ignored) {
+        }
+        return Math.max(1.0, Math.min(configured, vanilla));
     }
 
     private LivingEntity raycastTarget(double maxDist) {
@@ -172,7 +177,7 @@ public class TargetESP extends Module {
                 continue;
             }
 
-            Box box = targetEntity.getBoundingBox().expand(0.6);
+            Box box = targetEntity.getBoundingBox().expand(0.05);
             Optional<Vec3d> hit = box.raycast(eyes, end);
 
             if (hit.isPresent()) {

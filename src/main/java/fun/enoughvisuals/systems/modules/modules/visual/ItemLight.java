@@ -4,6 +4,7 @@ import fun.enoughvisuals.mixins.accessors.GameRendererAccessor;
 import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.MultiItemSelectSetting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
@@ -23,14 +24,13 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.RaycastContext;
 import org.joml.Quaternionf;
-import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
-@Register(name="Item Light", id="item_light", description="Подсвечивает выпавшие предметы", category=Category.VISUAL)
+@Register(name="Item Light", id="item_light", description="Подсвечивает выпавшие предметы", category = Category.VISUAL)
 public class ItemLight extends Module {
 
     private static ItemLight INSTANCE;

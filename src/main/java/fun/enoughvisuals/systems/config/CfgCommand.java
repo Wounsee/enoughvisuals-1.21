@@ -1,5 +1,6 @@
 package fun.enoughvisuals.systems.config;
 
+import fun.enoughvisuals.Info;
 import fun.enoughvisuals.utils.font.TextGradientUtil;
 import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.MinecraftClient;
@@ -139,7 +140,7 @@ public final class CfgCommand {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc == null || mc.inGameHud == null) return;
 
-        MutableText prefix = TextGradientUtil.gradient("EnoughVisuals » ", 0x6D3BFF, 0xD2D5FF);
+        MutableText prefix = TextGradientUtil.gradient(Info.CHAT_PREFIX, 0x6D3BFF, 0xD2D5FF);
         MutableText message = Text.literal(text).setStyle(Style.EMPTY.withColor(0xFFFFFF));
         mc.inGameHud.getChatHud().addMessage(prefix.append(message));
     }

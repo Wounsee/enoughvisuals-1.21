@@ -8,7 +8,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.util.math.MathHelper;
 
-@Register(name="Auto Resell", id="auto_resell", description="Авто перевыставление предметов на фт", category=Category.UTILS)
+@Register(name="Auto Resell", id="auto_resell", description="Авто перевыставление предметов на фт", category = Category.UTILS)
 public class AutoResell extends Module {
 
     private long timer = 0L;

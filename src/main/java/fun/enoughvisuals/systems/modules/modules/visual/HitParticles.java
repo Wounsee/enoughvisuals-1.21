@@ -50,7 +50,7 @@ public class HitParticles extends Module {
             STAR1_TEXTURE, STAR2_TEXTURE, HEART_TEXTURE, CROWN_TEXTURE, LIGHTNING_TEXTURE, SNOWFLAKE_TEXTURE
     };
 
-    private static final int MAX_PARTICLES = 420;
+    private static final int MAX_PARTICLES = 20;
 
     public final ModeSetting mode = add(new ModeSetting(
             "Режим",

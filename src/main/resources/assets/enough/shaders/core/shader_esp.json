@@ -1,0 +1,23 @@
+{
+  "vertex": "enough:core/hand_blur",
+  "fragment": "enough:core/shader_esp",
+  "samplers": [
+    { "name": "Sampler0" },
+    { "name": "Sampler1" },
+    { "name": "Sampler2" }
+  ],
+  "uniforms": [
+    { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
+    { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
+    { "name": "TexelSize", "type": "float", "count": 2, "values": [1.0, 1.0] },
+    { "name": "FillColor", "type": "float", "count": 4, "values": [0.45, 0.36, 1.0, 1.0] },
+    { "name": "GlowColor", "type": "float", "count": 4, "values": [0.91, 0.89, 1.0, 1.0] },
+    { "name": "FillOpacity", "type": "float", "count": 1, "values": [0.22] },
+    { "name": "GlowStrength", "type": "float", "count": 1, "values": [1.15] },
+    { "name": "OutlineStrength", "type": "float", "count": 1, "values": [0.9] },
+    { "name": "OutlineWidth", "type": "float", "count": 1, "values": [1.5] },
+    { "name": "EchoDecay", "type": "float", "count": 1, "values": [0.88] },
+    { "name": "Mode", "type": "int", "count": 1, "values": [0] },
+    { "name": "Pass", "type": "int", "count": 1, "values": [1] }
+  ]
+}

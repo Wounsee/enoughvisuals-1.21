@@ -7,6 +7,7 @@ import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -26,6 +27,7 @@ import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.RaycastContext;
+import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector4f;
 
@@ -51,7 +53,9 @@ public class Prediction extends Module {
     private static final int FLYING_MAX_TICKS = 200;
     private static final long LABEL_TTL_MS = 10_000L;
     private static final double LABEL_HIT_SMOOTH = 0.28;
-    private static final float LINE_WIDTH = 6.0f;
+    private static final float PREDICT_TUBE_RADIUS = 0.035f;
+    private static final int PREDICT_TUBE_SIDES = 8;
+    private static final float HELD_LINE_WIDTH = 2.0f;
 
     @Override
     public void onEnable() {
@@ -91,7 +95,8 @@ public class Prediction extends Module {
 
         float tickDelta = context.tickCounter().getTickDelta(true);
         Camera camera = context.camera();
-        Vec3d camPos = camera.getPos();
+        if (camera == null) return;
+        Vec3d camPos = stableCameraPos(tickDelta);
 
         Box projectileSearchBox = mc.player.getBoundingBox().expand(96.0);
         for (Entity entity : mc.world.getOtherEntities(mc.player, projectileSearchBox, candidate -> candidate instanceof ProjectileEntity)) {
@@ -113,7 +118,7 @@ public class Prediction extends Module {
         ItemStack held = isThrowable(mainHand) ? mainHand : (isThrowable(offHand) ? offHand : ItemStack.EMPTY);
 
         if (!held.isEmpty()) {
-            PredictionStart start = getHeldPredictionStart(held, camera, tickDelta);
+            PredictionStart start = getHeldPredictionStart(held, camPos, tickDelta);
             if (start != null) {
                 framePrediction = calculatePath(start.pos, start.vel, held, false, HELD_MAX_TICKS, -1);
             }
@@ -132,27 +137,10 @@ public class Prediction extends Module {
         RenderSystem.disableCull();
         RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
         RenderSystem.depthMask(false);
-        RenderSystem.lineWidth(LINE_WIDTH);
 
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
-
-        for (PredictionResult res : allToRender) {
-            float r = 1.0f;
-            float g = res.hitEntity ? 0.3f : 1.0f;
-            float b = res.hitEntity ? 0.3f : 1.0f;
-            float a = res.isFlying ? 0.85f : 0.45f;
-
-            for (int i = 0; i < res.path.size() - 1; i++) {
-                Vec3d p1 = res.path.get(i);
-                Vec3d p2 = res.path.get(i + 1);
-
-                buffer.vertex(matrices.peek().getPositionMatrix(), (float) (p1.x - camPos.x), (float) (p1.y - camPos.y), (float) (p1.z - camPos.z)).color(r, g, b, a);
-                buffer.vertex(matrices.peek().getPositionMatrix(), (float) (p2.x - camPos.x), (float) (p2.y - camPos.y), (float) (p2.z - camPos.z)).color(r, g, b, a);
-            }
-        }
-        BufferRenderer.drawWithGlobalProgram(buffer.end());
-        RenderSystem.lineWidth(1.0f);
+        Matrix4f matrix = matrices.peek().getPositionMatrix();
+        drawFlyingPredictions(matrices, matrix, camPos, allToRender);
+        drawHeldPredictionLine(matrices, matrix, camPos);
 
         if (framePrediction != null && framePrediction.hit) {
             Vec3d normal = framePrediction.hitNormal;
@@ -167,11 +155,48 @@ public class Prediction extends Module {
         RenderSystem.disableBlend();
     }
 
+    private void drawFlyingPredictions(MatrixStack matrices, Matrix4f matrix, Vec3d camPos, List<PredictionResult> allToRender) {
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        boolean wroteAny = false;
+
+        for (PredictionResult res : allToRender) {
+            if (!res.isFlying) continue;
+
+            float r = 1.0f;
+            float g = res.hitEntity ? 0.3f : 1.0f;
+            float b = res.hitEntity ? 0.3f : 1.0f;
+            float a = 0.85f;
+
+            wroteAny |= drawPredictionTube(buffer, matrix, camPos, res, r, g, b, a);
+        }
+        var builtBuffer = buffer.endNullable();
+        if (wroteAny && builtBuffer != null) {
+            BufferRenderer.drawWithGlobalProgram(builtBuffer);
+        }
+    }
+
+    private void drawHeldPredictionLine(MatrixStack matrices, Matrix4f matrix, Vec3d camPos) {
+        if (framePrediction == null || framePrediction.path.size() < 2) return;
+
+        RenderSystem.lineWidth(HELD_LINE_WIDTH);
+        BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
+        for (int i = 0; i < framePrediction.path.size() - 1; i++) {
+            Vec3d p1 = framePrediction.path.get(i);
+            Vec3d p2 = framePrediction.path.get(i + 1);
+            buffer.vertex(matrix, (float) (p1.x - camPos.x), (float) (p1.y - camPos.y), (float) (p1.z - camPos.z)).color(1.0f, 1.0f, 1.0f, 0.48f);
+            buffer.vertex(matrix, (float) (p2.x - camPos.x), (float) (p2.y - camPos.y), (float) (p2.z - camPos.z)).color(1.0f, 1.0f, 1.0f, 0.48f);
+        }
+        BufferRenderer.drawWithGlobalProgram(buffer.end());
+        RenderSystem.lineWidth(1.0f);
+    }
+
     private void onRender2D(DrawContext ctx, net.minecraft.client.render.RenderTickCounter tickCounter) {
         if (!isEnabled() || !isInGame()) return;
 
         float tickDelta = tickCounter.getTickDelta(true);
         Camera camera = mc.gameRenderer.getCamera();
+        Vec3d camPos = stableCameraPos(tickDelta);
         long now = System.currentTimeMillis();
 
         Iterator<Map.Entry<Integer, ImpactLabel>> it = impactLabels.entrySet().iterator();
@@ -186,9 +211,9 @@ public class Prediction extends Module {
                 continue;
             }
 
-            Vec3d pos2d = projectToScreen(label.hitPos.x, label.hitPos.y + 0.3, label.hitPos.z, camera, tickDelta);
+            Vec3d pos2d = projectToScreen(label.hitPos.x, label.hitPos.y + 0.3, label.hitPos.z, camera, camPos, tickDelta);
             if (pos2d != null) {
-                drawItemLabel(ctx, label.stack, (float) pos2d.x, (float) pos2d.y);
+                drawItemLabel(ctx, label.stack, snapHalf((float) pos2d.x), snapHalf((float) pos2d.y));
             }
         }
     }
@@ -223,7 +248,7 @@ public class Prediction extends Module {
             Vec3d closestEntityHit = null;
             double closestDistSq = Double.MAX_VALUE;
 
-            for (Entity e : mc.world.getOtherEntities(mc.player, box, entity -> !entity.isSpectator() && entity.canHit())) {
+            for (Entity e : mc.world.getOtherEntities(mc.player, box, entity -> entity.getId() != sourceId && !entity.isSpectator() && entity.canHit())) {
                 var entityHit = e.getBoundingBox().expand(0.3).raycast(pos, nextPos);
                 if (entityHit.isEmpty()) continue;
                 Vec3d hitVec = entityHit.get();
@@ -252,6 +277,8 @@ public class Prediction extends Module {
     }
 
     private void drawItemLabel(DrawContext ctx, ItemStack stack, float x, float y) {
+        x = snapHalf(x);
+        y = snapHalf(y);
         String name = stack.getName().getString();
 
         float nameSize = 5.8f;
@@ -266,7 +293,11 @@ public class Prediction extends Module {
         float absStartX = x - (totalWidth / 2f);
         float absStartY = y - (height / 2f);
 
-        GlassUtil.drawGlassPanel(ctx, absStartX - paddingX, absStartY, totalWidth + (paddingX * 2), height, 3.5f, 0x000000, 0.6f, 1.0f);
+        float panelX = snapHalf(absStartX - paddingX);
+        float panelY = snapHalf(absStartY);
+        float panelW = totalWidth + (paddingX * 2);
+        RenderUtil.drawShadow(ctx, panelX, panelY, panelW, height, 3.5f, 7.0f, RenderUtil.withAlpha(0x000000, 0.24f));
+        GlassUtil.drawGlassPanel(ctx, panelX, panelY, panelW, height, 3.5f, 0x000000, 0.6f, 1.0f);
 
         float startX = -(totalWidth / 2f);
         float startY = -(height / 2f);
@@ -286,6 +317,62 @@ public class Prediction extends Module {
         CustomFontRenderer.drawText(ctx, name, textX, textY, nameSize, 0xFFFFFFFF, FontWeight.SEMIBOLD);
 
         ctx.getMatrices().pop();
+    }
+
+    private boolean drawPredictionTube(BufferBuilder buffer, Matrix4f matrix, Vec3d camPos,
+                                       PredictionResult result, float r, float g, float b, float a) {
+        float radius = result.isFlying ? PREDICT_TUBE_RADIUS * 0.82f : PREDICT_TUBE_RADIUS;
+        boolean wroteAny = false;
+        for (int i = 0; i < result.path.size() - 1; i++) {
+            wroteAny |= addTubeSegment(buffer, matrix, camPos, result.path.get(i), result.path.get(i + 1), radius, r, g, b, a);
+        }
+        return wroteAny;
+    }
+
+    private boolean addTubeSegment(BufferBuilder buffer, Matrix4f matrix, Vec3d camPos, Vec3d p1, Vec3d p2,
+                                   float radius, float r, float g, float b, float a) {
+        Vec3d dir = p2.subtract(p1);
+        if (dir.lengthSquared() < 1.0E-7) return false;
+
+        dir = dir.normalize();
+        Vec3d basis = Math.abs(dir.y) > 0.88 ? new Vec3d(1.0, 0.0, 0.0) : new Vec3d(0.0, 1.0, 0.0);
+        Vec3d right = dir.crossProduct(basis);
+        if (right.lengthSquared() < 1.0E-7) {
+            right = new Vec3d(1.0, 0.0, 0.0);
+        } else {
+            right = right.normalize();
+        }
+        Vec3d up = right.crossProduct(dir).normalize();
+
+        for (int side = 0; side < PREDICT_TUBE_SIDES; side++) {
+            double a1 = (Math.PI * 2.0 * side) / PREDICT_TUBE_SIDES;
+            double a2 = (Math.PI * 2.0 * (side + 1)) / PREDICT_TUBE_SIDES;
+            Vec3d o1 = right.multiply(Math.cos(a1) * radius).add(up.multiply(Math.sin(a1) * radius));
+            Vec3d o2 = right.multiply(Math.cos(a2) * radius).add(up.multiply(Math.sin(a2) * radius));
+
+            Vec3d v1 = p1.add(o1);
+            Vec3d v2 = p2.add(o1);
+            Vec3d v3 = p2.add(o2);
+            Vec3d v4 = p1.add(o2);
+
+            float shade = 0.70f + 0.30f * (float) ((Math.sin((a1 + a2) * 0.5) + 1.0) * 0.5);
+            tubeVertex(buffer, matrix, camPos, v1, r * shade, g * shade, b * shade, a);
+            tubeVertex(buffer, matrix, camPos, v2, r * shade, g * shade, b * shade, a);
+            tubeVertex(buffer, matrix, camPos, v3, r * shade, g * shade, b * shade, a);
+            tubeVertex(buffer, matrix, camPos, v1, r * shade, g * shade, b * shade, a);
+            tubeVertex(buffer, matrix, camPos, v3, r * shade, g * shade, b * shade, a);
+            tubeVertex(buffer, matrix, camPos, v4, r * shade, g * shade, b * shade, a);
+        }
+        return true;
+    }
+
+    private void tubeVertex(BufferBuilder buffer, Matrix4f matrix, Vec3d camPos, Vec3d pos,
+                            float r, float g, float b, float a) {
+        buffer.vertex(matrix,
+                (float) (pos.x - camPos.x),
+                (float) (pos.y - camPos.y),
+                (float) (pos.z - camPos.z)
+        ).color(r, g, b, a);
     }
 
     private boolean isThrowable(ItemStack stack) {
@@ -333,14 +420,14 @@ public class Prediction extends Module {
         return 0.99f;
     }
 
-    private PredictionStart getHeldPredictionStart(ItemStack stack, Camera camera, float tickDelta) {
+    private PredictionStart getHeldPredictionStart(ItemStack stack, Vec3d cameraPos, float tickDelta) {
         float velocity = getThrowVelocity(stack);
         if (velocity <= 0f) return null;
 
         float yaw = MathHelper.lerpAngleDegrees(tickDelta, mc.player.prevYaw, mc.player.getYaw());
         float pitch = MathHelper.lerp(tickDelta, mc.player.prevPitch, mc.player.getPitch());
         Vec3d direction = getShootDirection(pitch, yaw, 0.0f);
-        Vec3d startPos = camera.getPos().add(direction.multiply(0.16));
+        Vec3d startPos = cameraPos.add(direction.multiply(0.16));
         Vec3d shotVelocity = direction.multiply(velocity);
 
         return new PredictionStart(startPos, shotVelocity);
@@ -429,8 +516,7 @@ public class Prediction extends Module {
         return ItemStack.EMPTY;
     }
 
-    private static Vec3d projectToScreen(double x, double y, double z, Camera camera, float tickDelta) {
-        Vec3d camPos = camera.getPos();
+    private static Vec3d projectToScreen(double x, double y, double z, Camera camera, Vec3d camPos, float tickDelta) {
         Vector4f pos = new Vector4f((float) (x - camPos.x), (float) (y - camPos.y), (float) (z - camPos.z), 1.0f);
 
         Quaternionf rotation = new Quaternionf(camera.getRotation()).conjugate();
@@ -453,6 +539,18 @@ public class Prediction extends Module {
         if (screenX < -500 || screenX > screenWidth + 500 || screenY < -500 || screenY > screenHeight + 500) return null;
 
         return new Vec3d(screenX, screenY, 0);
+    }
+
+    private static Vec3d stableCameraPos(float tickDelta) {
+        if (mc.player != null) {
+            return mc.player.getCameraPosVec(tickDelta);
+        }
+        Camera camera = mc.gameRenderer == null ? null : mc.gameRenderer.getCamera();
+        return camera == null ? Vec3d.ZERO : camera.getPos();
+    }
+
+    private static float snapHalf(float value) {
+        return Math.round(value * 2.0f) * 0.5f;
     }
 
     private static class ImpactLabel {

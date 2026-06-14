@@ -1,5 +1,6 @@
 package fun.enoughvisuals.systems.gps;
 
+import fun.enoughvisuals.Info;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -11,6 +12,7 @@ import net.minecraft.client.render.Camera;
 import net.minecraft.scoreboard.ScoreboardDisplaySlot;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Quaternionf;
 import org.joml.Vector4f;
@@ -57,6 +59,10 @@ public final class GpsSystem {
     }
 
     public static GpsSystem getInstance() { return INSTANCE; }
+
+    public record WaypointView(int activeIndex, String name, double x, double y, double z,
+                               boolean event, long createdAt, int distance) {
+    }
 
     public boolean openGuiIfBound(int key, MinecraftClient client) {
         return false;
@@ -105,6 +111,51 @@ public final class GpsSystem {
             }
         }
         return ip + "|" + subServer;
+    }
+
+    public String currentScopeLabel() {
+        return getCurrentScope();
+    }
+
+    public List<WaypointView> listActiveWaypoints() {
+        String scope = getCurrentScope();
+        Vec3d playerPos = mc.player == null ? null : mc.player.getPos();
+        List<Waypoint> active = waypoints.stream()
+                .filter(w -> w.scope.equals(scope))
+                .collect(Collectors.toList());
+
+        List<WaypointView> out = new java.util.ArrayList<>();
+        for (int i = 0; i < active.size(); i++) {
+            Waypoint waypoint = active.get(i);
+            int distance = playerPos == null ? 0 : (int) playerPos.distanceTo(waypoint.getPos());
+            out.add(new WaypointView(i, waypoint.name, waypoint.x, waypoint.y, waypoint.z,
+                    waypoint.isEvent, waypoint.createdAt, distance));
+        }
+        return out;
+    }
+
+    public boolean removeActiveWaypoint(int activeIndex) {
+        String scope = getCurrentScope();
+        List<Waypoint> active = waypoints.stream()
+                .filter(w -> w.scope.equals(scope))
+                .collect(Collectors.toList());
+        if (activeIndex < 0 || activeIndex >= active.size()) {
+            return false;
+        }
+
+        boolean removed = waypoints.remove(active.get(activeIndex));
+        if (removed) {
+            save();
+        }
+        return removed;
+    }
+
+    public void addOrReplaceWaypoint(String name, double x, double y, double z) {
+        addWaypoint(name, x, y, z, false);
+    }
+
+    public BlockPos currentPlayerBlockPos() {
+        return mc.player == null ? null : mc.player.getBlockPos();
     }
 
     public void addWaypoint(String name, double x, double y, double z, boolean isEvent) {
@@ -199,7 +250,7 @@ public final class GpsSystem {
 
     private void sendMessage(String text) {
         if (mc.inGameHud != null) {
-            MutableText prefix = fun.enoughvisuals.utils.font.TextGradientUtil.gradient("EnoughVisuals » ", 0x6D3BFF, 0xD2D5FF);
+            MutableText prefix = fun.enoughvisuals.utils.font.TextGradientUtil.gradient(Info.CHAT_PREFIX, 0x6D3BFF, 0xD2D5FF);
             MutableText message = Text.literal(text).setStyle(net.minecraft.text.Style.EMPTY.withColor(0xFFFFFF));
             mc.inGameHud.getChatHud().addMessage(prefix.append(message));
         }

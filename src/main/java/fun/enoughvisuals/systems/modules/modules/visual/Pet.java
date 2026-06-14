@@ -25,10 +25,6 @@ public class Pet extends Module {
         INSTANCE = this;
     }
 
-    public String modelPath() {
-        return "/assets/enough/models/custom/allay_redesigned.glb";
-    }
-
     public static Pet active() {
         return INSTANCE != null && INSTANCE.isEnabled() ? INSTANCE : null;
     }

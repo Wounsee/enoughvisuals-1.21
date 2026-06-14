@@ -9,7 +9,7 @@ import net.minecraft.util.math.Box;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-@Register(name="Mine Checker", id="mine_checker", description="Детектит след шахту (работает токо на спавне)", category=Category.UTILS)
+@Register(name="Mine Checker", id="mine_checker", description="Детектит след шахту (работает токо на спавне)", category = Category.UTILS)
 public class MineRadar extends Module {
 
     private static MineRadar INSTANCE;

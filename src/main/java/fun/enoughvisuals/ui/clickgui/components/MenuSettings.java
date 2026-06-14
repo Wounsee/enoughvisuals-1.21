@@ -43,6 +43,7 @@ public class MenuSettings {
     private static final float COLOR_PICKER_FULL = 85;
     private static final float STRING_ROW_H   = 26;
     private static final float BIND_ROW_H          = 17;
+    private static final float CLICK_ROW_H         = 21;
     private static final float SELECT_OPT_H   = 16;
     private static final float TOGGLE_W       = 13f;
     private static final float TOGGLE_H       = 8f;
@@ -67,6 +68,8 @@ public class MenuSettings {
 
     private ModeSetting expandedMode = null;
     private final Map<ModeSetting, Float> modeExpandAnims = new HashMap<>();
+    private final Map<ClickSetting, Float> clickHoverAnims = new HashMap<>();
+    private final Map<ClickSetting, Float> clickPressAnims = new HashMap<>();
     private ItemSelectSetting expandedItemSelect = null;
     private final Map<ItemSelectSetting, Float> itemExpandAnims = new HashMap<>();
     private ItemSelectSetting editingItemSearch = null;
@@ -215,6 +218,7 @@ public class MenuSettings {
         else if (s instanceof ColorSetting cs)   renderColor(ctx, cs, px, sy, pw, alpha, mx, my);
         else if (s instanceof StringSetting str) renderString(ctx, str, px, sy, pw, alpha);
         else if (s instanceof BindSetting bind)  renderBind(ctx, bind, px, sy, pw, alpha);
+        else if (s instanceof ClickSetting click) renderClick(ctx, click, px, sy, pw, alpha);
     }
 
     private float getSettingHeight(Setting<?> s) {
@@ -239,6 +243,7 @@ public class MenuSettings {
             return COLOR_ROW_H + COLOR_PICKER_FULL * colorExpandAnims.getOrDefault(cs, 0f);
         if (s instanceof StringSetting)   return STRING_ROW_H;
         if (s instanceof BindSetting)     return BIND_ROW_H;
+        if (s instanceof ClickSetting)    return CLICK_ROW_H;
         return ROW_H;
     }
 
@@ -789,6 +794,39 @@ public class MenuSettings {
                 applyAlpha(tc, alpha * 0.9f), FontWeight.REGULAR);
     }
 
+    private void renderClick(DrawContext ctx, ClickSetting s, float px, float sy, float pw, float alpha) {
+        float bx = px + 10f;
+        float by = sy + 3f;
+        float bw = pw - 20f;
+        float bh = 15f;
+        boolean hovered = isHovered(bx, by, bw, bh);
+        float speed = RenderUtil.getFrameDelta() / 22f;
+        float hover = smooth(clickHoverAnims.getOrDefault(s, 0f), hovered ? 1f : 0f, 12f, speed);
+        float press = smooth(clickPressAnims.getOrDefault(s, 0f), 0f, 16f, speed);
+        clickHoverAnims.put(s, hover);
+        clickPressAnims.put(s, press);
+
+        float scale = 1f - press * 0.035f;
+        float sx = bx + bw * (1f - scale) * 0.5f;
+        float syy = by + bh * (1f - scale) * 0.5f;
+        float sw = bw * scale;
+        float sh = bh * scale;
+
+        int bg = lerpColor(
+                applyAlpha(MenuScreen.SETTING_BG, alpha * 0.68f),
+                applyAlpha(0xFFFFFF, alpha * 0.14f),
+                hover
+        );
+        RenderUtil.drawRoundedRect(ctx, sx, syy, sw, sh, 5f, bg);
+        RenderUtil.drawRoundedRect(ctx, sx + 0.5f, syy + 0.5f, sw - 1f, sh - 1f, 4.5f,
+                applyAlpha(0xFFFFFF, alpha * (0.025f + hover * 0.045f)));
+
+        String label = CustomFontRenderer.trimToWidth(s.getName(), sw - 16f, 6.8f, FontWeight.SEMIBOLD);
+        CustomFontRenderer.drawCenteredText(ctx, label, sx + sw * 0.5f, syy + (sh - 6.8f) * 0.5f - 0.45f, 6.8f,
+                applyAlpha(hover > 0.25f ? MenuScreen.TEXT_WHITE : MenuScreen.TEXT_GRAY, alpha * 0.98f),
+                FontWeight.SEMIBOLD);
+    }
+
                                                                                                                                                                             
                     
                                                                                                                                                                             
@@ -1125,6 +1163,14 @@ public class MenuSettings {
         } else if (s instanceof BindSetting bs) {
             if (mx >= px + pw - 40 && my >= sy + 2 && my <= sy + 16) {
                 bindingMode = true; bindingTarget = bs; return true;
+            }
+        } else if (s instanceof ClickSetting click) {
+            if (button == 0 && mx >= px + 10f && mx <= px + pw - 10f
+                    && my >= sy + 3f && my <= sy + 18f) {
+                clickPressAnims.put(click, 1f);
+                EnoughSoundPlayer.playScroll();
+                click.click();
+                return true;
             }
         }
         return false;

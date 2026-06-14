@@ -6,7 +6,7 @@ import fun.enoughvisuals.systems.modules.api.Register;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 
-@Register(name="Fullbright", id="fullbright", description="Ночное зрение", category=Category.VISUAL)
+@Register(name="Fullbright", id="fullbright", description="Ночное зрение", category = Category.VISUAL)
 public class Fullbright extends Module {
 
     @Override

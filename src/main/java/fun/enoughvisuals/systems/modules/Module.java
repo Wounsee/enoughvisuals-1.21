@@ -1,6 +1,7 @@
 package fun.enoughvisuals.systems.modules;
 
 import fun.enoughvisuals.systems.modules.api.Category;
+import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.Setting;
 import fun.enoughvisuals.utils.sound.EnoughSoundPlayer;
@@ -69,6 +70,7 @@ public abstract class Module {
 
 
     public void toggle() {
+        if (ModuleManager.getInstance().isBlocked(this)) return;
         if (enabled) disable(); else enable();
     }
 
@@ -81,7 +83,9 @@ public abstract class Module {
     }
 
     private void enable(boolean silent) {
+        if (ModuleManager.getInstance().isBlocked(this)) return;
         if (enabled) return;
+        if (!canEnable()) return;
         enabled = true;
         if (!silent) {
             EnoughSoundPlayer.playModuleToggle(true);
@@ -114,6 +118,7 @@ public abstract class Module {
 
     protected void onEnable() {}
     protected void onDisable() {}
+    protected boolean canEnable() { return true; }
     public void onTick() {}
     public void onRender(float tickDelta) {}
 
@@ -128,6 +133,7 @@ public abstract class Module {
     public String getRawDescription() { return description; }
     public Category getCategory() { return category; }
     public boolean isEnabled() { return enabled; }
+    public boolean isAvailable() { return !ModuleManager.getInstance().isBlocked(this) && (enabled || canEnable()); }
     public void setEnabled(boolean e) { if (e) enable(); else disable(); }
     public void setEnabledSilent(boolean e) { if (e) enableSilent(); else disableSilent(); }
     public int getKeyBind() { return keyBind; }

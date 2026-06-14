@@ -27,7 +27,15 @@ public class Draw {
         imageInternal(ctx, texture, x, y, w, h, alpha);
     }
 
+    public static void imageTinted(DrawContext ctx, Identifier texture, float x, float y, float w, float h, int color, float alpha) {
+        imageInternal(ctx, texture, x, y, w, h, color, alpha);
+    }
+
     private static void imageInternal(DrawContext ctx, Identifier texture, float x, float y, float w, float h, float alpha) {
+        imageInternal(ctx, texture, x, y, w, h, 0xFFFFFFFF, alpha);
+    }
+
+    private static void imageInternal(DrawContext ctx, Identifier texture, float x, float y, float w, float h, int color, float alpha) {
         if (alpha <= 0.005f) return;
         alpha = Math.min(1f, alpha);
         ensureTexture(texture);
@@ -35,7 +43,11 @@ public class Draw {
         RenderSystem.blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
         RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX);
         RenderSystem.setShaderTexture(0, texture);
-        RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+        float a = ((color >> 24) & 0xFF) / 255f * alpha;
+        float r = ((color >> 16) & 0xFF) / 255f;
+        float g = ((color >> 8) & 0xFF) / 255f;
+        float b = (color & 0xFF) / 255f;
+        RenderSystem.setShaderColor(r, g, b, a);
 
         Matrix4f mat = ctx.getMatrices().peek().getPositionMatrix();
         BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);

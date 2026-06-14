@@ -24,9 +24,11 @@ import net.minecraft.client.render.VertexFormats;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.util.shape.VoxelShapes;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 
@@ -55,6 +57,13 @@ public class BlockOverlay extends Module {
     private float visibility;
     private float visualScale = 0.9f;
     private long lastAnimationNs;
+    private boolean shapeReady;
+    private double shapeMinX;
+    private double shapeMinY;
+    private double shapeMinZ;
+    private double shapeMaxX = 1.0;
+    private double shapeMaxY = 1.0;
+    private double shapeMaxZ = 1.0;
 
     public final ModeSetting mode = add(new ModeSetting(
             "Режим",
@@ -126,11 +135,12 @@ public class BlockOverlay extends Module {
 
         targetPos = newTarget.toImmutable();
         lastVisiblePos = targetPos;
-        visualScale = Math.min(visualScale, 0.92f);
+        visualScale = Math.min(visualScale, 0.98f);
         if (visibility <= 0.01f) {
             renderX = targetPos.getX();
             renderY = targetPos.getY();
             renderZ = targetPos.getZ();
+            shapeReady = false;
         }
     }
 
@@ -150,6 +160,40 @@ public class BlockOverlay extends Module {
         renderX += (targetPos.getX() - renderX) * follow;
         renderY += (targetPos.getY() - renderY) * follow;
         renderZ += (targetPos.getZ() - renderZ) * follow;
+        updateShapeBounds(follow);
+    }
+
+    private void updateShapeBounds(float follow) {
+        if (targetPos == null || mc.world == null) return;
+
+        BlockState state = mc.world.getBlockState(targetPos);
+        if (state.isAir()) return;
+
+        VoxelShape shape = state.getOutlineShape(mc.world, targetPos, ShapeContext.of(mc.player));
+        if (shape.isEmpty()) return;
+
+        Box bounds = shape.getBoundingBox();
+        if (!shapeReady || visibility <= 0.01f) {
+            setShapeBounds(bounds);
+            shapeReady = true;
+            return;
+        }
+
+        shapeMinX += (bounds.minX - shapeMinX) * follow;
+        shapeMinY += (bounds.minY - shapeMinY) * follow;
+        shapeMinZ += (bounds.minZ - shapeMinZ) * follow;
+        shapeMaxX += (bounds.maxX - shapeMaxX) * follow;
+        shapeMaxY += (bounds.maxY - shapeMaxY) * follow;
+        shapeMaxZ += (bounds.maxZ - shapeMaxZ) * follow;
+    }
+
+    private void setShapeBounds(Box bounds) {
+        shapeMinX = bounds.minX;
+        shapeMinY = bounds.minY;
+        shapeMinZ = bounds.minZ;
+        shapeMaxX = bounds.maxX;
+        shapeMaxY = bounds.maxY;
+        shapeMaxZ = bounds.maxZ;
     }
 
     private void renderBlock(Matrix4f matrix, Vec3d camera, BlockPos pos, double smoothX, double smoothY, double smoothZ, float progress) {
@@ -163,11 +207,29 @@ public class BlockOverlay extends Module {
         double dy = smoothY - camera.y;
         double dz = smoothZ - camera.z;
 
+        VoxelShape renderShape = animatedShape(shape);
+
         if (isNormalMode()) {
-            renderNormal(matrix, dx, dy, dz, shape, progress, visualScale);
+            renderNormal(matrix, dx, dy, dz, renderShape, progress, visualScale);
         } else {
-            renderShader(matrix, dx, dy, dz, shape, progress, visualScale);
+            renderShader(matrix, dx, dy, dz, renderShape, progress, visualScale);
         }
+    }
+
+    private VoxelShape animatedShape(VoxelShape fallback) {
+        if (!shapeReady) return fallback;
+
+        double minX = Math.min(shapeMinX, shapeMaxX);
+        double minY = Math.min(shapeMinY, shapeMaxY);
+        double minZ = Math.min(shapeMinZ, shapeMaxZ);
+        double maxX = Math.max(shapeMinX, shapeMaxX);
+        double maxY = Math.max(shapeMinY, shapeMaxY);
+        double maxZ = Math.max(shapeMinZ, shapeMaxZ);
+
+        if (maxX - minX < 0.001 || maxY - minY < 0.001 || maxZ - minZ < 0.001) {
+            return fallback;
+        }
+        return VoxelShapes.cuboid(minX, minY, minZ, maxX, maxY, maxZ);
     }
 
     private void beginState() {
