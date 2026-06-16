@@ -48,6 +48,7 @@ public class Prediction extends Module {
     private final Map<Integer, ImpactLabel> impactLabels = new HashMap<>();
     private final Map<Integer, Long> projectileSpawnTimesMs = new HashMap<>();
     private final Set<Integer> activeProjectileIds = new HashSet<>();
+    private final Map<Integer, ProjectileVisualState> projectileVisualStateCache = new HashMap<>();
 
     private static final int HELD_MAX_TICKS = 320;
     private static final int FLYING_MAX_TICKS = 200;
@@ -74,6 +75,7 @@ public class Prediction extends Module {
             impactLabels.clear();
             projectileSpawnTimesMs.clear();
             activeProjectileIds.clear();
+            projectileVisualStateCache.clear();
         }
     }
 
@@ -84,6 +86,7 @@ public class Prediction extends Module {
         impactLabels.clear();
         projectileSpawnTimesMs.clear();
         activeProjectileIds.clear();
+        projectileVisualStateCache.clear();
     }
 
     private void onRender3D(WorldRenderContext context) {
@@ -107,7 +110,10 @@ public class Prediction extends Module {
             if (camPos.squaredDistanceTo(proj.getPos()) > 96.0 * 96.0) continue;
             ItemStack stack = getProjectileStack(proj);
             if (!stack.isEmpty()) {
-                tickPredictions.add(calculatePath(getProjectileRenderPos(proj, tickDelta), proj.getVelocity(), stack, true, FLYING_MAX_TICKS, projectileId));
+                Vec3d rawPos = getProjectileRenderPos(proj, tickDelta);
+                Vec3d rawVel = proj.getVelocity();
+                ProjectileVisualState visual = smoothProjectileVisual(projectileId, rawPos, rawVel);
+                tickPredictions.add(calculatePath(visual.pos, visual.vel, stack, true, FLYING_MAX_TICKS, projectileId));
             }
         }
 
@@ -495,6 +501,23 @@ public class Prediction extends Module {
     private void pruneProjectileState() {
         projectileSpawnTimesMs.keySet().removeIf(id -> !activeProjectileIds.contains(id));
         impactLabels.keySet().removeIf(id -> !activeProjectileIds.contains(id));
+        projectileVisualStateCache.keySet().removeIf(id -> !activeProjectileIds.contains(id));
+    }
+
+    private ProjectileVisualState smoothProjectileVisual(int projectileId, Vec3d rawPos, Vec3d rawVel) {
+        ProjectileVisualState previous = projectileVisualStateCache.get(projectileId);
+        if (previous == null) {
+            ProjectileVisualState next = new ProjectileVisualState(rawPos, rawVel);
+            projectileVisualStateCache.put(projectileId, next);
+            return next;
+        }
+
+        float smooth = 0.18f;
+        Vec3d pos = previous.pos.lerp(rawPos, smooth);
+        Vec3d vel = previous.vel.lerp(rawVel, smooth);
+        ProjectileVisualState next = new ProjectileVisualState(pos, vel);
+        projectileVisualStateCache.put(projectileId, next);
+        return next;
     }
 
     private Vec3d getShootDirection(float pitch, float yaw, float roll) {
@@ -568,6 +591,9 @@ public class Prediction extends Module {
     }
 
     private record PredictionStart(Vec3d pos, Vec3d vel) {
+    }
+
+    private record ProjectileVisualState(Vec3d pos, Vec3d vel) {
     }
 
     private record PredictionResult(List<Vec3d> path, Vec3d hitPos, Vec3d hitNormal, ItemStack stack, boolean hit, boolean hitEntity,

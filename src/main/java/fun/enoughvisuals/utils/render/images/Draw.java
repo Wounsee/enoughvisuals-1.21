@@ -101,24 +101,11 @@ public class Draw {
     // НОВЫЙ МЕТОД: Специально для головы игрока (берет кусок скина)
     public static void imagePlayerHeadRounded(DrawContext ctx, Identifier skin, float x, float y, float size, float radius, float alpha) {
         if (alpha <= 0.005f) return;
-        ctx.draw();
-
-        StencilUtil.beginStencil();
-        // Принудительно отключаем запись цвета (лечит белый фон)
-        RenderSystem.colorMask(false, false, false, false);
-        RenderUtil.drawRoundedRect(ctx, x, y, size, size, radius, 0xFFFFFFFF);
-        ctx.draw();
-
-        StencilUtil.applyStencil();
-        RenderSystem.colorMask(true, true, true, true);
-
-        RenderSystem.enableBlend();
-        RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
-        ctx.drawTexture(net.minecraft.client.render.RenderLayer::getGuiTextured, skin, (int)x, (int)y, 8f, 8f, (int)size, (int)size, 8, 8, 64, 64);
-        ctx.drawTexture(net.minecraft.client.render.RenderLayer::getGuiTextured, skin, (int)x, (int)y, 40f, 8f, (int)size, (int)size, 8, 8, 64, 64);
-
-        ctx.draw();
-        StencilUtil.endStencil();
+        float safeRadius = Math.min(radius, size * 0.5f);
+        RenderUtil.drawRoundedTextureShader(ctx, skin, x, y, size, size,
+                safeRadius, alpha, 8f, 8f, 8f, 8f, 64f, 64f);
+        RenderUtil.drawRoundedTextureShader(ctx, skin, x, y, size, size,
+                safeRadius, alpha, 40f, 8f, 8f, 8f, 64f, 64f);
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
     }
 

@@ -48,6 +48,8 @@ public final class EnoughCore {
 
         RemoteConfig.getInstance().start();
 
+        new CustomTab();
+
         ModuleManager manager = ModuleManager.getInstance();
         manager.register(
                 new AspectRatio(),
@@ -58,7 +60,6 @@ public final class EnoughCore {
                 new CustomModel(),
                 new SkyBox(),
                 new BlockOverlay(),
-                new CustomTab(),
                 new CustomHitbox(),
                 new GuiSize(),
                 new CustomTheme(),
@@ -68,7 +69,6 @@ public final class EnoughCore {
                 new HitParticles(),
                 new WorldParticles(),
                 new MouseParticles(),
-                new JumpEffect(),
                 new Fullbright(),
                 new ItemPhysics(),
                 new ItemLight(),
@@ -151,8 +151,7 @@ public final class EnoughCore {
         dad.register("targethud", "Таргет Худ", null, TargetHud::new);
         dad.register("effects", "Эффекты", null, EffectsHud::new);
         dad.register("binds", "Бинды", null, BindsHud::new);
-        dad.register("inventory_hud", "Inventory Hud", null, InventoryHud::new);
-        dad.register("custom_scoreboard", "Custom Scoreboard", null, CustomScoreboardHud::new);
+        dad.register("inventory_hud", "Худ инвентаря", null, InventoryHud::new);
 
         ConfigSystem configSystem = ConfigSystem.getInstance();
         configSystem.initialize();

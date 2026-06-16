@@ -5,6 +5,7 @@ import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
+import fun.enoughvisuals.ui.hud.WatermarkHud;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.render.RenderUtil;
@@ -94,17 +95,17 @@ public class CustomTab extends Module {
     }
 
     public static void tickAnimation(float delta) {
-        if (INSTANCE == null || !INSTANCE.isEnabled()) return;
+        if (INSTANCE == null) return;
         boolean show = shouldRenderCustomTab();
         INSTANCE.anim = RenderUtil.animate(INSTANCE.anim, show ? 1f : 0f, show ? 0.46f : 0.34f, RenderUtil.getFrameDelta());
     }
 
     public static float getAnimationProgress() {
-        return INSTANCE == null ? 0f : INSTANCE.anim;
+        return INSTANCE == null || !WatermarkHud.customTabEnabled() ? 0f : INSTANCE.anim;
     }
 
     public static boolean shouldRenderCustomTab() {
-        if (INSTANCE == null || !INSTANCE.isEnabled()) return false;
+        if (INSTANCE == null || !WatermarkHud.customTabEnabled()) return false;
         if (mc == null || mc.getWindow() == null || mc.player == null || mc.world == null) return false;
         if (mc.currentScreen != null) return false;
         long window = mc.getWindow().getHandle();
@@ -118,7 +119,7 @@ public class CustomTab extends Module {
     }
 
     public static void renderInPanel(DrawContext ctx, float x, float y, float w, float h, float alpha) {
-        if (INSTANCE == null || !INSTANCE.isEnabled()) return;
+        if (INSTANCE == null || !WatermarkHud.customTabEnabled()) return;
         TabData data = prepareData();
         if (data == null) return;
 
@@ -173,6 +174,7 @@ public class CustomTab extends Module {
         }
 
         } finally {
+            ctx.draw();
             RenderUtil.disableScissor();
             clipActive = false;
         }

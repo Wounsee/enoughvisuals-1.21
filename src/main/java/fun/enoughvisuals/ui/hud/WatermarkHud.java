@@ -4,6 +4,7 @@ import fun.enoughvisuals.systems.hud.HudElement;
 import fun.enoughvisuals.systems.modules.modules.visual.CustomTab;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.Setting;
+import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
@@ -27,9 +28,15 @@ import java.util.List;
 
 public class WatermarkHud extends HudElement {
 
+    private static WatermarkHud INSTANCE;
+
     public final BooleanSetting showEvents = addSetting(new BooleanSetting("Ивенты", "show_events", true));
     public final BooleanSetting showFps    = addSetting(new BooleanSetting("FPS", "show_fps", true));
     public final BooleanSetting showPing   = addSetting(new BooleanSetting("Пинг", "show_ping", true));
+    public final BooleanSetting showMusic  = addSetting(new BooleanSetting("Музыка", "show_music", true));
+    public final BooleanSetting animateNumbers = addSetting(new BooleanSetting("Анимация чисел", "animate_numbers", true));
+    public final BooleanSetting customTab = addSetting(new BooleanSetting("Кастом TAB", "custom_tab", true));
+    public final SliderSetting islandSize = addSetting(new SliderSetting("Размер острова", "island_size", 1.0, 0.75, 1.55, 0.05));
 
     private static final Identifier MUSIC_FALLBACK = Identifier.of("enough", "logo/icon.png");
     private static final String LOGO_ICON = "\uF002";
@@ -86,8 +93,13 @@ public class WatermarkHud extends HudElement {
 
     public WatermarkHud(float x, float y) {
         super(x, y, 160f, H);
+        INSTANCE = this;
         Arrays.fill(barHeights, BAR_MIN_H);
         Arrays.fill(barTargets, BAR_MIN_H);
+    }
+
+    public static boolean customTabEnabled() {
+        return INSTANCE != null && INSTANCE.customTab.get();
     }
 
     @Override
@@ -112,18 +124,23 @@ public class WatermarkHud extends HudElement {
             lastPingTickMs = now;
         }
 
-        rollFps = updateRoll(rollFps, targetFps);
-        rollPing = updateRoll(rollPing, targetPing);
+        if (animateNumbers.get()) {
+            rollFps = updateRoll(rollFps, targetFps);
+            rollPing = updateRoll(rollPing, targetPing);
+        } else {
+            rollFps = targetFps;
+            rollPing = targetPing;
+        }
 
         NowPlayingService.TrackInfo trackInfo = NowPlayingService.getNowPlaying();
-        boolean newHasTrack = trackInfo.active();
+        boolean newHasTrack = showMusic.get() && trackInfo.active();
         String newText = newHasTrack ? extractTitle(trackInfo.text()) : "";
         if (!newText.equals(lastTrackText)) { animStartMs = System.currentTimeMillis(); lastTrackText = newText; }
         hasTrack = newHasTrack; songText = newText;
         boolean wasPlaying = trackPlaying;
         trackPlaying = hasTrack && trackInfo.isPlaying();
         if (trackPlaying && !wasPlaying) animStartMs = System.currentTimeMillis();
-        if (trackInfo.hasArtwork()) updateArtwork(trackInfo.artworkPng());
+        if (hasTrack && trackInfo.hasArtwork()) updateArtwork(trackInfo.artworkPng());
 
         String mineText = MineRadar.getMineText();
         mineTierActive = mineText != null && !mineText.isBlank();
@@ -176,6 +193,7 @@ public class WatermarkHud extends HudElement {
             }
         }
 
+        float uiScale = islandScale();
         float targetW = LEFT_PAD;
         RenderBlock prev = null;
         for (RenderBlock b : currentBlocks) {
@@ -188,10 +206,13 @@ public class WatermarkHud extends HudElement {
         targetW += RIGHT_PAD;
         if (currentBlocks.isEmpty()) targetW = 0f;
 
-        float maxW = client.getWindow().getScaledWidth() - 12f;
-        targetW = clamp(targetW, 40f, maxW);
+        float maxScreenW = HudElement.hudScreenWidth() - 12f;
+        float maxUnscaledW = maxScreenW / uiScale;
+        targetW = clamp(targetW, 40f, maxUnscaledW);
 
         float targetH = H + (mineTierActive ? (SECOND_GAP + SECOND_H) : 0f);
+        float islandTargetW = targetW * uiScale;
+        float islandTargetH = targetH * uiScale;
         float tabMorph = CustomTab.getAnimationProgress();
         float tabEased = RenderUtil.easeInOutCubic(tabMorph);
         watermarkContentAlpha = RenderUtil.animate(watermarkContentAlpha, 1f - tabEased,
@@ -199,20 +220,18 @@ public class WatermarkHud extends HudElement {
         if (tabMorph > 0.001f) {
             float[] tabSize = CustomTab.getPreferredSize();
             if (tabSize != null) {
-                targetW = lerp(targetW, clamp(tabSize[0], 40f, maxW), tabMorph);
-                targetH = lerp(targetH, tabSize[1], tabMorph);
+                islandTargetW = lerp(islandTargetW, clamp(tabSize[0], 40f, maxScreenW), tabMorph);
+                islandTargetH = lerp(islandTargetH, tabSize[1], tabMorph);
             }
         }
 
         float morphSpeed = CustomTab.getAnimationProgress() > 0.001f ? 0.38f : 0.22f;
-        float currentCenterX = getX() + getWidth() * 0.5f;
-        float targetCenterX = client.getWindow().getScaledWidth() * 0.5f;
-        float nextW = RenderUtil.animate(getWidth(), targetW, morphSpeed, frameDelta);
-        float nextH = RenderUtil.animate(getHeight(), targetH, morphSpeed, frameDelta);
-        float nextCenterX = RenderUtil.animate(currentCenterX, targetCenterX, morphSpeed, frameDelta);
+        float targetCenterX = HudElement.hudScreenWidth() * 0.5f;
+        float nextW = RenderUtil.animate(getWidth(), islandTargetW, morphSpeed, frameDelta);
+        float nextH = RenderUtil.animate(getHeight(), islandTargetH, morphSpeed, frameDelta);
         setWidth(nextW);
         setHeight(nextH);
-        setX(nextCenterX - nextW * 0.5f);
+        setX(targetCenterX - nextW * 0.5f);
         setY(RenderUtil.animate(getY(), 6f, morphSpeed, frameDelta));
     }
 
@@ -244,12 +263,13 @@ public class WatermarkHud extends HudElement {
         float tabEased = RenderUtil.easeInOutCubic(tabMorph);
         float tabAlpha = alpha * tabEased;
         float contentAlpha = alpha * watermarkContentAlpha;
-        float topH = H;
+        float s = islandScale();
+        float topH = H * s;
 
         boolean tabVisible = tabMorph > 0.001f;
         if (tabVisible || (!currentBlocks.isEmpty() && contentAlpha > 0.01f)) {
             float bgH = tabVisible ? h : topH;
-            float radius = tabVisible ? Math.min(11f, Math.max(topH * 0.5f, bgH * 0.18f)) : topH * 0.5f;
+            float radius = tabVisible ? Math.min(11f * s, Math.max(topH * 0.5f, bgH * 0.18f)) : topH * 0.5f;
             drawMenuStyleBackground(ctx, x, y, w, bgH, radius, alpha);
         }
 
@@ -270,9 +290,9 @@ public class WatermarkHud extends HudElement {
         RenderBlock prevW = null;
         for (RenderBlock b : currentBlocks) {
             if (prevW != null) {
-                totalContentW += CustomFontRenderer.getTextWidth("   /   ", 4.0f, FontWeight.SEMIBOLD);
+                totalContentW += CustomFontRenderer.getTextWidth("   /   ", 4.0f * s, FontWeight.SEMIBOLD);
             }
-            totalContentW += b.width;
+            totalContentW += b.width * s;
             prevW = b;
         }
 
@@ -283,80 +303,80 @@ public class WatermarkHud extends HudElement {
         for (RenderBlock b : currentBlocks) {
             if (prev != null) {
                 String sep = "   /   ";
-                CustomFontRenderer.drawText(ctx, sep, cursor, y + 6.5f, 4.0f,
+                CustomFontRenderer.drawText(ctx, sep, cursor, y + 6.5f * s, 4.0f * s,
                         RenderUtil.withAlpha(0xFF888888, contentAlpha * 0.95f), FontWeight.SEMIBOLD);
-                cursor += CustomFontRenderer.getTextWidth(sep, 4.0f, FontWeight.SEMIBOLD);
+                cursor += CustomFontRenderer.getTextWidth(sep, 4.0f * s, FontWeight.SEMIBOLD);
             }
 
             switch (b.type) {
-                case FPS -> drawSlotText(ctx, rollFps, " fps", cursor, y, b.width, topH, contentAlpha);
-                case PING -> drawSlotText(ctx, rollPing, "ms", cursor, y, b.width, topH, contentAlpha);
+                case FPS -> drawSlotText(ctx, rollFps, " fps", cursor, y, b.width * s, topH, contentAlpha, s);
+                case PING -> drawSlotText(ctx, rollPing, "ms", cursor, y, b.width * s, topH, contentAlpha, s);
 
                 case EVENTS -> {
                     int iconColor = 0xFF4CFF88;
-                    CustomFontRenderer.drawText(ctx, "\uF000", cursor, y + 5.5f, 7.0f, RenderUtil.withAlpha(iconColor, contentAlpha * 0.95f), FontWeight.EVENT);
-                    CustomFontRenderer.drawText(ctx, toggleText, cursor + 7.0f + 7.5f, y + 5.5f, 6.0f, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, contentAlpha * 0.98f), FontWeight.SEMIBOLD);
+                    CustomFontRenderer.drawText(ctx, "\uF000", cursor, y + 5.5f * s, 7.0f * s, RenderUtil.withAlpha(iconColor, contentAlpha * 0.95f), FontWeight.EVENT);
+                    CustomFontRenderer.drawText(ctx, toggleText, cursor + (7.0f + 7.5f) * s, y + 5.5f * s, 6.0f * s, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, contentAlpha * 0.98f), FontWeight.SEMIBOLD);
                 }
 
                 case TOGGLE -> {
                     int dotColor = toggleEnabled ? 0xFF4CFF88 : 0xFFFF5C5C;
-                    float dotRadius = 2.0f;
-                    RenderUtil.drawCircle(ctx, cursor + dotRadius, y + H * 0.5f, dotRadius, RenderUtil.withAlpha(dotColor, contentAlpha * 0.95f));
-                    CustomFontRenderer.drawText(ctx, toggleText, cursor + dotRadius * 2.0f + 4.0f, y + 5.5f, 6.0f, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, contentAlpha * 0.98f), FontWeight.SEMIBOLD);
+                    float dotRadius = 2.0f * s;
+                    RenderUtil.drawCircle(ctx, cursor + dotRadius, y + topH * 0.5f, dotRadius, RenderUtil.withAlpha(dotColor, contentAlpha * 0.95f));
+                    CustomFontRenderer.drawText(ctx, toggleText, cursor + dotRadius * 2.0f + 4.0f * s, y + 5.5f * s, 6.0f * s, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, contentAlpha * 0.98f), FontWeight.SEMIBOLD);
                 }
 
                 case LOGO -> {
                     if (hasTrack) {
-                        float avatarSize = 10.5f;
+                        float avatarSize = 10.5f * s;
                         Identifier avatar = artworkId != null ? artworkId : MUSIC_FALLBACK;
-                        RenderUtil.drawRoundedTextureShader(ctx, avatar, cursor, y + (H - avatarSize) * 0.5f, avatarSize, avatarSize, 5.3f, contentAlpha * 0.98f, 0, 0, 1, 1, 1, 1);
-                        float curTrack = cursor + avatarSize + 3.5f;
-                        float targetTrackW = clamp(CustomFontRenderer.getTextWidth(songText, 5.9f, FontWeight.REGULAR), 18f, TRACK_MAX_W);
-                        drawTrackMarquee(ctx, songText, curTrack, y + 5f, 5.9f, targetTrackW, contentAlpha);
-                        drawWaves(ctx, curTrack + targetTrackW + 5f, y + H * 0.5f, contentAlpha);
+                        RenderUtil.drawRoundedTextureShader(ctx, avatar, cursor, y + (topH - avatarSize) * 0.5f, avatarSize, avatarSize, 5.3f * s, contentAlpha * 0.98f, 0, 0, 1, 1, 1, 1);
+                        float curTrack = cursor + avatarSize + 3.5f * s;
+                        float targetTrackW = clamp(CustomFontRenderer.getTextWidth(songText, 5.9f * s, FontWeight.REGULAR), 18f * s, TRACK_MAX_W * s);
+                        drawTrackMarquee(ctx, songText, curTrack, y + 5f * s, 5.9f * s, targetTrackW, contentAlpha);
+                        drawWaves(ctx, curTrack + targetTrackW + 5f * s, y + topH * 0.5f, contentAlpha, s);
                     } else {
-                        float logoSize = 17.2f;
+                        float logoSize = 17.2f * s;
                         float logoHeight = CustomFontRenderer.getTextHeight(logoSize, FontWeight.LOGO);
-                        float logoY = y + (H - logoHeight) * 0.5f;
+                        float logoY = y + (topH - logoHeight) * 0.5f;
                         int logoColor = 0xFFC88DFF;
                         CustomFontRenderer.drawText(ctx, LOGO_ICON, cursor, logoY, logoSize,
                                 RenderUtil.withAlpha(logoColor, contentAlpha * 0.98f), FontWeight.LOGO);
-                        CustomFontRenderer.drawText(ctx, "enoughvisuals.fun", cursor + logoSize, y + 4.87f, 6.0f, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, contentAlpha * 0.98f), FontWeight.SEMIBOLD);
+                        CustomFontRenderer.drawText(ctx, "enoughvisuals.fun", cursor + logoSize, y + 4.87f * s, 6.0f * s, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, contentAlpha * 0.98f), FontWeight.SEMIBOLD);
                     }
                 }
             }
-            cursor += b.width;
+            cursor += b.width * s;
             prev = b;
         }
 
         if (mineTierActive) {
-            float tierY = y + topH + SECOND_GAP;
-            float textW = CustomFontRenderer.getTextWidth(mineTierText, 5.8f, FontWeight.SEMIBOLD);
-            float contentW = 4.8f + 4f + textW;
-            float tierW = clamp(contentW + 12f, 72f, Math.max(72f, w - 18f));
+            float tierY = y + topH + SECOND_GAP * s;
+            float textW = CustomFontRenderer.getTextWidth(mineTierText, 5.8f * s, FontWeight.SEMIBOLD);
+            float contentW = (4.8f + 4f) * s + textW;
+            float tierW = clamp(contentW + 12f * s, 72f * s, Math.max(72f * s, w - 18f * s));
             float tierX = x + (w - tierW) * 0.5f;
             MineTierStyle style = resolveMineTierStyle(mineTierText);
 
-            drawMenuStyleBackground(ctx, tierX, tierY, tierW, SECOND_H, SECOND_H * 0.45f, alpha * 0.98f);
-            float drawX = tierX + Math.max(6f, (tierW - contentW) * 0.5f);
-            RenderUtil.drawRoundedGradientH(ctx, drawX, tierY + SECOND_H * 0.5f - 2.2f, 4.8f, 4.8f, 2.4f, RenderUtil.withAlpha(style.from(), alpha * 0.95f), RenderUtil.withAlpha(style.to(), alpha * 0.95f));
-            drawGradientText(ctx, mineTierText, drawX + 8.8f, tierY + 3.0f, 5.8f, style.from(), style.to(), alpha * 0.98f, FontWeight.SEMIBOLD);
+            drawMenuStyleBackground(ctx, tierX, tierY, tierW, SECOND_H * s, SECOND_H * 0.45f * s, alpha * 0.98f);
+            float drawX = tierX + Math.max(6f * s, (tierW - contentW) * 0.5f);
+            RenderUtil.drawRoundedGradientH(ctx, drawX, tierY + SECOND_H * s * 0.5f - 2.2f * s, 4.8f * s, 4.8f * s, 2.4f * s, RenderUtil.withAlpha(style.from(), alpha * 0.95f), RenderUtil.withAlpha(style.to(), alpha * 0.95f));
+            drawGradientText(ctx, mineTierText, drawX + 8.8f * s, tierY + 3.0f * s, 5.8f * s, style.from(), style.to(), alpha * 0.98f, FontWeight.SEMIBOLD);
         }
         } finally {
             RenderUtil.disableScissor();
         }
     }
 
-    private void drawSlotText(DrawContext ctx, float value, String suffix, float x, float y, float w, float topH, float alpha) {
+    private void drawSlotText(DrawContext ctx, float value, String suffix, float x, float y, float w, float topH, float alpha, float scale) {
         float fraction = value % 1.0f;
         if (fraction < 0) fraction += 1.0f;
 
         int val1 = (int) Math.floor(value);
         int val2 = val1 + 1;
 
-        if (fraction < 0.01f) {
+        if (!animateNumbers.get() || fraction < 0.01f) {
             String text = val1 + suffix;
-            CustomFontRenderer.drawText(ctx, text, x, y + 5.5f, 6.0f, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * 0.98f), FontWeight.SEMIBOLD);
+            CustomFontRenderer.drawText(ctx, text, x, y + 5.5f * scale, 6.0f * scale, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * 0.98f), FontWeight.SEMIBOLD);
             return;
         }
 
@@ -369,7 +389,7 @@ public class WatermarkHud extends HudElement {
         StringBuilder pad2 = new StringBuilder(str2);
         while (pad2.length() < maxLen) pad2.insert(0, " ");
 
-        RenderUtil.enableScissor(x - 2f, y, w + 4f, topH);
+        RenderUtil.enableScissor(x - 2f * scale, y, w + 4f * scale, topH);
         int baseColor = RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * 0.98f);
         float cursor = x;
 
@@ -378,16 +398,16 @@ public class WatermarkHud extends HudElement {
             char c2 = pad2.charAt(i);
 
             String newCharStr = String.valueOf(c2);
-            float charW = CustomFontRenderer.getTextWidth(newCharStr, 6.0f, FontWeight.SEMIBOLD);
+            float charW = CustomFontRenderer.getTextWidth(newCharStr, 6.0f * scale, FontWeight.SEMIBOLD);
 
             if (c2 == ' ') {
-                charW = CustomFontRenderer.getTextWidth(String.valueOf(c1), 6.0f, FontWeight.SEMIBOLD);
-                if (c1 == ' ') charW = CustomFontRenderer.getTextWidth("0", 6.0f, FontWeight.SEMIBOLD);
+                charW = CustomFontRenderer.getTextWidth(String.valueOf(c1), 6.0f * scale, FontWeight.SEMIBOLD);
+                if (c1 == ' ') charW = CustomFontRenderer.getTextWidth("0", 6.0f * scale, FontWeight.SEMIBOLD);
             }
 
             if (c1 == c2) {
                 if (c2 != ' ') {
-                    CustomFontRenderer.drawText(ctx, newCharStr, cursor, y + 5.5f, 6.0f, baseColor, FontWeight.SEMIBOLD);
+                    CustomFontRenderer.drawText(ctx, newCharStr, cursor, y + 5.5f * scale, 6.0f * scale, baseColor, FontWeight.SEMIBOLD);
                 }
             } else {
                 float yNew = (1f - fraction) * topH * 0.5f;
@@ -396,14 +416,14 @@ public class WatermarkHud extends HudElement {
                 int colorNew = RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * 0.98f * fraction);
                 int colorOld = RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * 0.98f * (1f - fraction));
 
-                if (c2 != ' ') CustomFontRenderer.drawText(ctx, newCharStr, cursor, y + 5.5f + yNew, 6.0f, colorNew, FontWeight.SEMIBOLD);
-                if (c1 != ' ') CustomFontRenderer.drawText(ctx, String.valueOf(c1), cursor, y + 5.5f + yOld, 6.0f, colorOld, FontWeight.SEMIBOLD);
+                if (c2 != ' ') CustomFontRenderer.drawText(ctx, newCharStr, cursor, y + 5.5f * scale + yNew, 6.0f * scale, colorNew, FontWeight.SEMIBOLD);
+                if (c1 != ' ') CustomFontRenderer.drawText(ctx, String.valueOf(c1), cursor, y + 5.5f * scale + yOld, 6.0f * scale, colorOld, FontWeight.SEMIBOLD);
             }
             cursor += charW;
         }
 
-        float suffixX = x + CustomFontRenderer.getTextWidth(str2, 6.0f, FontWeight.SEMIBOLD);
-        CustomFontRenderer.drawText(ctx, suffix, suffixX, y + 5.5f, 6.0f, baseColor, FontWeight.SEMIBOLD);
+        float suffixX = x + CustomFontRenderer.getTextWidth(str2, 6.0f * scale, FontWeight.SEMIBOLD);
+        CustomFontRenderer.drawText(ctx, suffix, suffixX, y + 5.5f * scale, 6.0f * scale, baseColor, FontWeight.SEMIBOLD);
 
         RenderUtil.disableScissor();
     }
@@ -445,19 +465,22 @@ public class WatermarkHud extends HudElement {
         }
     }
 
-    private void drawWaves(DrawContext ctx, float x, float centerY, float alpha) {
+    private void drawWaves(DrawContext ctx, float x, float centerY, float alpha, float scale) {
         for (int i = 0; i < BAR_COUNT; i++) {
-            float barH = barHeights[i], barX = x + i * BAR_GAP, barY = centerY - barH * 0.5f;
-            float brightness = 0.5f + (barH - BAR_MIN_H) / (BAR_MAX_H - BAR_MIN_H) * 0.5f;
-            RenderUtil.drawRoundedRect(ctx, barX, barY, BAR_W, barH, BAR_RADIUS, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * brightness));
+            float rawBarH = barHeights[i];
+            float barH = rawBarH * scale;
+            float barX = x + i * BAR_GAP * scale;
+            float barY = centerY - barH * 0.5f;
+            float brightness = 0.5f + (rawBarH - BAR_MIN_H) / (BAR_MAX_H - BAR_MIN_H) * 0.5f;
+            RenderUtil.drawRoundedRect(ctx, barX, barY, BAR_W * scale, barH, BAR_RADIUS * scale, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * brightness));
         }
     }
 
     private void drawTrackMarquee(DrawContext ctx, String text, float x, float y, float size, float maxWidth, float alpha) {
         if (text == null || text.isBlank() || maxWidth <= 2f) return;
-        float effectiveMaxW = Math.min(maxWidth, TRACK_MAX_W);
+        float effectiveMaxW = maxWidth;
         int color = RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * 0.95f);
-        RenderUtil.drawMarqueeText(ctx, text, x, y, effectiveMaxW, 9f, size, color, FontWeight.REGULAR, 18f);
+        RenderUtil.drawMarqueeText(ctx, text, x, y, effectiveMaxW, Math.max(9f, size + 3f), size, color, FontWeight.REGULAR, 18f);
     }
 
     private void updateArtwork(byte[] artwork) {
@@ -501,5 +524,6 @@ public class WatermarkHud extends HudElement {
 
     public static float clamp(float v, float min, float max) { return Math.max(min, Math.min(max, v)); }
     private static float lerp(float from, float to, float t) { return from + (to - from) * t; }
+    private float islandScale() { return clamp(islandSize.get().floatValue(), 0.75f, 1.55f); }
     private record MineTierStyle(int from, int to) {}
 }

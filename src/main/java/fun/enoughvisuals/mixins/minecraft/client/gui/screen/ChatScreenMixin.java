@@ -4,12 +4,17 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.systems.config.CfgCommand;
 import fun.enoughvisuals.systems.friends.FriendRepo;
 import fun.enoughvisuals.systems.gps.GpsSystem;
+import fun.enoughvisuals.systems.hud.HudElement;
 import fun.enoughvisuals.systems.hud.ContextMenu;
 import fun.enoughvisuals.systems.hud.DragAndDrop;
 import fun.enoughvisuals.systems.hud.Grid;
 import fun.enoughvisuals.systems.modules.modules.visual.Animations;
 import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.modules.visual.MouseParticles;
+import fun.enoughvisuals.ui.clickgui.MenuScreen;
+import fun.enoughvisuals.utils.font.CustomFontRenderer;
+import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -126,6 +131,7 @@ public abstract class ChatScreenMixin extends Screen {
         Grid.render(ctx, delta, dad.isDragging());
         dad.renderHoverOverlay(ctx, mx, my, delta);
         ContextMenu.render(ctx, mx, my, delta);
+        enough$renderHudHints(ctx);
         MouseParticles.renderScreen(ctx, mx, my, delta);
         enough$updateFriendSuggestion();
     }
@@ -251,5 +257,51 @@ public abstract class ChatScreenMixin extends Screen {
     @Unique
     private boolean enough$isOverChatInput(float mouseY) {
         return mouseY >= this.height - 18;
+    }
+
+    @Unique
+    private void enough$renderHudHints(DrawContext ctx) {
+        float alpha = 0.90f;
+        Animations animations = Animations.active();
+        if (animations != null) {
+            alpha *= animations.chatOpenProgress(true);
+        }
+        if (alpha <= 0.02f || this.width <= 32) {
+            return;
+        }
+
+        String addHint = "Нажмите ПКМ по пустому месту, чтобы добавить элемент HUD";
+        String settingsHint = "Нажмите ПКМ по элементу HUD, чтобы открыть настройки";
+        float textSize = 6.15f;
+        float maxTextW = Math.min(250f, Math.max(48f, this.width - 24f));
+
+        addHint = CustomFontRenderer.trimToWidth(addHint, maxTextW, textSize, FontWeight.REGULAR);
+        settingsHint = CustomFontRenderer.trimToWidth(settingsHint, maxTextW, textSize, FontWeight.REGULAR);
+
+        float textW = Math.max(
+                CustomFontRenderer.getTextWidth(addHint, textSize, FontWeight.REGULAR),
+                CustomFontRenderer.getTextWidth(settingsHint, textSize, FontWeight.REGULAR)
+        );
+
+        HudElement watermark = DragAndDrop.getInstance().getActiveElementByTypeId("watermark");
+        float hudScale = HudElement.hudScale();
+        float centerX = this.width * 0.5f;
+        float topY = 10f;
+        if (watermark != null) {
+            centerX = (watermark.getX() + watermark.getWidth() * 0.5f) * hudScale;
+            topY = (watermark.getY() + watermark.getHeight()) * hudScale + 7f;
+        }
+
+        float lineGap = 2.5f;
+        float panelW = textW + 14f;
+        float panelH = textSize * 2f + lineGap + 8f;
+        float panelX = centerX - panelW * 0.5f;
+        float panelY = topY;
+        GlassUtil.drawGlassPanel(ctx, panelX, panelY, panelW, panelH, 5f,
+                CustomTheme.hudPanelTint(), alpha * CustomTheme.hudPanelTintAlpha() * 0.8f, alpha * alpha);
+        CustomFontRenderer.drawCenteredText(ctx, addHint, centerX, panelY + 4f, textSize,
+                RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * 0.96f), FontWeight.REGULAR);
+        CustomFontRenderer.drawCenteredText(ctx, settingsHint, centerX, panelY + 4f + textSize + lineGap, textSize,
+                RenderUtil.withAlpha(MenuScreen.TEXT_DIM, alpha * 0.94f), FontWeight.REGULAR);
     }
 }

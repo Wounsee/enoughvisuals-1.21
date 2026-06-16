@@ -16,7 +16,7 @@ import java.util.List;
 public abstract class HudElement {
 
     private static final long APPEAR_MS = 340L;
-    private static final long REMOVE_MS = 280L;
+    private static final long REMOVE_MS = 360L;
     private static final long CONTENT_SHOW_MS = 420L;
     private static final long CONTENT_HIDE_MS = 380L;
     private static final float REFERENCE_GUI_SCALE = 2.0f;
@@ -77,13 +77,13 @@ public abstract class HudElement {
         float closeProgress = removeTime < 0L
                 ? 0f
                 : clamp01((now - removeTime) / (float) REMOVE_MS);
-        float closeCurve = easeOutBack(closeProgress);
+        float closeCurve = RenderUtil.easeInOutCubic(closeProgress);
         float scale = removeTime < 0L
                 ? (2f - openCurve)
-                : (1f + 0.45f * clamp01(closeCurve));
+                : (1f - 0.22f * closeCurve);
         float alpha = removeTime < 0L
                 ? easeOutQuad(appearProgress)
-                : (1f - RenderUtil.easeInOutCubic(closeProgress));
+                : (1f - closeCurve);
 
         float runtimeScale = 1f;
         if (contentVisibilityManaged) {
@@ -118,9 +118,16 @@ public abstract class HudElement {
         ctx.getMatrices().scale(finalScale, finalScale, 1f);
         ctx.getMatrices().translate(-centerX, -centerY, 0);
 
+        boolean clipElement = removeTime >= 0L;
         try {
+            if (clipElement) {
+                RenderUtil.enableScissor(x, y, width, height);
+            }
             renderContent(ctx, x, y, width, height, delta, alpha);
         } finally {
+            if (clipElement) {
+                RenderUtil.disableScissor();
+            }
             setActiveScissorScale(previousScissorScale);
             ctx.getMatrices().pop();
         }

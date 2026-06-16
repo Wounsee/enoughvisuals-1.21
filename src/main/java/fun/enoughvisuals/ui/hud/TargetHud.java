@@ -206,10 +206,7 @@ public class TargetHud extends HudElement {
 
         if (displayTarget instanceof AbstractClientPlayerEntity player) {
             Identifier skin = player.getSkinTextures().texture();
-            RenderUtil.drawRoundedTextureShader(ctx, skin, headX, headY, headSize, headSize,
-                    headRadius, alpha, 8, 8, 8, 8, 64, 64);
-            RenderUtil.drawRoundedTextureShader(ctx, skin, headX, headY, headSize, headSize,
-                    headRadius, alpha, 40, 8, 8, 8, 64, 64);
+            Draw.imagePlayerHeadRounded(ctx, skin, headX, headY, headSize, headRadius, alpha);
         } else {
             Draw.image(ctx, MOB_ICON, headX, headY, headSize, headSize, alpha);
         }

@@ -62,7 +62,7 @@ public class CustomTheme extends Module {
             "Блюр HUD",
             "hud_blur",
             "Сила размытия под HUD элементами",
-            1.0,
+            3.0,
             0.0,
             3.0,
             0.05
@@ -72,7 +72,7 @@ public class CustomTheme extends Module {
             "Блюр ClickGUI",
             "click_gui_blur",
             "Сила размытия под меню",
-            1.35,
+            3.0,
             0.0,
             3.0,
             0.05
@@ -82,7 +82,7 @@ public class CustomTheme extends Module {
             "Прозрачность HUD",
             "hud_opacity",
             "Прозрачность стеклянных HUD панелей",
-            1.0,
+            0.90,
             0.0,
             1.0,
             0.05
@@ -92,7 +92,7 @@ public class CustomTheme extends Module {
             "Прозрачность ClickGUI",
             "click_gui_opacity",
             "Прозрачность стеклянных панелей меню",
-            1.0,
+            0.90,
             0.0,
             1.0,
             0.05
@@ -107,6 +107,7 @@ public class CustomTheme extends Module {
 
     public CustomTheme() {
         color.visibleWhen(menu::get);
+        enableSilent();
     }
 
     @Override

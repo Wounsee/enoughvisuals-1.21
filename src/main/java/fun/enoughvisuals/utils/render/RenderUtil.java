@@ -1241,6 +1241,13 @@ public class RenderUtil {
                                                 float texWidth, float texHeight) {
         if (alpha <= 0.003f) return;
 
+        if (!ShaderManager.isAvailable()) {
+            drawRoundedTextureUVCPU(ctx.getMatrices().peek().getPositionMatrix(), texture,
+                    x, y, w, h, radius, radius, radius, radius,
+                    u, v, uW, vH, Math.round(texWidth), Math.round(texHeight), alpha);
+            return;
+        }
+
         RenderSystem.setShaderTexture(0, texture);
         mc.getTextureManager().getTexture(texture).bindTexture();
         String shader = ShaderManager.ROUNDED_TEXTURE;

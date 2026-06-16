@@ -2,6 +2,7 @@ package fun.enoughvisuals.utils.render.blur;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.mixins.accessors.ShaderProgramAccessor;
+import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import net.minecraft.client.MinecraftClient;
@@ -189,6 +190,32 @@ public class GlassUtil {
     public static void drawBlurPanel(DrawContext ctx, float x, float y, float w, float h,
                                      float radius, float blurAlpha) {
         drawGlassPanel(ctx, x, y, w, h, radius, 0x000000, 0f, blurAlpha);
+    }
+
+    public static void drawScreenBackgroundBlur(DrawContext ctx, float width, float height) {
+        if (width <= 0f || height <= 0f) return;
+
+        float blurOffset = screenBackgroundBlurLevel();
+        boolean blurEnabled = !CustomTheme.blurDisabled() && blurOffset > 0.01f;
+        BLUR_OFFSET = blurOffset;
+
+        if (blurEnabled) {
+            beginFrame();
+        } else {
+            skipFrame();
+        }
+
+        float tintAlpha = 0.12f * CustomTheme.clickGuiOpacity();
+        drawGlassPanel(ctx, 0f, 0f, width, height, 0f,
+                0x000000, tintAlpha, blurEnabled ? 1f : 0f);
+    }
+
+    private static float screenBackgroundBlurLevel() {
+        CustomTheme theme = ModuleManager.getInstance().get(CustomTheme.class);
+        if (theme == null || !theme.isEnabled()) {
+            return 1.25f;
+        }
+        return CustomTheme.clickGuiBlurLevel();
     }
 
     public static void drawGlassPanel(DrawContext ctx, float x, float y, float w, float h,

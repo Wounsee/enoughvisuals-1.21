@@ -11,6 +11,7 @@
       "minecraft.client.gui.DrawContextNameProtectMixin",
       "minecraft.client.gui.screen.ChatScreenMixin",
       "minecraft.client.gui.screen.GameMenuScreenPvPSaveMixin",
+      "minecraft.client.gui.screen.ScreenBackgroundMixin",
       "minecraft.client.gui.widget.TextFieldWidgetAnimationMixin",
       "minecraft.client.gui.screen.HandledScreenMixin",
       "minecraft.client.gui.hud.ChatHudMixin",
