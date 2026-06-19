@@ -60,7 +60,7 @@ public class ClickPearl extends Module {
             step = 0;
             stepDelay = 3;
         } else {
-            ClientActionUtil.clientMessage("Нет §cэндер-пёрл §fв инвентаре");
+            ClientActionUtil.clientMessage("Нет §cэндер-пёрла §fв инвентаре");
         }
     }
 

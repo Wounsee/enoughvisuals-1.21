@@ -10,6 +10,7 @@ import fun.enoughvisuals.systems.modules.settings.MultiItemSelectSetting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.render.ScreenScaleUtil;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.Camera;
@@ -203,8 +204,8 @@ public class ItemLight extends Module {
         double fov = gameRendererAccessor.invokeGetFov(camera, tickDelta, true);
         float halfFovTan = (float) Math.tan(Math.toRadians(fov) / 2.0);
 
-        float screenWidth = mc.getWindow().getScaledWidth();
-        float screenHeight = mc.getWindow().getScaledHeight();
+        float screenWidth = ScreenScaleUtil.virtualWidth();
+        float screenHeight = ScreenScaleUtil.virtualHeight();
 
         float scale = (screenHeight / 2.0f) / halfFovTan;
 

@@ -11,7 +11,7 @@ import net.minecraft.client.gui.DrawContext;
 
 public class HudHintRenderer {
 
-    public static void render(DrawContext ctx, int screenWidth, int screenHeight) {
+    public static void render(DrawContext ctx, float screenWidth, float screenHeight) {
         float alpha = 0.90f;
         Animations animations = Animations.active();
         if (animations != null) {
@@ -35,12 +35,11 @@ public class HudHintRenderer {
         );
 
         HudElement watermark = DragAndDrop.getInstance().getActiveElementByTypeId("watermark");
-        float hudScale = HudElement.hudScale();
         float centerX = screenWidth * 0.5f;
         float topY = 10f;
         if (watermark != null) {
-            centerX = (watermark.getX() + watermark.getWidth() * 0.5f) * hudScale;
-            topY = (watermark.getY() + watermark.getHeight()) * hudScale + 12f;
+            centerX = watermark.getX() + watermark.getWidth() * 0.5f;
+            topY = watermark.getY() + watermark.getHeight() + 12f;
         }
 
         float lineGap = 2.5f;

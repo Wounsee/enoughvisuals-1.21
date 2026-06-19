@@ -9,8 +9,8 @@ import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.render.RenderUtil;
+import fun.enoughvisuals.utils.render.ScreenScaleUtil;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.gl.ShaderProgramKeys;
@@ -44,6 +44,7 @@ import java.util.Set;
 @Register(name = "Prediction", id = "prediction", description = "Траектория полета", category = Category.VISUAL)
 public class Prediction extends Module {
 
+    private static Prediction INSTANCE;
     private boolean registered = false;
     private final List<PredictionResult> tickPredictions = new ArrayList<>();
     private PredictionResult framePrediction = null;
@@ -59,11 +60,14 @@ public class Prediction extends Module {
     private static final int PREDICT_TUBE_SIDES = 8;
     private static final float HELD_LINE_WIDTH = 2.0f;
 
+    public Prediction() {
+        INSTANCE = this;
+    }
+
     @Override
     public void onEnable() {
         if (!registered) {
             WorldRenderEvents.LAST.register(this::onRender3D);
-            HudRenderCallback.EVENT.register(this::onRender2D);
             registered = true;
         }
     }
@@ -198,10 +202,12 @@ public class Prediction extends Module {
         RenderSystem.lineWidth(1.0f);
     }
 
-    private void onRender2D(DrawContext ctx, net.minecraft.client.render.RenderTickCounter tickCounter) {
-        if (!isEnabled() || !isInGame()) return;
+    public static void renderOverlay2D(DrawContext ctx, float tickDelta) {
+        if (INSTANCE == null || !INSTANCE.isEnabled() || !INSTANCE.isInGame()) return;
+        INSTANCE.render2D(ctx, tickDelta);
+    }
 
-        float tickDelta = tickCounter.getTickDelta(true);
+    private void render2D(DrawContext ctx, float tickDelta) {
         Camera camera = mc.gameRenderer.getCamera();
         Vec3d camPos = stableCameraPos(tickDelta);
         long now = System.currentTimeMillis();
@@ -549,8 +555,8 @@ public class Prediction extends Module {
         double fov = gameRendererAccessor.invokeGetFov(camera, tickDelta, true);
         float halfFovTan = (float) Math.tan(Math.toRadians(fov) / 2.0);
 
-        float screenWidth = mc.getWindow().getScaledWidth();
-        float screenHeight = mc.getWindow().getScaledHeight();
+        float screenWidth = ScreenScaleUtil.virtualWidth();
+        float screenHeight = ScreenScaleUtil.virtualHeight();
 
         float scale = (screenHeight / 2.0f) / halfFovTan;
 

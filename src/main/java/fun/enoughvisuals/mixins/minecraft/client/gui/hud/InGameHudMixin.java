@@ -13,6 +13,7 @@ import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.modules.visual.ItemLight;
 import fun.enoughvisuals.systems.modules.modules.visual.MouseParticles;
 import fun.enoughvisuals.systems.modules.modules.visual.NoRender;
+import fun.enoughvisuals.systems.modules.modules.visual.Prediction;
 import fun.enoughvisuals.systems.modules.modules.utils.StreamerMode;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.ScreenScaleUtil;
@@ -136,24 +137,31 @@ public abstract class InGameHudMixin {
     @Inject(method = "render", at = @At("TAIL"))
     private void enough$renderHud(DrawContext ctx, RenderTickCounter counter, CallbackInfo ci) {
         MinecraftClient client = MinecraftClient.getInstance();
+        StencilUtil.resetRenderState();
+
+        // Independent from hudHidden — render even when HUD is hidden (F1)
+        // Scale to virtual coordinate space so size is consistent regardless of GUI scale
+        float fixedScale = ScreenScaleUtil.scale();
+        ctx.getMatrices().push();
+        ctx.getMatrices().scale(fixedScale, fixedScale, 1f);
+        ItemLight.renderOverlay(ctx, counter.getTickDelta(true));
+        Prediction.renderOverlay2D(ctx, counter.getTickDelta(true));
+        if (client.currentScreen instanceof ChatScreen) {
+            HudHintRenderer.render(ctx, ScreenScaleUtil.virtualWidth(), ScreenScaleUtil.virtualHeight());
+        }
+        ctx.getMatrices().pop();
+
         if (client.options != null && client.options.hudHidden) {
             StencilUtil.resetRenderState();
             return;
         }
-        StencilUtil.resetRenderState();
         GpsSystem.getInstance().renderOverlay(ctx, counter.getTickDelta(true));
-        ItemLight.renderOverlay(ctx, counter.getTickDelta(true));
         Cooldowns.renderHotbarOverlay(ctx, counter.getTickDelta(true));
         CustomTab.tickAnimation(counter.getTickDelta(true));
         // Vanilla chat preview and scoreboard queue text in DrawContext. Flush it
         // before any later overlay work.
         ctx.draw();
-        if (client.options != null && !client.options.hudHidden) {
-            if (client.currentScreen instanceof ChatScreen) {
-                HudHintRenderer.render(ctx, ctx.getScaledWindowWidth(), ctx.getScaledWindowHeight());
-            }
-            DragAndDrop.getInstance().renderAll(ctx, counter.getTickDelta(true));
-        }
+        DragAndDrop.getInstance().renderAll(ctx, counter.getTickDelta(true));
         MouseParticles.renderHud(ctx, counter.getTickDelta(true));
         StencilUtil.resetRenderState();
     }
