@@ -20,7 +20,17 @@ import java.util.function.Predicate;
 public final class ClientActionUtil {
     private static final MinecraftClient mc = MinecraftClient.getInstance();
 
+    private static boolean silentInventory = false;
+
     private ClientActionUtil() {
+    }
+
+    public static boolean isSilentInventory() {
+        return silentInventory;
+    }
+
+    public static void setSilentInventory(boolean value) {
+        silentInventory = value;
     }
 
     public static boolean inGame() {
@@ -111,13 +121,11 @@ public final class ClientActionUtil {
 
     public static boolean swapToOffhand(int inventorySlot) {
         if (!inGame() || mc.interactionManager == null) return false;
-        mc.interactionManager.clickSlot(
-                mc.player.currentScreenHandler.syncId,
-                inventoryToScreenSlot(inventorySlot),
-                40,
-                SlotActionType.SWAP,
-                mc.player
-        );
+        int screenSlot = inventoryToScreenSlot(inventorySlot);
+        int syncId = mc.player.currentScreenHandler.syncId;
+        mc.interactionManager.clickSlot(syncId, screenSlot, 0, SlotActionType.PICKUP, mc.player);
+        mc.interactionManager.clickSlot(syncId, 45, 0, SlotActionType.PICKUP, mc.player);
+        mc.interactionManager.clickSlot(syncId, screenSlot, 0, SlotActionType.PICKUP, mc.player);
         return true;
     }
 }

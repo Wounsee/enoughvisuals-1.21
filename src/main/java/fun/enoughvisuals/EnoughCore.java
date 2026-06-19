@@ -9,6 +9,7 @@ import fun.enoughvisuals.systems.modules.modules.visual.*;
 import fun.enoughvisuals.systems.network.RemoteConfig;
 import fun.enoughvisuals.ui.gate.GateScreen;
 import fun.enoughvisuals.ui.hud.BindsHud;
+import fun.enoughvisuals.ui.hud.CooldownsHud;
 import fun.enoughvisuals.ui.hud.CustomScoreboardHud;
 import fun.enoughvisuals.ui.hud.EffectsHud;
 import fun.enoughvisuals.ui.hud.InventoryHud;
@@ -104,7 +105,14 @@ public final class EnoughCore {
                 new LockSlot(),
                 new ItemScroller(),
                 new FTHelper(),
-                new Zoom());
+                new Zoom(),
+                new ItemSwap(),
+                new ClickPearl(),
+                new HitColor(),
+                new LowArmorNotify(),
+                new ShiftTap(),
+                new SpecBind(),
+                new DeathCords());
 
         manager.init();
         WorldRenderEvents.BEFORE_ENTITIES.register(ShaderEspRenderer::beginWorldFrame);
@@ -151,6 +159,7 @@ public final class EnoughCore {
         dad.register("targethud", "Таргет Худ", null, TargetHud::new);
         dad.register("effects", "Эффекты", null, EffectsHud::new);
         dad.register("binds", "Бинды", null, BindsHud::new);
+        dad.register("cooldowns", "Кулдауны", null, CooldownsHud::new);
         dad.register("inventory_hud", "Худ инвентаря", null, InventoryHud::new);
 
         ConfigSystem configSystem = ConfigSystem.getInstance();

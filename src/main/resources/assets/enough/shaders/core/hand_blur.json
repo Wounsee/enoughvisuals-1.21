@@ -20,9 +20,6 @@
     { "name": "UseItemColor", "type": "int", "count": 1, "values": [0] },
     { "name": "Time", "type": "float", "count": 1, "values": [0.0] },
     { "name": "WebOpacity", "type": "float", "count": 1, "values": [0.9] },
-    { "name": "WebGlow", "type": "float", "count": 1, "values": [0.85] },
-    { "name": "FlowEnabled", "type": "int", "count": 1, "values": [1] },
-    { "name": "FlowSpeed", "type": "float", "count": 1, "values": [0.75] },
-    { "name": "FlowStrength", "type": "float", "count": 1, "values": [0.75] }
+    { "name": "WebGlow", "type": "float", "count": 1, "values": [0.85] }
   ]
 }

@@ -102,11 +102,38 @@ public class Draw {
     public static void imagePlayerHeadRounded(DrawContext ctx, Identifier skin, float x, float y, float size, float radius, float alpha) {
         if (alpha <= 0.005f) return;
         float safeRadius = Math.min(radius, size * 0.5f);
-        RenderUtil.drawRoundedTextureShader(ctx, skin, x, y, size, size,
-                safeRadius, alpha, 8f, 8f, 8f, 8f, 64f, 64f);
-        RenderUtil.drawRoundedTextureShader(ctx, skin, x, y, size, size,
-                safeRadius, alpha, 40f, 8f, 8f, 8f, 64f, 64f);
+        RenderUtil.drawRoundedTextureUVCPU(ctx.getMatrices().peek().getPositionMatrix(), skin,
+                x, y, size, size, safeRadius, safeRadius, safeRadius, safeRadius,
+                8f, 8f, 8f, 8f, 64, 64, alpha);
+        RenderUtil.drawRoundedTextureUVCPU(ctx.getMatrices().peek().getPositionMatrix(), skin,
+                x, y, size, size, safeRadius, safeRadius, safeRadius, safeRadius,
+                40f, 8f, 8f, 8f, 64, 64, alpha);
+    }
+
+    private static void drawTextureUV(DrawContext ctx, Identifier texture, float x, float y, float w, float h,
+                                       float u, float v, float uW, float vH, float tW, float tH, float alpha) {
+        if (alpha <= 0.005f) return;
+        RenderSystem.enableBlend();
+        RenderSystem.blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX);
+        RenderSystem.setShaderTexture(0, texture);
+        RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+
+        float u0 = u / tW;
+        float u1 = (u + uW) / tW;
+        float v0 = v / tH;
+        float v1 = (v + vH) / tH;
+
+        Matrix4f mat = ctx.getMatrices().peek().getPositionMatrix();
+        BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
+        buffer.vertex(mat, x, y, 0).texture(u0, v0);
+        buffer.vertex(mat, x, y + h, 0).texture(u0, v1);
+        buffer.vertex(mat, x + w, y + h, 0).texture(u1, v1);
+        buffer.vertex(mat, x + w, y, 0).texture(u1, v0);
+        BufferRenderer.drawWithGlobalProgram(buffer.end());
+
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        RenderSystem.disableBlend();
     }
 
     private static void ensureTexture(Identifier id) {

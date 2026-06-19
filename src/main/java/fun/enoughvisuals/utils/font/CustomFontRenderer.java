@@ -45,7 +45,8 @@ public class CustomFontRenderer {
         CLIENT("client"),
         WP("wp"),
         VC("vc"),
-        LOGO("logo");
+        LOGO("logo"),
+        TIME("time");
 
         final String atlasName;
 

@@ -5,8 +5,10 @@ import fun.enoughvisuals.mixins.accessors.GameRendererAccessor;
 import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
+import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.ColorSetting;
 import fun.enoughvisuals.systems.modules.settings.ModeSetting;
+import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.gui.DrawContext;
@@ -81,6 +83,55 @@ public class HitParticles extends Module {
             0xFFFF3B30
     ));
 
+    public final SliderSetting count = add(new SliderSetting(
+            "Количество",
+            "count",
+            "Сколько партиклов спавнится за удар",
+            26, 1, 80, 1
+    ));
+
+    public final SliderSetting size = add(new SliderSetting(
+            "Размер",
+            "size",
+            "Базовый размер партиклов",
+            14.0, 4.0, 40.0, 1.0
+    ));
+
+    public final SliderSetting life = add(new SliderSetting(
+            "Время жизни",
+            "life",
+            "Сколько тиков живут партиклы",
+            42.0, 10.0, 120.0, 1.0
+    ));
+
+    public final SliderSetting speed = add(new SliderSetting(
+            "Скорость",
+            "speed",
+            "Начальная скорость разлёта партиклов",
+            1.0, 0.1, 3.0, 0.05
+    ));
+
+    public final BooleanSetting bloom = add(new BooleanSetting(
+            "Свечение",
+            "bloom",
+            "Рисовать bloom-ореол вокруг партиклов",
+            true
+    ));
+
+    public final BooleanSetting randomRotation = add(new BooleanSetting(
+            "Случайный поворот",
+            "random_rotation",
+            "Каждый партикл повёрнут случайно",
+            true
+    ));
+
+    public final BooleanSetting gravity = add(new BooleanSetting(
+            "Гравитация",
+            "gravity",
+            "Партиклы падают вниз со временем",
+            true
+    ));
+
     private final Random random = new Random();
     private final List<HitParticle> particles = new ArrayList<>();
     private long lastUpdateMs = 0L;
@@ -121,8 +172,11 @@ public class HitParticles extends Module {
 
     private void spawnBurst(Entity target) {
         Vec3d center = target.getBoundingBox().getCenter().add(0.0, -target.getHeight() * 0.08, 0.0);
-        int count = 26 + random.nextInt(8);
+        int count = (int) this.count.get().doubleValue();
         int baseColor = color.get() & 0x00FFFFFF;
+        float speedMul = speed.get().floatValue();
+        float baseLife = life.get().floatValue();
+        float baseSize = size.get().floatValue();
 
         for (int i = 0; i < count; i++) {
             if (particles.size() >= MAX_PARTICLES) {
@@ -131,20 +185,20 @@ public class HitParticles extends Module {
 
             double angle = random.nextDouble() * Math.PI * 2.0;
             double verticalAngle = Math.toRadians(16.0 + random.nextDouble() * 44.0);
-            double speed = 0.036 + random.nextDouble() * 0.066;
-            double horizontalSpeed = Math.cos(verticalAngle) * speed;
-            double rise = Math.sin(verticalAngle) * speed + 0.009;
+            double spd = (0.036 + random.nextDouble() * 0.066) * speedMul;
+            double horizontalSpeed = Math.cos(verticalAngle) * spd;
+            double rise = Math.sin(verticalAngle) * spd + 0.009;
 
             Vec3d velocity = new Vec3d(Math.cos(angle) * horizontalSpeed, rise, Math.sin(angle) * horizontalSpeed);
             Vec3d spawnPos = center;
 
-            float life = 42f + random.nextFloat() * 20f;
-            float size = 14.0f + random.nextFloat() * 10.0f;
-            float rotation = random.nextFloat() * 360f;
+            float pLife = baseLife + random.nextFloat() * 20f;
+            float pSize = baseSize + random.nextFloat() * 10.0f;
+            float rotation = randomRotation.get() ? random.nextFloat() * 360f : 0f;
             float rotationSpeed = (random.nextFloat() - 0.5f) * 24f;
             Identifier texture = pickTexture();
 
-            particles.add(new HitParticle(spawnPos, velocity, life, life, size, rotation, rotationSpeed, texture, baseColor));
+            particles.add(new HitParticle(spawnPos, velocity, pLife, pLife, pSize, rotation, rotationSpeed, texture, baseColor));
         }
     }
 
@@ -197,8 +251,10 @@ public class HitParticles extends Module {
     }
 
     private void drawParticle(DrawContext ctx, HitParticle particle, float x, float y, float size, float alpha) {
-        float bloomSize = size * 1.9f;
-        drawTintedImage(ctx, BLOOM_TEXTURE, x, y, bloomSize, particle.rgbColor, alpha * 0.52f, particle.rotation * 0.4f);
+        if (bloom.get()) {
+            float bloomSize = size * 1.9f;
+            drawTintedImage(ctx, BLOOM_TEXTURE, x, y, bloomSize, particle.rgbColor, alpha * 0.52f, particle.rotation * 0.4f);
+        }
         drawTintedImage(ctx, particle.texture, x, y, size, particle.rgbColor, alpha, particle.rotation);
     }
 
@@ -255,7 +311,10 @@ public class HitParticles extends Module {
             }
 
             p.pos = p.pos.add(p.velocity.multiply(dt));
-            p.velocity = p.velocity.multiply(Math.pow(0.945, dt)).add(0.0, -0.0013 * dt, 0.0);
+            p.velocity = p.velocity.multiply(Math.pow(0.945, dt));
+            if (gravity.get()) {
+                p.velocity = p.velocity.add(0.0, -0.0013 * dt, 0.0);
+            }
             p.rotation += p.rotationSpeed * dt;
         }
     }

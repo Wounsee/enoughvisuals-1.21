@@ -1,6 +1,12 @@
 package fun.enoughvisuals.mixins.minecraft.client;
 
+import fun.enoughvisuals.systems.gps.GpsSystem;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
+import fun.enoughvisuals.systems.modules.modules.utils.ClickPearl;
+import fun.enoughvisuals.systems.modules.modules.utils.FastSwap;
+import fun.enoughvisuals.systems.modules.modules.utils.ItemSwap;
+import fun.enoughvisuals.systems.modules.modules.utils.SendCord;
+import fun.enoughvisuals.systems.modules.modules.utils.SpecBind;
 import fun.enoughvisuals.systems.modules.modules.visual.Zoom;
 import fun.enoughvisuals.utils.system.BindKeyUtil;
 import net.minecraft.client.Mouse;
@@ -21,7 +27,17 @@ public class MouseMixin {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null || client.currentScreen != null) return;
 
-        ModuleManager.getInstance().onKeyPress(BindKeyUtil.mouseButtonToCode(button));
+        int key = BindKeyUtil.mouseButtonToCode(button);
+
+        if (GpsSystem.getInstance().openGuiIfBound(key, client)) {
+            return;
+        }
+        FastSwap.onKey(key);
+        ClickPearl.onKey(key);
+        ItemSwap.onKey(key);
+        SpecBind.onKey(key);
+        SendCord.onKey(key);
+        ModuleManager.getInstance().onKeyPress(key);
     }
 
     @Inject(method = "onMouseScroll", at = @At("HEAD"), cancellable = true)

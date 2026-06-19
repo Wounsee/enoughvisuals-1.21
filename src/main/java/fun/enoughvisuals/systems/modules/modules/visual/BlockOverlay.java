@@ -38,7 +38,7 @@ import java.util.Locale;
 public class BlockOverlay extends Module {
     private static final float OFFSET = 0.01f;
     private static final float SHADER_SCALE = 3.15f;
-    private static final float ANIMATION_RATE = 10.5f;
+    private static final float ANIMATION_RATE = 15.5f;
 
     private static final Identifier COSMOS = Identifier.of("enough", "textures/sky/custom_world/block_overlay_cosmos.png");
     private static final Identifier FOG_NEBULA = Identifier.of("enough", "textures/sky/custom_world/block_overlay_fog_nebula.png");
@@ -89,6 +89,7 @@ public class BlockOverlay extends Module {
     public final ColorSetting normalFill = add(new ColorSetting("Заливка", "normal_fill", "Цвет обычной заливки", 0x553B8CFF));
     public final ColorSetting normalOutline = add(new ColorSetting("Обводка", "normal_outline", "Цвет обычной обводки", 0xFFE8D8FF));
     public final SliderSetting normalWidth = add(new SliderSetting("Толщина", "normal_width", "Толщина обычной обводки", 1.5, 1.0, 5.0, 0.1));
+    public final BooleanSetting smooth = add(new BooleanSetting("Плавность", "smooth", "Плавная анимация движения и масштаба", true));
     public final BooleanSetting throughWalls = add(new BooleanSetting("Через стены", "through_walls", "Рисовать сквозь стены", false));
 
     public BlockOverlay() {
@@ -150,6 +151,20 @@ public class BlockOverlay extends Module {
         lastAnimationNs = now;
         seconds = Math.max(0.0f, Math.min(0.1f, seconds));
         float follow = 1.0f - (float) Math.exp(-ANIMATION_RATE * seconds);
+
+        if (!smooth.get()) {
+            if (targetPos == null) {
+                visibility = 0f;
+                return;
+            }
+            visibility = 1f;
+            visualScale = 1f;
+            renderX = targetPos.getX();
+            renderY = targetPos.getY();
+            renderZ = targetPos.getZ();
+            updateShapeBounds(1f);
+            return;
+        }
 
         if (targetPos == null) {
             visibility *= 1.0f - follow;

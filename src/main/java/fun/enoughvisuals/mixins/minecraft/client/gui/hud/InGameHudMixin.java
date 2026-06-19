@@ -2,8 +2,10 @@ package fun.enoughvisuals.mixins.minecraft.client.gui.hud;
 
 import fun.enoughvisuals.systems.gps.GpsSystem;
 import fun.enoughvisuals.systems.hud.DragAndDrop;
+import fun.enoughvisuals.systems.hud.HudHintRenderer;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.modules.utils.LockSlot;
+import fun.enoughvisuals.systems.modules.modules.visual.Animations;
 import fun.enoughvisuals.systems.modules.modules.visual.Cooldowns;
 import fun.enoughvisuals.systems.modules.modules.visual.Crosshair;
 import fun.enoughvisuals.systems.modules.modules.visual.CustomTab;
@@ -18,12 +20,18 @@ import fun.enoughvisuals.utils.render.ShaderHandsRenderer;
 import fun.enoughvisuals.utils.render.StencilUtil;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.InGameHud;
+import net.minecraft.client.gui.hud.PlayerListHud;
 import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.scoreboard.Scoreboard;
+import net.minecraft.scoreboard.ScoreboardDisplaySlot;
 import net.minecraft.scoreboard.ScoreboardObjective;
 import net.minecraft.util.Identifier;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -31,6 +39,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(InGameHud.class)
 public abstract class InGameHudMixin {
+
+    @Shadow
+    @Final
+    private MinecraftClient client;
+
+    @Shadow
+    @Final
+    private PlayerListHud playerListHud;
 
     @Unique
     private float enough$smoothCooldown = 1.0f;
@@ -107,6 +123,7 @@ public abstract class InGameHudMixin {
 
             context.getMatrices().pop();
         }
+
     }
 
     @Inject(method = "renderOverlay", at = @At("HEAD"), cancellable = true)
@@ -129,11 +146,68 @@ public abstract class InGameHudMixin {
         Cooldowns.renderHotbarOverlay(ctx, counter.getTickDelta(true));
         CustomTab.tickAnimation(counter.getTickDelta(true));
         // Vanilla chat preview and scoreboard queue text in DrawContext. Flush it
-        // before custom HUD elements open narrow scissor regions for animations.
+        // before any later overlay work.
         ctx.draw();
-        DragAndDrop.getInstance().renderAll(ctx, counter.getTickDelta(true));
+        if (client.options != null && !client.options.hudHidden) {
+            if (client.currentScreen instanceof ChatScreen) {
+                HudHintRenderer.render(ctx, ctx.getScaledWindowWidth(), ctx.getScaledWindowHeight());
+            }
+            DragAndDrop.getInstance().renderAll(ctx, counter.getTickDelta(true));
+        }
         MouseParticles.renderHud(ctx, counter.getTickDelta(true));
         StencilUtil.resetRenderState();
+    }
+
+    @Inject(method = "renderPlayerList", at = @At("HEAD"), cancellable = true)
+    private void enough$renderAnimatedVanillaPlayerList(DrawContext ctx, RenderTickCounter counter, CallbackInfo ci) {
+        Animations animations = Animations.active();
+        if (animations == null || !animations.vanillaTabAnimation.get() || CustomTab.shouldRenderCustomTab()) {
+            return;
+        }
+        if (client == null || client.world == null || client.player == null || client.options == null) {
+            return;
+        }
+
+        Scoreboard scoreboard = client.world.getScoreboard();
+        ScoreboardObjective objective = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.LIST);
+        boolean hiddenSingleplayerList = client.isInSingleplayer()
+                && client.getNetworkHandler() != null
+                && client.getNetworkHandler().getListedPlayerListEntries().size() <= 1
+                && objective == null;
+        boolean shown = client.options.playerListKey.isPressed() && !hiddenSingleplayerList;
+        animations.updatePlayerListShown(shown);
+
+        if (!shown && !animations.shouldRenderPlayerList()) {
+            playerListHud.setVisible(false);
+            ci.cancel();
+            return;
+        }
+
+        float progress = RenderUtil.easeInOutCubic(animations.playerListProgress());
+        if (progress <= 0.001f) {
+            playerListHud.setVisible(false);
+            ci.cancel();
+            return;
+        }
+
+        ci.cancel();
+        playerListHud.setVisible(true);
+
+        float centerX = ctx.getScaledWindowWidth() * 0.5f;
+        float tabOffsetY = 24f;
+        ctx.getMatrices().push();
+        try {
+            ctx.getMatrices().translate(centerX, tabOffsetY - (1f - progress) * 8f, 0f);
+            ctx.getMatrices().scale(progress, progress, 1f);
+            ctx.getMatrices().translate(-centerX, 0f, 0f);
+            playerListHud.render(ctx, ctx.getScaledWindowWidth(), scoreboard, objective);
+        } finally {
+            ctx.getMatrices().pop();
+        }
+
+        if (!shown && !animations.shouldRenderPlayerList()) {
+            playerListHud.setVisible(false);
+        }
     }
 
     @Inject(method = "renderCrosshair", at = @At("HEAD"), cancellable = true)

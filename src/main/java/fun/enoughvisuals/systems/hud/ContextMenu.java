@@ -1,5 +1,6 @@
 package fun.enoughvisuals.systems.hud;
 
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.ModeSetting;
 import fun.enoughvisuals.systems.modules.settings.Setting;
@@ -124,7 +125,9 @@ public class ContextMenu {
         ctx.getMatrices().scale(scale, scale, 1f);
         ctx.getMatrices().translate(-(panelX + panelW * 0.5f), -(panelY + panelH * 0.5f), 0f);
 
-        GlassUtil.drawGlassPanel(ctx, panelX, panelY, panelW, panelH, RADIUS, 0x000000, alpha * 0.80f, alpha * alpha);
+        GlassUtil.BLUR_OFFSET = CustomTheme.hudBlurLevel();
+        GlassUtil.drawGlassPanel(ctx, panelX, panelY, panelW, panelH, RADIUS, CustomTheme.hudPanelTint(),
+                alpha * CustomTheme.hudPanelTintAlpha(), alpha * alpha);
         renderHeader(ctx, alpha);
 
         scrollOffset = RenderUtil.animate(scrollOffset, scrollTarget, 0.22f, speed);

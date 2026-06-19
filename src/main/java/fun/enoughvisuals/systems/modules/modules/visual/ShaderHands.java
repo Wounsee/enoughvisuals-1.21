@@ -76,33 +76,6 @@ public class ShaderHands extends Module {
             0.05
     ));
 
-    public final BooleanSetting flowOutline = add(new BooleanSetting(
-            "Поток обводки",
-            "flow_outline",
-            "Пускает мягкую стеклянную обводку снизу вверх",
-            true
-    ));
-
-    public final SliderSetting flowSpeed = add(new SliderSetting(
-            "Скорость потока",
-            "flow_speed",
-            "Скорость движения стеклянной обводки",
-            0.75,
-            0.05,
-            2.0,
-            0.05
-    ));
-
-    public final SliderSetting flowStrength = add(new SliderSetting(
-            "Сила потока",
-            "flow_strength",
-            "Яркость движущейся стеклянной обводки",
-            0.75,
-            0.0,
-            1.5,
-            0.05
-    ));
-
     public final BooleanSetting itemColor = add(new BooleanSetting(
             "Цвет от предмета",
             "item_color",
@@ -131,9 +104,6 @@ public class ShaderHands extends Module {
         glowStrength.visibleWhen(this::isGlassMode);
         itemColor.visibleWhen(this::isGlassMode);
         glassColor.visibleWhen(this::isGlassMode);
-        flowOutline.visibleWhen(this::isGlassMode);
-        flowSpeed.visibleWhen(() -> isGlassMode() && flowOutline.get());
-        flowStrength.visibleWhen(() -> isGlassMode() && flowOutline.get());
         webOpacity.visibleWhen(this::isWebMode);
         webGlow.visibleWhen(this::isWebMode);
         color.visibleWhen(() -> !isGlassMode() || !itemColor.get());

@@ -201,9 +201,6 @@ public final class ShaderHandsRenderer {
         setUniform(shader, "Time", (System.currentTimeMillis() % 100_000L) / 1000.0f);
         setUniform(shader, "WebOpacity", module.webOpacity.get().floatValue());
         setUniform(shader, "WebGlow", module.webGlow.get().floatValue());
-        setUniform(shader, "FlowEnabled", module.flowOutline.get() ? 1 : 0);
-        setUniform(shader, "FlowSpeed", module.flowSpeed.get().floatValue());
-        setUniform(shader, "FlowStrength", module.flowStrength.get().floatValue());
 
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
         builder.vertex(matrix, 0.0f, screenHeight, 0.0f).color(0xFFFFFFFF);

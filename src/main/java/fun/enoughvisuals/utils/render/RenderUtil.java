@@ -1077,7 +1077,7 @@ public class RenderUtil {
     
     
 
-    private static void drawRoundedRectCPU(Matrix4f matrix, float x, float y, float w, float h,
+    public static void drawRoundedRectCPU(Matrix4f matrix, float x, float y, float w, float h,
                                            float tl, float tr, float br, float bl,
                                            float r, float g, float b, float a) {
         RenderSystem.enableBlend();

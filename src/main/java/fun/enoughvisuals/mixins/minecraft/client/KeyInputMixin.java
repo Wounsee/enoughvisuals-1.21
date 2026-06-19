@@ -3,8 +3,11 @@ package fun.enoughvisuals.mixins.minecraft.client;
 import fun.enoughvisuals.mixins.accessors.GameOptionsAccessor;
 import fun.enoughvisuals.systems.gps.GpsSystem;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
+import fun.enoughvisuals.systems.modules.modules.utils.ClickPearl;
 import fun.enoughvisuals.systems.modules.modules.utils.FastSwap;
+import fun.enoughvisuals.systems.modules.modules.utils.ItemSwap;
 import fun.enoughvisuals.systems.modules.modules.utils.SendCord;
+import fun.enoughvisuals.systems.modules.modules.utils.SpecBind;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
@@ -44,6 +47,9 @@ public abstract class KeyInputMixin {
                 return;
             }
             FastSwap.onKey(key);
+            ClickPearl.onKey(key);
+            ItemSwap.onKey(key);
+            SpecBind.onKey(key);
             SendCord.onKey(key);
             ModuleManager.getInstance().onKeyPress(key);
         }

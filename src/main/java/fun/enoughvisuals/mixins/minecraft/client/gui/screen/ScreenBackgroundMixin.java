@@ -4,6 +4,7 @@ import fun.enoughvisuals.utils.render.blur.GlassUtil;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -29,7 +30,7 @@ public abstract class ScreenBackgroundMixin {
 
     private boolean enough$hasWorld() {
         MinecraftClient client = MinecraftClient.getInstance();
-        return client != null && client.world != null;
+        return client != null && client.world != null && !(client.currentScreen instanceof HandledScreen<?>);
     }
 
     private void enough$drawBlurredBackground(DrawContext context) {

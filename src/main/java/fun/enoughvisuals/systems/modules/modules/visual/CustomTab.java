@@ -17,6 +17,8 @@ import net.minecraft.scoreboard.ScoreboardDisplaySlot;
 import net.minecraft.scoreboard.ScoreboardObjective;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
+import net.minecraft.text.TextColor;
+import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -51,6 +53,7 @@ public class CustomTab extends Module {
     private static final float TOP_PAD = 7.5f;
     private static final float HEADER_H = 10.4f;
     private static final float BOTTOM_PAD = 7f;
+    private static final Identifier DEFAULT_FONT_ID = Identifier.of("minecraft", "default");
     private static boolean clipActive = false;
     private static float clipX = 0f;
     private static float clipY = 0f;
@@ -243,24 +246,93 @@ public class CustomTab extends Module {
         List<TextPart> parts = new ArrayList<>();
         Text display = entry.getDisplayName();
         if (display != null) {
+            List<TextPart> displayParts = parts;
             display.visit((style, string) -> {
                 int styleColor = colorFromStyle(style, NAME_DEFAULT);
-                parts.addAll(parseLegacySegments(string, styleColor, styleColor));
+                Identifier font = style.getFont();
+                if (DEFAULT_FONT_ID.equals(font)) font = null;
+                displayParts.addAll(parseLegacySegments(string, styleColor, styleColor, font));
                 return Optional.empty();
             }, Style.EMPTY);
+        }
+
+        if (hasBrokenPrivilegeGlyphs(parts)) {
+            List<TextPart> teamParts = buildTeamDecoratedName(entry);
+            if (!teamParts.isEmpty()) {
+                parts = teamParts;
+            } else {
+                stripLeadingQuestionGlyphs(parts);
+            }
         }
 
         if (parts.isEmpty()) {
             String fallback = entry.getProfile() != null && entry.getProfile().getName() != null
                     ? entry.getProfile().getName()
                     : "Unknown";
-            parts.addAll(parseLegacySegments(fallback, NAME_DEFAULT, NAME_DEFAULT));
+            parts.addAll(parseLegacySegments(fallback, NAME_DEFAULT, NAME_DEFAULT, null));
         }
 
         String plain = buildPlain(parts);
         String privilege = extractPrivilege(plain);
         int rank = PRIVILEGE_RANK.getOrDefault(privilege, 0);
         return new PlayerLine(entry, parts, plain, privilege, rank);
+    }
+
+    private static List<TextPart> buildTeamDecoratedName(PlayerListEntry entry) {
+        List<TextPart> out = new ArrayList<>();
+        if (entry == null || entry.getProfile() == null || entry.getProfile().getName() == null) return out;
+
+        try {
+            var team = entry.getScoreboardTeam();
+            if (team != null) {
+                appendText(out, team.getPrefix(), NAME_DEFAULT);
+                out.addAll(parseLegacySegments(entry.getProfile().getName(), NAME_DEFAULT, NAME_DEFAULT, null));
+                appendText(out, team.getSuffix(), NAME_DEFAULT);
+            }
+        } catch (Throwable ignored) {
+        }
+
+        if (out.isEmpty()) {
+            out.addAll(parseLegacySegments(entry.getProfile().getName(), NAME_DEFAULT, NAME_DEFAULT, null));
+        }
+        stripLeadingQuestionGlyphs(out);
+        return out;
+    }
+
+    private static void appendText(List<TextPart> out, Text text, int fallbackColor) {
+        if (text == null) return;
+        text.visit((style, string) -> {
+            int styleColor = colorFromStyle(style, fallbackColor);
+            Identifier font = style.getFont();
+            if (DEFAULT_FONT_ID.equals(font)) font = null;
+            out.addAll(parseLegacySegments(string, styleColor, styleColor, font));
+            return Optional.empty();
+        }, Style.EMPTY);
+    }
+
+    private static boolean hasBrokenPrivilegeGlyphs(List<TextPart> parts) {
+        for (TextPart part : parts) {
+            if (part.font != null) continue;
+            String plain = part.text.trim();
+            if (!plain.isEmpty() && plain.charAt(0) == '?') return true;
+        }
+        String fullPlain = buildPlain(parts);
+        return fullPlain.matches("^\\?{1,4}\\s*\\S+.*");
+    }
+
+    private static void stripLeadingQuestionGlyphs(List<TextPart> parts) {
+        while (!parts.isEmpty()) {
+            TextPart first = parts.get(0);
+            if (first.font != null) return;
+            String stripped = first.text.replaceFirst("^\\?+\\s*", "");
+            if (stripped.equals(first.text)) return;
+            if (stripped.isEmpty()) {
+                parts.remove(0);
+            } else {
+                parts.set(0, new TextPart(stripped, first.color, first.font));
+                return;
+            }
+        }
     }
 
     private static int colorFromStyle(Style style, int fallback) {
@@ -273,7 +345,7 @@ public class CustomTab extends Module {
         return fallback;
     }
 
-    private static List<TextPart> parseLegacySegments(String input, int baseColor, int resetColor) {
+    private static List<TextPart> parseLegacySegments(String input, int baseColor, int resetColor, Identifier font) {
         List<TextPart> out = new ArrayList<>();
         if (input == null || input.isEmpty()) return out;
 
@@ -289,7 +361,7 @@ public class CustomTab extends Module {
                 boolean isFormat = "klmno".indexOf(code) >= 0;
                 if (color != null || isReset || isFormat) {
                     if (sb.length() > 0) {
-                        out.add(new TextPart(sb.toString(), currentColor));
+                        out.add(new TextPart(sb.toString(), currentColor, font));
                         sb.setLength(0);
                     }
                     if (color != null) currentColor = color;
@@ -301,7 +373,7 @@ public class CustomTab extends Module {
             sb.append(ch);
         }
 
-        if (sb.length() > 0) out.add(new TextPart(sb.toString(), currentColor));
+        if (sb.length() > 0) out.add(new TextPart(sb.toString(), currentColor, font));
         return out;
     }
 
@@ -349,7 +421,7 @@ public class CustomTab extends Module {
         float w = 0f;
         for (TextPart part : parts) {
             if (part.text == null || part.text.isEmpty()) continue;
-            w += measureStringWithFallback(part.text, size, weight);
+            w += measureStringWithFallback(part.text, size, weight, part.font);
         }
         return w;
     }
@@ -360,12 +432,15 @@ public class CustomTab extends Module {
         for (TextPart part : parts) {
             if (part.text == null || part.text.isEmpty()) continue;
             int color = RenderUtil.withAlpha(part.color == 0 ? fallbackColor : part.color, alpha);
-            cursor += drawStringWithFallback(ctx, part.text, cursor, y, size, color, weight);
+            cursor += drawStringWithFallback(ctx, part.text, cursor, y, size, color, weight, part.font);
         }
     }
 
-    private static float measureStringWithFallback(String text, float size, FontWeight weight) {
+    private static float measureStringWithFallback(String text, float size, FontWeight weight, Identifier font) {
         if (text == null || text.isEmpty()) return 0f;
+        if (font != null) {
+            return measureRun(text, true, size, size / 9f, weight, font);
+        }
         float width = 0f;
         float vanillaScale = size / 9f;
         StringBuilder run = new StringBuilder();
@@ -380,7 +455,7 @@ public class CustomTab extends Module {
                 hasRun = true;
             }
             if (vanilla != runVanilla) {
-                width += measureRun(run.toString(), runVanilla, size, vanillaScale, weight);
+                width += measureRun(run.toString(), runVanilla, size, vanillaScale, weight, null);
                 run.setLength(0);
                 runVanilla = vanilla;
             }
@@ -388,12 +463,15 @@ public class CustomTab extends Module {
             i += Character.charCount(cp);
         }
 
-        if (run.length() > 0) width += measureRun(run.toString(), runVanilla, size, vanillaScale, weight);
+        if (run.length() > 0) width += measureRun(run.toString(), runVanilla, size, vanillaScale, weight, null);
         return width;
     }
 
-    private static float drawStringWithFallback(DrawContext ctx, String text, float x, float y, float size, int color, FontWeight weight) {
+    private static float drawStringWithFallback(DrawContext ctx, String text, float x, float y, float size, int color, FontWeight weight, Identifier font) {
         if (text == null || text.isEmpty()) return 0f;
+        if (font != null) {
+            return drawRun(ctx, text, x, y, color, true, size, size / 9f, weight, font);
+        }
         float cursor = x;
         float vanillaScale = size / 9f;
         StringBuilder run = new StringBuilder();
@@ -408,7 +486,7 @@ public class CustomTab extends Module {
                 hasRun = true;
             }
             if (vanilla != runVanilla) {
-                cursor += drawRun(ctx, run.toString(), cursor, y, color, runVanilla, size, vanillaScale, weight);
+                cursor += drawRun(ctx, run.toString(), cursor, y, color, runVanilla, size, vanillaScale, weight, null);
                 run.setLength(0);
                 runVanilla = vanilla;
             }
@@ -416,13 +494,32 @@ public class CustomTab extends Module {
             i += Character.charCount(cp);
         }
 
-        if (run.length() > 0) cursor += drawRun(ctx, run.toString(), cursor, y, color, runVanilla, size, vanillaScale, weight);
+        if (run.length() > 0) cursor += drawRun(ctx, run.toString(), cursor, y, color, runVanilla, size, vanillaScale, weight, null);
         return cursor - x;
     }
 
     private static float drawRun(DrawContext ctx, String run, float x, float y, int color,
-                                 boolean vanilla, float size, float vanillaScale, FontWeight weight) {
+                                 boolean vanilla, float size, float vanillaScale, FontWeight weight, Identifier font) {
         if (run.isEmpty()) return 0f;
+        if (font != null) {
+            Text t = Text.literal(run).setStyle(Style.EMPTY.withColor(TextColor.fromRgb(color & 0xFFFFFF)).withFont(font));
+            float w = mc.textRenderer.getWidth(t.asOrderedText()) * vanillaScale;
+            if (clipActive) {
+                RenderUtil.enableScissor(clipX, clipY, clipW, clipH);
+            }
+            ctx.getMatrices().push();
+            try {
+                ctx.getMatrices().translate(x, y + 0.35f, 80f);
+                ctx.getMatrices().scale(vanillaScale, vanillaScale, 1f);
+                ctx.drawText(mc.textRenderer, t, 0, 0, color, false);
+            } finally {
+                ctx.getMatrices().pop();
+                if (clipActive) {
+                    RenderUtil.disableScissor();
+                }
+            }
+            return w;
+        }
         if (!vanilla) {
             CustomFontRenderer.drawText(ctx, run, x, y, size, color, weight);
             return CustomFontRenderer.getTextWidth(run, size, weight);
@@ -446,14 +543,21 @@ public class CustomTab extends Module {
         return w;
     }
 
-    private static float measureRun(String run, boolean vanilla, float size, float vanillaScale, FontWeight weight) {
+    private static float measureRun(String run, boolean vanilla, float size, float vanillaScale, FontWeight weight, Identifier font) {
         if (run.isEmpty()) return 0f;
+        if (font != null) {
+            return mc.textRenderer.getWidth(Text.literal(run).setStyle(Style.EMPTY.withFont(font)).asOrderedText()) * vanillaScale;
+        }
         if (!vanilla) return CustomFontRenderer.getTextWidth(run, size, weight);
         return mc.textRenderer.getWidth(run) * vanillaScale;
     }
 
     private static boolean shouldUseVanillaGlyph(int codePoint) {
-        return codePoint == 0x26A1 || codePoint == 0xFE0F;
+        return codePoint == 0x26A1
+                || codePoint == 0xFE0F
+                || (codePoint >= 0xE000 && codePoint <= 0xF8FF)
+                || (codePoint >= 0xF0000 && codePoint <= 0xFFFFD)
+                || (codePoint >= 0x100000 && codePoint <= 0x10FFFD);
     }
 
     private static String resolveCurrentServerLabel() {
@@ -515,7 +619,7 @@ public class CustomTab extends Module {
         return RenderUtil.withAlpha(color, alpha * 0.9f);
     }
 
-    private record TextPart(String text, int color) {}
+    private record TextPart(String text, int color, Identifier font) {}
     private record PlayerLine(PlayerListEntry entry, List<TextPart> parts, String plainName, String privilegeKey, int rank) {}
     private record TabData(List<PlayerLine> lines, int online, int shown, int columns, int rows, boolean withPing,
                            float[] colNameW, float[] colPingW, float panelW, float panelH) {}

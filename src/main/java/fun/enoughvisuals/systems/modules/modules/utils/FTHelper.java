@@ -68,6 +68,10 @@ public class FTHelper extends Module {
     // --- Логика сканера трапок ---
     private final List<ActiveTrap> activeTraps = new ArrayList<>();
     private int tickCounter = 0;
+    private static final long TRAP_DURATION_MS = 15000L;
+    private static final float TRAP_WALL_THRESHOLD = 0.80f;
+    private static final float TRAP_FLOOR_THRESHOLD = 0.60f;
+    private static final float TRAP_INSIDE_MAX_FILL = 0.12f;
 
     public FTHelper() {
         INSTANCE = this;
@@ -91,32 +95,44 @@ public class FTHelper extends Module {
 
         long now = System.currentTimeMillis();
 
-        // Удаляем протухшие трапки (> 15 сек)
-        activeTraps.removeIf(trap -> now > trap.endTime);
+        // Проверяем существующие трапки: обновляем таймер или удаляем разрушенные
+        activeTraps.removeIf(trap -> {
+            if (now > trap.endTime) return true;
+            // Структура ещё стоит?
+            float score = getTrapScore(trap.pos);
+            if (score < TRAP_WALL_THRESHOLD) {
+                // Структура разрушена — даём 2 секунды буфера перед удалением
+                if (trap.endTime > now + 2000L) {
+                    trap.endTime = now + 2000L;
+                }
+                return now > trap.endTime;
+            }
+            // Структура на месте — обновляем таймер
+            trap.endTime = now + TRAP_DURATION_MS;
+            return false;
+        });
 
-        // Парсим мир вокруг игроков каждые 5 тиков
+        // Парсим мир вокруг игроков каждые 5 тиков (~0.25с)
         tickCounter++;
-        if (tickCounter % 12 == 0) {
+        if (tickCounter % 5 == 0) {
             for (PlayerEntity player : mc.world.getPlayers()) {
                 if (player == mc.player || player.squaredDistanceTo(mc.player) > 48.0 * 48.0) {
                     continue;
                 }
-                // Ищем истинный центр трапки вокруг игрока
                 BlockPos trueCenter = findTrapCenter(player.getBlockPos());
 
                 if (trueCenter != null) {
-                    // Проверяем, нет ли уже таймера на этом месте (защита от спама 5 плашек)
                     boolean alreadyExists = false;
                     for (ActiveTrap trap : activeTraps) {
-                        // Если в радиусе 3 блоков уже есть таймер - это та же самая трапка
-                        if (trap.pos.getSquaredDistance(trueCenter) < 9.0) {
+                        if (trap.pos.getSquaredDistance(trueCenter) < 4.0) {
                             alreadyExists = true;
+                            trap.endTime = now + TRAP_DURATION_MS;
                             break;
                         }
                     }
 
                     if (!alreadyExists) {
-                        activeTraps.add(new ActiveTrap(trueCenter, now + 15000L));
+                        activeTraps.add(new ActiveTrap(trueCenter, now + TRAP_DURATION_MS));
                     }
                 }
             }
@@ -131,9 +147,8 @@ public class FTHelper extends Module {
     // === ПАРСЕР СТРУКТУРЫ (ПОИСК ИСТИННОГО ЦЕНТРА) ===
     private BlockPos findTrapCenter(BlockPos playerPos) {
         BlockPos bestCenter = null;
-        float bestScore = 0.65f; // Минимум 65% стен должно быть построено
+        float bestScore = TRAP_WALL_THRESHOLD;
 
-        // Сканируем небольшое смещение от игрока (чтобы найти ровный геометрический центр)
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
                 for (int dy = -1; dy <= 1; dy++) {
@@ -155,6 +170,9 @@ public class FTHelper extends Module {
         int totalWalls = 0;
         int solidInside = 0;
         int totalInside = 0;
+        int solidFloor = 0;
+        int totalFloor = 0;
+        int trapMaterialWalls = 0;
 
         // Коробка 5x5, высота 4 блока
         for (int y = 0; y <= 3; y++) {
@@ -162,17 +180,22 @@ public class FTHelper extends Module {
                 for (int z = -2; z <= 2; z++) {
                     boolean isWall = (Math.abs(x) == 2 || Math.abs(z) == 2);
                     BlockPos checkPos = center.add(x, y, z);
-
-                    // isReplaceable - пропускает воду, траву, воздух (все, сквозь что можно пройти)
-                    boolean isSolid = !mc.world.getBlockState(checkPos).isReplaceable();
+                    var state = mc.world.getBlockState(checkPos);
+                    boolean isSolid = !state.isReplaceable();
+                    boolean isTrapBlock = isTrapMaterial(state);
 
                     if (isWall) {
                         totalWalls++;
                         if (isSolid) solidWalls++;
+                        if (isTrapBlock) trapMaterialWalls++;
                     } else {
-                        // Внутренность трапки (3x3)
                         totalInside++;
                         if (isSolid) solidInside++;
+                    }
+
+                    if (y == 0 && !isWall) {
+                        totalFloor++;
+                        if (isSolid) solidFloor++;
                     }
                 }
             }
@@ -180,11 +203,36 @@ public class FTHelper extends Module {
 
         float wallRatio = (float) solidWalls / totalWalls;
         float insideRatio = (float) solidInside / totalInside;
+        float floorRatio = totalFloor > 0 ? (float) solidFloor / totalFloor : 1f;
+        float trapMaterialRatio = totalWalls > 0 ? (float) trapMaterialWalls / totalWalls : 0f;
 
-        // Если внутри больше 15% застроено блоками - это пещера или дом, а не пустая трапка
-        if (insideRatio > 0.15f) return 0f;
+        // Если внутри больше 12% застроено — это пещера или дом, а не пустая трапка
+        if (insideRatio > TRAP_INSIDE_MAX_FILL) return 0f;
+
+        // Нужен пол (иначе это просто стена в воздухе)
+        if (floorRatio < TRAP_FLOOR_THRESHOLD) return 0f;
+
+        // Бонус за материалы трапки (обсидиан и т.п.)
+        // Если 50%+ стен из trap-материалов — это точно трапка
+        if (trapMaterialRatio >= 0.5f) {
+            return Math.max(wallRatio, TRAP_WALL_THRESHOLD);
+        }
 
         return wallRatio;
+    }
+
+    private static boolean isTrapMaterial(net.minecraft.block.BlockState state) {
+        var block = state.getBlock();
+        return block == net.minecraft.block.Blocks.OBSIDIAN
+                || block == net.minecraft.block.Blocks.CRYING_OBSIDIAN
+                || block == net.minecraft.block.Blocks.NETHERRACK
+                || block == net.minecraft.block.Blocks.BEDROCK
+                || block == net.minecraft.block.Blocks.REINFORCED_DEEPSLATE
+                || block == net.minecraft.block.Blocks.BLACKSTONE
+                || block == net.minecraft.block.Blocks.BASALT
+                || block == net.minecraft.block.Blocks.NETHER_BRICKS
+                || block == net.minecraft.block.Blocks.END_STONE
+                || block == net.minecraft.block.Blocks.END_STONE_BRICKS;
     }
 
 
@@ -689,7 +737,7 @@ public class FTHelper extends Module {
 
     private static class ActiveTrap {
         public final BlockPos pos;
-        public final long endTime;
+        public long endTime;
 
         public ActiveTrap(BlockPos pos, long endTime) {
             this.pos = pos;

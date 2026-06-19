@@ -1,6 +1,7 @@
 package fun.enoughvisuals.systems.modules.modules.visual;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import fun.enoughvisuals.mixins.accessors.PersistentProjectileEntityAccessor;
 import fun.enoughvisuals.mixins.accessors.GameRendererAccessor;
 import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
@@ -17,6 +18,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.projectile.PersistentProjectileEntity;
 import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.entity.projectile.thrown.ExperienceBottleEntity;
 import net.minecraft.entity.projectile.thrown.PotionEntity;
@@ -48,7 +50,6 @@ public class Prediction extends Module {
     private final Map<Integer, ImpactLabel> impactLabels = new HashMap<>();
     private final Map<Integer, Long> projectileSpawnTimesMs = new HashMap<>();
     private final Set<Integer> activeProjectileIds = new HashSet<>();
-    private final Map<Integer, ProjectileVisualState> projectileVisualStateCache = new HashMap<>();
 
     private static final int HELD_MAX_TICKS = 320;
     private static final int FLYING_MAX_TICKS = 200;
@@ -75,7 +76,6 @@ public class Prediction extends Module {
             impactLabels.clear();
             projectileSpawnTimesMs.clear();
             activeProjectileIds.clear();
-            projectileVisualStateCache.clear();
         }
     }
 
@@ -86,7 +86,6 @@ public class Prediction extends Module {
         impactLabels.clear();
         projectileSpawnTimesMs.clear();
         activeProjectileIds.clear();
-        projectileVisualStateCache.clear();
     }
 
     private void onRender3D(WorldRenderContext context) {
@@ -105,15 +104,17 @@ public class Prediction extends Module {
         for (Entity entity : mc.world.getOtherEntities(mc.player, projectileSearchBox, candidate -> candidate instanceof ProjectileEntity)) {
             ProjectileEntity proj = (ProjectileEntity) entity;
             int projectileId = proj.getId();
+            if (isProjectileFinished(proj)) {
+                removeProjectileState(projectileId);
+                continue;
+            }
             activeProjectileIds.add(projectileId);
             projectileSpawnTimesMs.putIfAbsent(projectileId, now);
             if (camPos.squaredDistanceTo(proj.getPos()) > 96.0 * 96.0) continue;
             ItemStack stack = getProjectileStack(proj);
             if (!stack.isEmpty()) {
-                Vec3d rawPos = getProjectileRenderPos(proj, tickDelta);
-                Vec3d rawVel = proj.getVelocity();
-                ProjectileVisualState visual = smoothProjectileVisual(projectileId, rawPos, rawVel);
-                tickPredictions.add(calculatePath(visual.pos, visual.vel, stack, true, FLYING_MAX_TICKS, projectileId));
+                PredictionResult prediction = calculatePath(proj.getPos(), proj.getVelocity(), stack.copy(), true, FLYING_MAX_TICKS, projectileId);
+                tickPredictions.add(prediction);
             }
         }
 
@@ -145,8 +146,8 @@ public class Prediction extends Module {
         RenderSystem.depthMask(false);
 
         Matrix4f matrix = matrices.peek().getPositionMatrix();
-        drawFlyingPredictions(matrices, matrix, camPos, allToRender);
         drawHeldPredictionLine(matrices, matrix, camPos);
+        drawFlyingPredictions(matrices, matrix, camPos, allToRender);
 
         if (framePrediction != null && framePrediction.hit) {
             Vec3d normal = framePrediction.hitNormal;
@@ -439,13 +440,6 @@ public class Prediction extends Module {
         return new PredictionStart(startPos, shotVelocity);
     }
 
-    private Vec3d getProjectileRenderPos(ProjectileEntity proj, float tickDelta) {
-        double x = MathHelper.lerp(tickDelta, proj.prevX, proj.getX());
-        double y = MathHelper.lerp(tickDelta, proj.prevY, proj.getY());
-        double z = MathHelper.lerp(tickDelta, proj.prevZ, proj.getZ());
-        return new Vec3d(x, y, z);
-    }
-
     private void drawLandingCircle(MatrixStack matrices, Vec3d camPos, Vec3d hitPos, Vec3d normal) {
         Tessellator tessellator = Tessellator.getInstance();
         BufferBuilder circle = tessellator.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
@@ -501,23 +495,27 @@ public class Prediction extends Module {
     private void pruneProjectileState() {
         projectileSpawnTimesMs.keySet().removeIf(id -> !activeProjectileIds.contains(id));
         impactLabels.keySet().removeIf(id -> !activeProjectileIds.contains(id));
-        projectileVisualStateCache.keySet().removeIf(id -> !activeProjectileIds.contains(id));
     }
 
-    private ProjectileVisualState smoothProjectileVisual(int projectileId, Vec3d rawPos, Vec3d rawVel) {
-        ProjectileVisualState previous = projectileVisualStateCache.get(projectileId);
-        if (previous == null) {
-            ProjectileVisualState next = new ProjectileVisualState(rawPos, rawVel);
-            projectileVisualStateCache.put(projectileId, next);
-            return next;
+    private void removeProjectileState(int projectileId) {
+        projectileSpawnTimesMs.remove(projectileId);
+        impactLabels.remove(projectileId);
+    }
+
+    private boolean isProjectileFinished(ProjectileEntity projectile) {
+        if (projectile.isRemoved() || !projectile.isAlive()) return true;
+        if (projectile.age <= 2) return false;
+        if (projectile.horizontalCollision || projectile.verticalCollision || projectile.groundCollision) {
+            return true;
+        }
+        if (projectile instanceof PersistentProjectileEntity persistent
+                && ((PersistentProjectileEntityAccessor) persistent).enough$isInGround()) {
+            return true;
         }
 
-        float smooth = 0.18f;
-        Vec3d pos = previous.pos.lerp(rawPos, smooth);
-        Vec3d vel = previous.vel.lerp(rawVel, smooth);
-        ProjectileVisualState next = new ProjectileVisualState(pos, vel);
-        projectileVisualStateCache.put(projectileId, next);
-        return next;
+        double speedSq = projectile.getVelocity().lengthSquared();
+        if (projectile.isOnGround() && speedSq < 0.01) return true;
+        return projectile.age > 10 && speedSq < 0.0004;
     }
 
     private Vec3d getShootDirection(float pitch, float yaw, float roll) {
@@ -593,10 +591,26 @@ public class Prediction extends Module {
     private record PredictionStart(Vec3d pos, Vec3d vel) {
     }
 
-    private record ProjectileVisualState(Vec3d pos, Vec3d vel) {
-    }
+    private static class PredictionResult {
+        final List<Vec3d> path;
+        final Vec3d hitPos;
+        final Vec3d hitNormal;
+        final ItemStack stack;
+        final boolean hit;
+        final boolean hitEntity;
+        final boolean isFlying;
+        final int sourceId;
 
-    private record PredictionResult(List<Vec3d> path, Vec3d hitPos, Vec3d hitNormal, ItemStack stack, boolean hit, boolean hitEntity,
-                                    boolean isFlying, int sourceId) {
+        PredictionResult(List<Vec3d> path, Vec3d hitPos, Vec3d hitNormal, ItemStack stack, boolean hit, boolean hitEntity,
+                         boolean isFlying, int sourceId) {
+            this.path = path;
+            this.hitPos = hitPos;
+            this.hitNormal = hitNormal;
+            this.stack = stack;
+            this.hit = hit;
+            this.hitEntity = hitEntity;
+            this.isFlying = isFlying;
+            this.sourceId = sourceId;
+        }
     }
 }
