@@ -56,6 +56,7 @@ public final class RemoteConfig {
     private volatile boolean banned = false;
     private volatile String banReason = "";
     private volatile boolean everSynced = false;
+    private volatile Set<String> enoughUsers = Collections.emptySet();
 
     private RemoteConfig() {
     }
@@ -167,6 +168,18 @@ public final class RemoteConfig {
         }
         boolean changed = !set.equals(blockedModules);
         blockedModules = Collections.unmodifiableSet(set);
+
+        Set<String> evUsers = new HashSet<>();
+        JsonElement evArr = o.get("enough_users");
+        if (evArr != null && evArr.isJsonArray()) {
+            for (JsonElement e : evArr.getAsJsonArray()) {
+                try {
+                    evUsers.add(e.getAsString());
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        enoughUsers = Collections.unmodifiableSet(evUsers);
         if (changed) {
             enforceBlocksAsync();
         }
@@ -242,6 +255,14 @@ public final class RemoteConfig {
 
     public boolean hasEverSynced() {
         return everSynced;
+    }
+
+    public Set<String> getEnoughUsers() {
+        return enoughUsers;
+    }
+
+    public boolean isEnoughUser(String username) {
+        return username != null && enoughUsers.contains(username);
     }
 
     private static boolean bool(JsonObject o, String k) {

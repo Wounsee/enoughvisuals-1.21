@@ -47,6 +47,7 @@
       "minecraft.client.render.item.HeldItemRendererMixin",
       "minecraft.client.render.item.HeadModelRendererMixin",
       "minecraft.client.render.entity.ItemEntityRendererMixin",
+      "minecraft.client.render.entity.NametagLogoMixin",
       "minecraft.client.particle.MixinParticleManager",
       "minecraft.client.sound.MixinSoundSystem",
       "minecraft.client.world.MixinClientWorld",

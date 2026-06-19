@@ -74,7 +74,7 @@ public class SkyBox extends Module {
     public SkyBox() {
         INSTANCE = this;
         if (!eventRegistered) {
-            WorldRenderEvents.LAST.register(SkyBoxRenderer::drawOverlay);
+            WorldRenderEvents.BEFORE_ENTITIES.register(SkyBoxRenderer::drawOverlay);
             eventRegistered = true;
         }
     }
