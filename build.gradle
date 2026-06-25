@@ -3,7 +3,13 @@ plugins {
     id 'maven-publish'
 }
 
-version = project.mod_version
+def infoFile = file("src/main/java/fun/enoughvisuals/Info.java")
+def infoVersionMatcher = infoFile.text =~ /VERSION\s*=\s*"([^"]+)"/
+if (!infoVersionMatcher.find()) {
+    throw new GradleException("Could not read Info.VERSION from ${infoFile}")
+}
+
+version = infoVersionMatcher.group(1)
 group = project.maven_group
 
 base {
@@ -44,6 +50,12 @@ dependencies {
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    modRuntimeOnly files(
+            "src/main/resources/META-INF/jars/hold-my-items.jar",
+            "src/main/resources/META-INF/jars/cloth-config.jar",
+            "src/main/resources/META-INF/jars/modmenu.jar",
+            "src/main/resources/META-INF/jars/placeholder-api.jar"
+    )
 }
 
 processResources {

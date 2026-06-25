@@ -212,7 +212,7 @@ public class FakePlayer extends Module {
             fakePlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 9999, 5, false, false));
         }
         if (fakePlayer.age % 20 == 0 && fakePlayer.getHealth() < fakePlayer.getMaxHealth()) {
-            fakePlayer.setHealth(Math.min(fakePlayer.getMaxHealth(), fakePlayer.getHealth() + 1.0f));
+            fakePlayer.setHealth(Math.min(fakePlayer.getMaxHealth(), fakePlayer.getHealth() + 15.0f));
         }
     }
 

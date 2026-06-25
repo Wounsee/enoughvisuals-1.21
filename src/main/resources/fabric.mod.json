@@ -5,8 +5,10 @@
   "name": "${mod_name}",
   "description": "${mod_description}",
   "authors": [],
-  "contact": {},
-  "license": "Apache-2.0",
+  "contact": {
+    "homepage": "https://enoughvisuals.fun/tg"
+  },
+  "license": "All rights reserved",
   "icon": "assets/enough/logo/icon.png",
   "environment": "client",
   "entrypoints": {
@@ -16,7 +18,16 @@
   },
   "jars": [
     {
-      "file": "animation.jar"
+      "file": "META-INF/jars/hold-my-items.jar"
+    },
+    {
+      "file": "META-INF/jars/cloth-config.jar"
+    },
+    {
+      "file": "META-INF/jars/modmenu.jar"
+    },
+    {
+      "file": "META-INF/jars/placeholder-api.jar"
     }
   ],
   "mixins": [

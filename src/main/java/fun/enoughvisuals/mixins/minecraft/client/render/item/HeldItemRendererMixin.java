@@ -189,10 +189,7 @@ public abstract class HeldItemRendererMixin {
 
     @Unique
     private boolean enough$shouldUseBetterHands(AbstractClientPlayerEntity player, Hand hand, ItemStack stack) {
-        BetterHands betterHands = BetterHands.INSTANCE;
-        if (betterHands == null || !betterHands.isEnabled()) return false;
-        if (stack.getItem() == Items.FILLED_MAP || stack.getItem() instanceof CrossbowItem) return false;
-        return true;
+        return false;
     }
 
     @Unique
@@ -339,7 +336,7 @@ public abstract class HeldItemRendererMixin {
         int direction = arm == Arm.RIGHT ? 1 : -1;
         BetterHands better = BetterHands.INSTANCE;
 
-        float spread = better != null ? better.spread.get().floatValue() : 0.65F;
+        float spread = better != null ? better.spread() : 0.65F;
         float scale = 0.9F * enough$HMI_DEFAULT_SIZE;
         matrices.translate(direction * spread, 0.0D, 0.3D);
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(45.0F * direction));

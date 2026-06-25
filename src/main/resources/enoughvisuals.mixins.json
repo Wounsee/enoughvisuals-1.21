@@ -15,6 +15,7 @@
       "minecraft.client.gui.widget.TextFieldWidgetAnimationMixin",
       "minecraft.client.gui.screen.HandledScreenMixin",
       "minecraft.client.gui.screen.InventoryScreenHideMixin",
+      "minecraft.client.gui.screen.TitleScreenMixin",
       "minecraft.client.gui.hud.ChatHudMixin",
       "minecraft.client.gui.hud.DebugHudMixin",
       "minecraft.client.gui.hud.InGameHudMixin",

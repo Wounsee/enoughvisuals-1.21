@@ -46,7 +46,10 @@ public class CustomFontRenderer {
         WP("wp"),
         VC("vc"),
         LOGO("logo"),
+        MENU("menu"),
+        CLICK_GUI("click_gui"),
         TIME("time");
+
 
         final String atlasName;
 

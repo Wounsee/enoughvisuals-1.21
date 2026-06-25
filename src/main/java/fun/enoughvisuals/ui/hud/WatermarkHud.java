@@ -296,7 +296,7 @@ public class WatermarkHud extends HudElement {
             prevW = b;
         }
 
-        float cursor = x + (w - totalContentW) * 0.5f;
+        float cursor = x + (w - totalContentW) * 0.5f - 2f * s;
         RenderBlock prev = null;
 
         // Координаты текста сдвинуты на 1 пиксель вверх (например, y + 6.5f -> y + 5.5f) из-за уменьшенной высоты
@@ -335,9 +335,9 @@ public class WatermarkHud extends HudElement {
                         drawTrackMarquee(ctx, songText, curTrack, y + 5f * s, 5.9f * s, targetTrackW, contentAlpha);
                         drawWaves(ctx, curTrack + targetTrackW + 5f * s, y + topH * 0.5f, contentAlpha, s);
                     } else {
-                        float logoSize = 17.2f * s;
+                        float logoSize = 18.2f * s;
                         float logoHeight = CustomFontRenderer.getTextHeight(logoSize, FontWeight.LOGO);
-                        float logoY = y + (topH - logoHeight) * 0.5f;
+                        float logoY = y + (topH - logoHeight) * 0.5f + 0.5f * s;
                         int logoColor = 0xFFC88DFF;
                         CustomFontRenderer.drawText(ctx, LOGO_ICON, cursor, logoY, logoSize,
                                 RenderUtil.withAlpha(logoColor, contentAlpha * 0.98f), FontWeight.LOGO);
