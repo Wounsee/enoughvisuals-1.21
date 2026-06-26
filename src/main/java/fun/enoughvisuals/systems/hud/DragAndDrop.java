@@ -363,6 +363,8 @@ public class DragAndDrop {
         String typeId = element.getTypeId();
         if (typeId == null || typeId.isBlank()) return;
         Map<String, Object> map = rememberedSettings.computeIfAbsent(typeId, k -> new HashMap<>());
+        map.put("__x", element.getX());
+        map.put("__y", element.getY());
         for (Setting<?> setting : element.getSettings()) {
             map.put(setting.getId(), setting.serialize());
         }
@@ -373,6 +375,14 @@ public class DragAndDrop {
         if (typeId == null || typeId.isBlank()) return;
         Map<String, Object> map = rememberedSettings.get(typeId);
         if (map == null || map.isEmpty()) return;
+        Object x = map.get("__x");
+        Object y = map.get("__y");
+        if (x instanceof Number nx) {
+            element.setX(nx.floatValue());
+        }
+        if (y instanceof Number ny) {
+            element.setY(ny.floatValue());
+        }
         for (Setting<?> setting : element.getSettings()) {
             if (!map.containsKey(setting.getId())) continue;
             try {

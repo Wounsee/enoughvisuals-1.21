@@ -2,7 +2,6 @@ package fun.enoughvisuals.mixins.minecraft.client.gui.hud;
 
 import fun.enoughvisuals.systems.gps.GpsSystem;
 import fun.enoughvisuals.systems.hud.DragAndDrop;
-import fun.enoughvisuals.systems.hud.HudHintRenderer;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.modules.utils.LockSlot;
 import fun.enoughvisuals.systems.modules.modules.visual.Animations;
@@ -146,9 +145,6 @@ public abstract class InGameHudMixin {
         ctx.getMatrices().scale(fixedScale, fixedScale, 1f);
         ItemLight.renderOverlay(ctx, counter.getTickDelta(true));
         Prediction.renderOverlay2D(ctx, counter.getTickDelta(true));
-        if (client.currentScreen instanceof ChatScreen) {
-            HudHintRenderer.render(ctx, ScreenScaleUtil.virtualWidth(), ScreenScaleUtil.virtualHeight());
-        }
         ctx.getMatrices().pop();
 
         if (client.options != null && client.options.hudHidden) {

@@ -40,6 +40,18 @@ public abstract class ClientToolScreen extends Screen {
     private static final float HEADER_H = 45f;
     private static final float ROW_H = 30f;
     private static final float RADIUS = 10f;
+    private static final int PANEL_BG = 0xCC000000;
+    private static final int HEADER_BG = 0x8C000000;
+    private static final int LIST_BG = 0xA6000000;
+    private static final int ACTION_BG = 0xA6000000;
+    private static final int INPUT_BG = 0xD0060709;
+    private static final int INPUT_FOCUSED = 0xD80C0E12;
+    private static final int ROW_BG = 0x99000000;
+    private static final int ROW_HOVER = 0xB00A0C10;
+    private static final int ROW_SELECTED = 0xC00E1015;
+    private static final int BUTTON_BG = 0xC00B0D11;
+    private static final int BUTTON_HOVER = 0xD012151A;
+    private static final int BUTTON_DISABLED = 0x90000000;
     private static final long OPEN_MS = 220L;
     private static final long CLOSE_MS = 170L;
 
@@ -186,10 +198,9 @@ public abstract class ClientToolScreen extends Screen {
     }
 
     private void drawPanel(DrawContext ctx, Layout l, List<ToolRow> rows, int mx, int my, float alpha, float scale) {
-        GlassUtil.drawGlassPanel(ctx, l.x, l.y, l.w, l.h, RADIUS * scale,
-                MenuScreen.PANEL_TINT, alpha * MenuScreen.PANEL_TINT_ALPHA, alpha);
-        RenderUtil.drawRoundedRect(ctx, l.x, l.y, l.w, l.h, RADIUS * scale,
-                RenderUtil.withAlpha(MenuScreen.SETTING_PANEL_OUTER, alpha * 0.18f));
+        GlassUtil.drawGlassPanel(ctx, l.x, l.y, l.w, l.h, RADIUS * scale, 0x000000, alpha * 0.68f, alpha);
+        RenderUtil.drawRoundedRect(ctx, l.x, l.y, l.w, l.h, RADIUS * scale, PANEL_BG);
+        RenderUtil.drawRoundedRect(ctx, l.x, l.y, l.w, l.headerH, RADIUS * scale, RADIUS * scale, 0f, 0f, HEADER_BG);
         drawHeader(ctx, l, rows.size(), mx, my, alpha);
         drawList(ctx, l, rows, mx, my, alpha);
         drawActionPanel(ctx, l, mx, my, alpha);
@@ -235,8 +246,7 @@ public abstract class ClientToolScreen extends Screen {
     }
 
     private void drawList(DrawContext ctx, Layout l, List<ToolRow> rows, int mx, int my, float alpha) {
-        RenderUtil.drawRoundedRect(ctx, l.listX, l.listY, l.listW, l.listH, 8f * l.scale,
-                RenderUtil.withAlpha(MenuScreen.SETTING_INPUT_BG, alpha * 0.34f));
+        RenderUtil.drawRoundedRect(ctx, l.listX, l.listY, l.listW, l.listH, 8f * l.scale, LIST_BG);
 
         float frameDelta = RenderUtil.getFrameDelta();
         maxScroll = Math.max(0f, rows.size() * ROW_H * l.scale - (l.listH - 8f * l.scale));
@@ -276,9 +286,7 @@ public abstract class ClientToolScreen extends Screen {
         float hover = RenderUtil.animate(rowHoverAnims.getOrDefault(row.id(), 0f), hovered ? 1f : 0f, 0.45f, frameDelta);
         rowHoverAnims.put(row.id(), hover);
 
-        int bg = selected
-                ? RenderUtil.withAlpha(MenuScreen.ACCENT, alpha * 0.26f)
-                : RenderUtil.withAlpha(0xFFFFFF, alpha * (0.035f + hover * 0.045f));
+        int bg = selected ? ROW_SELECTED : (hover > 0.04f ? ROW_HOVER : ROW_BG);
         RenderUtil.drawRoundedRect(ctx, x, y + 2f * l.scale, w, h - 4f * l.scale, 6f * l.scale, bg);
 
         drawRowIcon(ctx, l, row, x, y, selected, hover, alpha);
@@ -306,8 +314,7 @@ public abstract class ClientToolScreen extends Screen {
     }
 
     private void drawActionPanel(DrawContext ctx, Layout l, int mx, int my, float alpha) {
-        RenderUtil.drawRoundedRect(ctx, l.actionX, l.actionY, l.actionW, l.actionH, 8f * l.scale,
-                RenderUtil.withAlpha(MenuScreen.SETTING_INPUT_BG, alpha * 0.30f));
+        RenderUtil.drawRoundedRect(ctx, l.actionX, l.actionY, l.actionW, l.actionH, 8f * l.scale, ACTION_BG);
         renderActions(ctx, l, mx, my, alpha);
     }
 
@@ -319,11 +326,7 @@ public abstract class ClientToolScreen extends Screen {
         }
 
         boolean focused = focusedBox == box;
-        int bg = RenderUtil.lerpColor(
-                RenderUtil.withAlpha(MenuScreen.SETTING_INPUT_BG, alpha * 0.70f),
-                RenderUtil.withAlpha(0xFFFFFF, alpha * 0.085f),
-                focused ? 1f : 0f
-        );
+        int bg = focused ? INPUT_FOCUSED : INPUT_BG;
         float radius = 5f * currentScale();
         RenderUtil.drawRoundedRect(ctx, x, y, w, h, radius, bg);
 
@@ -361,10 +364,7 @@ public abstract class ClientToolScreen extends Screen {
         float by = y + h * (1f - scale) * 0.5f;
         float bw = w * scale;
         float bh = h * scale;
-        int bg = enabled
-                ? RenderUtil.lerpColor(RenderUtil.withAlpha(0xFFFFFF, alpha * 0.055f),
-                RenderUtil.withAlpha(0xFFFFFF, alpha * 0.155f), hover)
-                : RenderUtil.withAlpha(0xFFFFFF, alpha * 0.025f);
+        int bg = enabled ? (hover > 0.04f ? BUTTON_HOVER : BUTTON_BG) : BUTTON_DISABLED;
         RenderUtil.drawRoundedRect(ctx, bx, by, bw, bh, 5f * currentScale(), bg);
         float textSize = 6.2f * currentScale();
         float textY = by + (bh - textSize) * 0.5f - 0.55f * currentScale();

@@ -160,10 +160,10 @@ public abstract class ChatScreenMixin extends Screen {
         if (button == 1 && !enough$isOverChatInput(my)) {
             if (dad.getHovered() != null) {
                 ContextMenu.openSettings(dad.getHovered());
+                cir.setReturnValue(true);
             } else {
-                ContextMenu.openAdd(mx, my);
+                ContextMenu.close();
             }
-            cir.setReturnValue(true);
         }
     }
 

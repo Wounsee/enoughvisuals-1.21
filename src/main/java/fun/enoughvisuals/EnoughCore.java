@@ -136,6 +136,10 @@ public final class EnoughCore {
 
                 new GPS(),
 
+                new Globals(),
+
+                new HUD(),
+
                 new HitParticles(),
 
                 new WorldParticles(),
@@ -172,6 +176,8 @@ public final class EnoughCore {
 
                 new ClickFriend(),
 
+                new ChatHelper(),
+
                 new HitSound(),
 
                 new KillSound(),
@@ -192,6 +198,8 @@ public final class EnoughCore {
 
                 new CustomSphereSkin(),
 
+                new FastSearch(),
+
                 new FastSwap(),
 
                 new ItemPickupLogger(),
@@ -199,6 +207,8 @@ public final class EnoughCore {
                 new AutoResell(),
 
                 new NameProtect(),
+
+                new Macros(),
 
                 new Prediction(),
 

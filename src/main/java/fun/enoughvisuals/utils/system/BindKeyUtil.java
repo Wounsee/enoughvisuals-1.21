@@ -4,7 +4,9 @@ import org.lwjgl.glfw.GLFW;
 
 public final class BindKeyUtil {
     public static final int NONE = -1;
-    private BindKeyUtil() {}
+
+    private BindKeyUtil() {
+    }
 
     public static String getBindName(int key) {
         if (key == NONE) return "None";

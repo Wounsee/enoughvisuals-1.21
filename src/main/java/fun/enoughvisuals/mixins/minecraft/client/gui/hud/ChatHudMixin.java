@@ -1,6 +1,10 @@
 package fun.enoughvisuals.mixins.minecraft.client.gui.hud;
 
 import fun.enoughvisuals.systems.modules.modules.visual.Animations;
+import fun.enoughvisuals.systems.modules.modules.client.Globals;
+import fun.enoughvisuals.systems.modules.modules.utils.ChatHelper;
+import fun.enoughvisuals.utils.font.CustomFontRenderer;
+import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.StencilUtil;
 import net.minecraft.client.MinecraftClient;
@@ -9,6 +13,11 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.ChatHud;
 import net.minecraft.client.gui.hud.ChatHudLine;
 import net.minecraft.client.gui.hud.MessageIndicator;
+import net.minecraft.network.message.MessageSignatureData;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.OrderedText;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.math.MathHelper;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,11 +30,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Mixin(ChatHud.class)
 public abstract class ChatHudMixin {
 
     @Shadow @Final private MinecraftClient client;
+    @Shadow @Final private List<ChatHudLine> messages;
     @Shadow @Final private List<ChatHudLine.Visible> visibleMessages;
     @Shadow private int scrolledLines;
     @Shadow private boolean hasUnreadNewMessages;
@@ -40,16 +52,46 @@ public abstract class ChatHudMixin {
     @Shadow private int getMessageIndex(double x, double y) { return -1; }
     @Shadow private int getIndicatorX(ChatHudLine.Visible line) { return 0; }
     @Shadow private void drawIndicatorIcon(DrawContext context, int x, int y, MessageIndicator.Icon icon) {}
+    @Shadow private void refresh() {}
 
     @Unique
     private final Map<Long, Long> enough$messageAnimationStarts = new HashMap<>();
+    @Unique
+    private static final Pattern enough$stackSuffixPattern = Pattern.compile(" \\(x(\\d+)\\)$");
+    @Unique
+    private static final float enough$chatLogoSize = 8.5f;
+
+    @Inject(
+            method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
+            at = @At("RETURN")
+    )
+    private void enough$stackDuplicateMessages(Text message, MessageSignatureData signature, MessageIndicator indicator, CallbackInfo ci) {
+        if (ChatHelper.INSTANCE == null || !ChatHelper.INSTANCE.isEnabled()) return;
+        if (messages.size() < 2) return;
+
+        ChatHudLine current = messages.get(0);
+        ChatHudLine previous = messages.get(1);
+        if (current == null || previous == null || current.content() == null || previous.content() == null) return;
+
+        String currentText = enough$baseStackText(current.content().getString());
+        String previousText = enough$baseStackText(previous.content().getString());
+        if (currentText.isBlank() || !currentText.equals(previousText)) return;
+
+        int count = Math.max(1, enough$stackCount(previous.content().getString())) + 1;
+        MutableText stacked = current.content().copy()
+                .append(Text.literal(" (x" + count + ")").formatted(Formatting.GRAY));
+
+        messages.set(0, new ChatHudLine(current.creationTick(), stacked, null, current.indicator()));
+        messages.remove(1);
+        refresh();
+    }
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void enough$animatedRender(DrawContext context, int currentTick, int mouseX, int mouseY, boolean focused, CallbackInfo ci) {
         StencilUtil.resetRenderState();
 
         Animations animations = Animations.active();
-        if (animations == null) {
+        if (animations == null && !Globals.chatEnabled()) {
             return;
         }
 
@@ -129,6 +171,7 @@ public abstract class ChatHudMixin {
             context.getMatrices().push();
             context.getMatrices().translate(0.0F, 0.0F, 50.0F);
             context.drawTextWithShadow(textRenderer, line.content(), 0, textY, (textAlpha << 24) | 0xFFFFFF);
+            enough$renderGlobalsChatLogo(context, textRenderer, line.content(), textY, textAlpha);
             context.getMatrices().pop();
             context.getMatrices().pop();
         }
@@ -209,5 +252,48 @@ public abstract class ChatHudMixin {
     @Unique
     private float[] enough$messageAnimationValues(float offsetX, float offsetY, float scale, float alpha) {
         return new float[]{offsetX, offsetY, scale, alpha};
+    }
+
+    @Unique
+    private static String enough$baseStackText(String text) {
+        if (text == null) return "";
+        return enough$stackSuffixPattern.matcher(text).replaceFirst("");
+    }
+
+    @Unique
+    private static int enough$stackCount(String text) {
+        if (text == null) return 1;
+        Matcher matcher = enough$stackSuffixPattern.matcher(text);
+        if (!matcher.find()) return 1;
+        try {
+            return Integer.parseInt(matcher.group(1));
+        } catch (NumberFormatException ignored) {
+            return 1;
+        }
+    }
+
+    @Unique
+    private void enough$renderGlobalsChatLogo(DrawContext context, TextRenderer textRenderer,
+                                              OrderedText content, int textY, int textAlpha) {
+        if (!Globals.chatEnabled() || content == null || textAlpha <= 3) return;
+        String line = enough$orderedTextToString(content);
+        Globals.Match match = Globals.findEnoughUser(line);
+        if (!match.found()) return;
+
+        float beforeWidth = textRenderer.getWidth(line.substring(0, match.start()));
+        float iconX = beforeWidth - enough$chatLogoSize - 1.5f;
+        float iconY = textY - 1.0f;
+        int color = RenderUtil.withAlpha(Globals.LOGO_COLOR, textAlpha / 255f);
+        CustomFontRenderer.drawText(context, Globals.LOGO_ICON, iconX, iconY, enough$chatLogoSize, color, FontWeight.LOGO);
+    }
+
+    @Unique
+    private static String enough$orderedTextToString(OrderedText text) {
+        StringBuilder out = new StringBuilder();
+        text.accept((index, style, codePoint) -> {
+            out.appendCodePoint(codePoint);
+            return true;
+        });
+        return out.toString();
     }
 }

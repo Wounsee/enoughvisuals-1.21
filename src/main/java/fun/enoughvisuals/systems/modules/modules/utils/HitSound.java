@@ -18,7 +18,7 @@ public class HitSound extends Module {
                                                                                
     public final ModeSetting sound = add(new ModeSetting(
             "Звук", "sound", "Звук", "bell",
-            new String[]{"bell", "magic", "pew", "run"}
+            new String[]{"bell", "magic", "pew", "run", "bonk", "hit1", "hit2", "hit3", "moan1", "moan2", "moan3", "moan4", "pop", "uwu"}
     ));
 
     public final SliderSetting volume = add(new SliderSetting(

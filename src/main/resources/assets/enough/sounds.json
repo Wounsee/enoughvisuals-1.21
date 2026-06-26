@@ -71,6 +71,86 @@
       }
     ]
   },
+  "hit.bonk": {
+    "sounds": [
+      {
+        "name": "enough:hit/bonk",
+        "stream": false
+      }
+    ]
+  },
+  "hit.hit1": {
+    "sounds": [
+      {
+        "name": "enough:hit/hit1",
+        "stream": false
+      }
+    ]
+  },
+  "hit.hit2": {
+    "sounds": [
+      {
+        "name": "enough:hit/hit2",
+        "stream": false
+      }
+    ]
+  },
+  "hit.hit3": {
+    "sounds": [
+      {
+        "name": "enough:hit/hit3",
+        "stream": false
+      }
+    ]
+  },
+  "hit.moan1": {
+    "sounds": [
+      {
+        "name": "enough:hit/moan1",
+        "stream": false
+      }
+    ]
+  },
+  "hit.moan2": {
+    "sounds": [
+      {
+        "name": "enough:hit/moan2",
+        "stream": false
+      }
+    ]
+  },
+  "hit.moan3": {
+    "sounds": [
+      {
+        "name": "enough:hit/moan3",
+        "stream": false
+      }
+    ]
+  },
+  "hit.moan4": {
+    "sounds": [
+      {
+        "name": "enough:hit/moan4",
+        "stream": false
+      }
+    ]
+  },
+  "hit.pop": {
+    "sounds": [
+      {
+        "name": "enough:hit/pop",
+        "stream": false
+      }
+    ]
+  },
+  "hit.uwu": {
+    "sounds": [
+      {
+        "name": "enough:hit/uwu",
+        "stream": false
+      }
+    ]
+  },
   "kill.kill": {
     "sounds": [
       {

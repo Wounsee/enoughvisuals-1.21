@@ -4,8 +4,10 @@ import fun.enoughvisuals.systems.gps.GpsSystem;
 
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.modules.utils.ClickPearl;
+import fun.enoughvisuals.systems.modules.modules.utils.FastSearch;
 import fun.enoughvisuals.systems.modules.modules.utils.FastSwap;
 import fun.enoughvisuals.systems.modules.modules.utils.ItemSwap;
+import fun.enoughvisuals.systems.modules.modules.utils.Macros;
 import fun.enoughvisuals.systems.modules.modules.utils.SendCord;
 import fun.enoughvisuals.systems.modules.modules.utils.SpecBind;
 import fun.enoughvisuals.systems.modules.modules.visual.Zoom;
@@ -33,6 +35,8 @@ public class MouseMixin {
         if (GpsSystem.getInstance().openGuiIfBound(key, client)) {
             return;
         }
+        FastSearch.onKey(key);
+        Macros.onKey(key);
         FastSwap.onKey(key);
         ClickPearl.onKey(key);
         ItemSwap.onKey(key);
