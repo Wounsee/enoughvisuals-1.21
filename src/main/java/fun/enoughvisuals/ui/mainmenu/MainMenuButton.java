@@ -1,5 +1,7 @@
 package fun.enoughvisuals.ui.mainmenu;
 
+import fun.enoughvisuals.systems.animations.AnimatedFloat;
+import fun.enoughvisuals.systems.animations.Easing;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.render.RenderUtil;
@@ -20,7 +22,7 @@ public final class MainMenuButton {
     private float y;
     private float width;
     private float height;
-    private float hoverAnim;
+    private final AnimatedFloat hoverAnim = new AnimatedFloat(0f, 180L, Easing.OUT_CUBIC);
 
     public MainMenuButton(String label, String icon, boolean active, Runnable action) {
         this.label = label;
@@ -37,28 +39,37 @@ public final class MainMenuButton {
     }
 
     public void tick(double mouseX, double mouseY, float frameDelta) {
-        hoverAnim = RenderUtil.animate(hoverAnim, contains(mouseX, mouseY) ? 1.0f : 0.0f, 0.34f, frameDelta);
+        hoverAnim.setTarget(contains(mouseX, mouseY) ? 1.0f : 0.0f);
     }
 
-    public void render(DrawContext ctx, float scale, float alpha) {
+    public void render(DrawContext ctx, float scale, float alpha, float appear) {
         if (alpha <= 0.003f) return;
 
+        float hoverValue = hoverAnim.value();
         int base = active ? ACTIVE : NORMAL;
-        int hover = active ? RenderUtil.lighten(ACTIVE, 0.08f) : HOVER;
-        int bg = RenderUtil.withAlpha(RenderUtil.lerpColor(base, hover, hoverAnim), alpha * (active ? 0.98f : 0.92f));
-        float radius = 7.0f * scale;
+        int hoverColor = active ? RenderUtil.lighten(ACTIVE, 0.08f) : HOVER;
+        int bg = RenderUtil.withAlpha(RenderUtil.lerpColor(base, hoverColor, hoverValue), alpha * (active ? 0.98f : 0.92f));
+        float radius = 6.0f * scale;
+        float appearScale = 1.3f - 0.3f * appear;
+        float grow = appearScale * (1.0f + hoverValue * 0.026f);
+
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(x + width * 0.5f, y + height * 0.5f, 0f);
+        ctx.getMatrices().scale(grow, grow, 1f);
+        ctx.getMatrices().translate(-(x + width * 0.5f), -(y + height * 0.5f), 0f);
 
         RenderUtil.drawRoundedRect(ctx, x, y, width, height, radius, bg);
 
-        float textSize = 6.7f * scale;
+        float textSize = 5.8f * scale;
         float textY = y + (height - CustomFontRenderer.getTextHeight(textSize, FontWeight.SEMIBOLD)) * 0.5f - 0.2f * scale;
-        CustomFontRenderer.drawText(ctx, label, x + 8.6f * scale, textY, textSize,
+        CustomFontRenderer.drawText(ctx, label, x + 7.6f * scale, textY, textSize,
                 RenderUtil.withAlpha(TEXT, alpha), FontWeight.SEMIBOLD);
 
-        float iconSize = 9.4f * scale;
+        float iconSize = 8.0f * scale;
         float iconY = y + (height - CustomFontRenderer.getTextHeight(iconSize, FontWeight.MENU)) * 0.5f - 0.4f * scale;
-        CustomFontRenderer.drawRightText(ctx, icon, x + width - 8.0f * scale, iconY, iconSize,
+        CustomFontRenderer.drawRightText(ctx, icon, x + width - 7.2f * scale, iconY, iconSize,
                 RenderUtil.withAlpha(TEXT, alpha), FontWeight.MENU);
+        ctx.getMatrices().pop();
     }
 
     public boolean click(double mouseX, double mouseY) {

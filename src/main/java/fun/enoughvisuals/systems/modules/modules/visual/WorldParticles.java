@@ -41,6 +41,9 @@ public class WorldParticles extends Module {
     private static final Identifier CROWN_TEXTURE = Identifier.of("enough", "textures/particles/crown.png");
     private static final Identifier LIGHTNING_TEXTURE = Identifier.of("enough", "textures/particles/lightning.png");
     private static final Identifier SNOWFLAKE_TEXTURE = Identifier.of("enough", "textures/particles/snowflake.png");
+    private static final Identifier[] TEXTURE_RENDER_ORDER = new Identifier[]{
+            STAR1_TEXTURE, STAR2_TEXTURE, HEART_TEXTURE, CROWN_TEXTURE, LIGHTNING_TEXTURE, SNOWFLAKE_TEXTURE, BLOOM_TEXTURE
+    };
 
     private static final String SELECTED = "Выбранный";
     private static final String RANDOM = "Рандомно";
@@ -52,10 +55,11 @@ public class WorldParticles extends Module {
     private static final String CROWN = "Корона";
     private static final String LIGHTNING = "Молния";
     private static final String SNOWFLAKE = "Снежинка";
+    private static final String BLOOM = "Bloom";
     private static final String CUBES = "Кубы";
 
     private static final String[] TYPES = new String[]{
-            STAR_1, STAR_2, HEART, CROWN, LIGHTNING, SNOWFLAKE, CUBES
+            STAR_1, STAR_2, HEART, CROWN, LIGHTNING, SNOWFLAKE, BLOOM, CUBES
     };
 
     private static WorldParticles INSTANCE;
@@ -80,6 +84,7 @@ public class WorldParticles extends Module {
             CROWN,
             LIGHTNING,
             SNOWFLAKE,
+            BLOOM,
             CUBES
     ));
 
@@ -110,9 +115,9 @@ public class WorldParticles extends Module {
             "Количество",
             "amount",
             "Максимальное количество частиц",
-            120.0,
-            30.0,
             260.0,
+            30.0,
+            1000.0,
             5.0
     ));
 
@@ -130,9 +135,9 @@ public class WorldParticles extends Module {
             "Лимит рендера",
             "render_limit",
             "Максимум частиц, которые рисуются за кадр",
-            120.0,
+            260.0,
             40.0,
-            220.0,
+            1000.0,
             5.0
     ));
 
@@ -142,7 +147,7 @@ public class WorldParticles extends Module {
             "Радиус появления вокруг игрока",
             40.0,
             8.0,
-            128.0,
+            256.0,
             1.0,
             "m"
     ));
@@ -308,8 +313,9 @@ public class WorldParticles extends Module {
             particles.add(createParticle());
         }
 
-        while (particles.size() > maxParticles) {
-            particles.remove(0);
+        int overflow = particles.size() - maxParticles;
+        if (overflow > 0) {
+            particles.subList(0, overflow).clear();
         }
     }
 
@@ -394,28 +400,18 @@ public class WorldParticles extends Module {
         RenderSystem.depthMask(false);
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
-        int rendered = 0;
         int maxRendered = renderLimit.get().intValue();
-        double renderDistance = Math.min(radius.get() + 12.0, 72.0);
+        float opacityValue = opacity.get().floatValue();
+        float glowValue = glow.get().floatValue();
+        double renderDistance = Math.min(radius.get() + 12.0, 160.0);
         double renderDistanceSq = renderDistance * renderDistance;
+        int rendered = renderCubes(matrices, cam, tickDelta, maxRendered, renderDistanceSq, opacityValue, glowValue);
 
-        for (WorldParticle particle : particles) {
+        for (Identifier texture : TEXTURE_RENDER_ORDER) {
             if (rendered >= maxRendered) break;
-            float alpha = particleAlpha(particle) * opacity.get().floatValue();
-            if (alpha <= 0.01f) continue;
-
-            Vec3d pos = lerp(particle.prevPos, particle.pos, tickDelta);
-            double distanceSq = cam.squaredDistanceTo(pos);
-            if (distanceSq > renderDistanceSq) continue;
-
-            boolean allowGlow = glow.get() > 0.01 && rendered < maxRendered * 0.55 && distanceSq < 38.0 * 38.0;
-            if (particle.cube) {
-                renderCube(matrices, cam, pos, particle, alpha, tickDelta, allowGlow);
-            } else {
-                renderBillboard(matrices, camera, cam, pos, particle.texture, particle.rgb, particle.size, alpha, lerp(particle.prevRotationZ, particle.rotationZ, tickDelta), allowGlow);
-            }
-            rendered++;
+            rendered += renderBillboardBatch(matrices, camera, cam, tickDelta, texture, maxRendered - rendered, renderDistanceSq, opacityValue);
         }
+        renderGlowBatch(matrices, camera, cam, tickDelta, Math.max(24, maxRendered / 3), renderDistanceSq, opacityValue, glowValue);
 
         RenderSystem.lineWidth(1.0f);
         RenderSystem.depthFunc(oldDepthFunc);
@@ -423,6 +419,98 @@ public class WorldParticles extends Module {
         RenderSystem.enableCull();
         RenderSystem.disableBlend();
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+    }
+
+    private int renderCubes(MatrixStack matrices, Vec3d cam, float tickDelta, int maxRendered, double renderDistanceSq, float opacityValue, float glowValue) {
+        int rendered = 0;
+        for (WorldParticle particle : particles) {
+            if (rendered >= maxRendered) break;
+            if (!particle.cube) continue;
+
+            float alpha = particleAlpha(particle) * opacityValue;
+            if (alpha <= 0.01f) continue;
+
+            Vec3d pos = lerp(particle.prevPos, particle.pos, tickDelta);
+            double distanceSq = cam.squaredDistanceTo(pos);
+            if (distanceSq > renderDistanceSq) continue;
+
+            boolean allowGlow = glowValue > 0.01f && rendered < maxRendered * 0.35 && distanceSq < 34.0 * 34.0;
+            renderCube(matrices, cam, pos, particle, alpha, tickDelta, allowGlow);
+            rendered++;
+        }
+        return rendered;
+    }
+
+    private int renderBillboardBatch(MatrixStack matrices, Camera camera, Vec3d cam, float tickDelta, Identifier texture,
+                                     int maxRendered, double renderDistanceSq, float opacityValue) {
+        BufferBuilder buffer = null;
+        int rendered = 0;
+
+        for (WorldParticle particle : particles) {
+            if (rendered >= maxRendered) break;
+            if (particle.cube || !particle.texture.equals(texture)) continue;
+
+            float alpha = particleAlpha(particle) * opacityValue;
+            if (alpha <= 0.01f) continue;
+
+            Vec3d pos = lerp(particle.prevPos, particle.pos, tickDelta);
+            if (cam.squaredDistanceTo(pos) > renderDistanceSq) continue;
+
+            if (buffer == null) {
+                if (texture.equals(BLOOM_TEXTURE)) {
+                    RenderSystem.blendFunc(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE);
+                } else {
+                    RenderSystem.defaultBlendFunc();
+                }
+                RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+                RenderSystem.setShaderTexture(0, texture);
+                buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+            }
+
+            appendBillboard(buffer, matrices, camera, cam, pos, particle.rgb, particle.size, alpha, lerp(particle.prevRotationZ, particle.rotationZ, tickDelta));
+            rendered++;
+        }
+
+        if (buffer != null) {
+            BufferRenderer.drawWithGlobalProgram(buffer.end());
+            RenderSystem.defaultBlendFunc();
+        }
+        return rendered;
+    }
+
+    private void renderGlowBatch(MatrixStack matrices, Camera camera, Vec3d cam, float tickDelta, int maxRendered,
+                                 double renderDistanceSq, float opacityValue, float glowValue) {
+        if (glowValue <= 0.01f || maxRendered <= 0) return;
+
+        BufferBuilder buffer = null;
+        int rendered = 0;
+        double glowDistanceSq = Math.min(renderDistanceSq, 38.0 * 38.0);
+
+        for (WorldParticle particle : particles) {
+            if (rendered >= maxRendered) break;
+            if (particle.cube || particle.texture.equals(BLOOM_TEXTURE)) continue;
+
+            float alpha = particleAlpha(particle) * opacityValue * 0.25f * glowValue;
+            if (alpha <= 0.004f) continue;
+
+            Vec3d pos = lerp(particle.prevPos, particle.pos, tickDelta);
+            if (cam.squaredDistanceTo(pos) > glowDistanceSq) continue;
+
+            if (buffer == null) {
+                RenderSystem.blendFunc(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE);
+                RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+                RenderSystem.setShaderTexture(0, BLOOM_TEXTURE);
+                buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+            }
+
+            appendBillboard(buffer, matrices, camera, cam, pos, particle.rgb, particle.size * 1.85f, alpha, lerp(particle.prevRotationZ, particle.rotationZ, tickDelta) * 0.2f);
+            rendered++;
+        }
+
+        if (buffer != null) {
+            BufferRenderer.drawWithGlobalProgram(buffer.end());
+            RenderSystem.defaultBlendFunc();
+        }
     }
 
     private void renderCube(MatrixStack matrices, Vec3d camera, Vec3d pos, WorldParticle particle, float alpha, float tickDelta, boolean allowGlow) {
@@ -494,6 +582,27 @@ public class WorldParticles extends Module {
         if (glowLayer) {
             RenderSystem.defaultBlendFunc();
         }
+    }
+
+    private void appendBillboard(BufferBuilder buffer, MatrixStack matrices, Camera camera, Vec3d cam, Vec3d pos,
+                                 int rgb, float size, float alpha, float rotation) {
+        float h = size * 0.5f;
+        float r = ((rgb >> 16) & 0xFF) / 255f;
+        float g = ((rgb >> 8) & 0xFF) / 255f;
+        float b = (rgb & 0xFF) / 255f;
+
+        matrices.push();
+        matrices.translate(pos.x - cam.x, pos.y - cam.y, pos.z - cam.z);
+        matrices.multiply(camera.getRotation());
+        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(rotation));
+
+        Matrix4f matrix = matrices.peek().getPositionMatrix();
+        buffer.vertex(matrix, -h, -h, 0f).texture(0f, 1f).color(r, g, b, alpha);
+        buffer.vertex(matrix, h, -h, 0f).texture(1f, 1f).color(r, g, b, alpha);
+        buffer.vertex(matrix, h, h, 0f).texture(1f, 0f).color(r, g, b, alpha);
+        buffer.vertex(matrix, -h, h, 0f).texture(0f, 0f).color(r, g, b, alpha);
+
+        matrices.pop();
     }
 
     private void cubeFaces(BufferBuilder buffer, Matrix4f matrix, float x1, float y1, float z1, float x2, float y2, float z2, float[] color) {
@@ -568,6 +677,7 @@ public class WorldParticles extends Module {
             case CROWN -> CROWN_TEXTURE;
             case LIGHTNING -> LIGHTNING_TEXTURE;
             case SNOWFLAKE -> SNOWFLAKE_TEXTURE;
+            case BLOOM -> BLOOM_TEXTURE;
             default -> STAR1_TEXTURE;
         };
     }

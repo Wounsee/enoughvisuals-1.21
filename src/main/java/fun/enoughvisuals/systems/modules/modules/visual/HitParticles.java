@@ -49,10 +49,10 @@ public class HitParticles extends Module {
     private static final Identifier LIGHTNING_TEXTURE = Identifier.of("enough", "textures/particles/lightning.png");
     private static final Identifier SNOWFLAKE_TEXTURE = Identifier.of("enough", "textures/particles/snowflake.png");
     private static final Identifier[] ALL_PARTICLE_TEXTURES = new Identifier[]{
-            STAR1_TEXTURE, STAR2_TEXTURE, HEART_TEXTURE, CROWN_TEXTURE, LIGHTNING_TEXTURE, SNOWFLAKE_TEXTURE
+            STAR1_TEXTURE, STAR2_TEXTURE, HEART_TEXTURE, CROWN_TEXTURE, LIGHTNING_TEXTURE, SNOWFLAKE_TEXTURE, BLOOM_TEXTURE
     };
 
-    private static final int MAX_PARTICLES = 20;
+    private static final int MAX_PARTICLES = 600;
 
     public final ModeSetting mode = add(new ModeSetting(
             "Режим",
@@ -73,7 +73,8 @@ public class HitParticles extends Module {
             "Сердце",
             "Корона",
             "Молния",
-            "Снежинка"
+            "Снежинка",
+            "Bloom"
     ));
 
     public final ColorSetting color = add(new ColorSetting(
@@ -179,7 +180,7 @@ public class HitParticles extends Module {
         float baseSize = size.get().floatValue();
 
         for (int i = 0; i < count; i++) {
-            if (particles.size() >= MAX_PARTICLES) {
+            while (particles.size() >= MAX_PARTICLES) {
                 particles.remove(0);
             }
 
@@ -213,6 +214,7 @@ public class HitParticles extends Module {
             case "Корона" -> CROWN_TEXTURE;
             case "Молния" -> LIGHTNING_TEXTURE;
             case "Снежинка" -> SNOWFLAKE_TEXTURE;
+            case "Bloom" -> BLOOM_TEXTURE;
             default -> STAR1_TEXTURE;
         };
     }

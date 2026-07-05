@@ -32,6 +32,10 @@ public final class CustomMainMenuScreen extends Screen {
     private final MainMenuAnimation animation = new MainMenuAnimation();
     private final List<MainMenuButton> buttons = new ArrayList<>();
     private boolean backgroundFilterConfigured;
+    private boolean pendingAnimationRestart;
+    private boolean firstVisibleAnimation = true;
+    private long pendingAnimationDelayMs;
+    private int animationWarmupFrames;
     private float screenScale = 1.0f;
     private float virtualWidth;
     private float virtualHeight;
@@ -42,6 +46,11 @@ public final class CustomMainMenuScreen extends Screen {
 
     @Override
     protected void init() {
+        pendingAnimationRestart = true;
+        boolean startupAnimation = firstVisibleAnimation;
+        firstVisibleAnimation = false;
+        pendingAnimationDelayMs = startupAnimation ? 110L : 0L;
+        animationWarmupFrames = startupAnimation ? 18 : 0;
         updateVirtualScreen();
         buttons.clear();
         buttons.add(new MainMenuButton(
@@ -89,30 +98,39 @@ public final class CustomMainMenuScreen extends Screen {
         updateVirtualScreen();
         drawBackground(ctx);
         drawDim(ctx);
+        if (pendingAnimationRestart) {
+            animation.restartDelayed(pendingAnimationDelayMs);
+            pendingAnimationRestart = false;
+        }
+        if (animationWarmupFrames > 0) {
+            animation.restartDelayed(90L);
+            animationWarmupFrames--;
+        }
         layoutButtons();
 
         float scale = layoutScale();
         float alpha = animation.alpha();
         float yOffset = animation.slideOffset(scale);
-        float frameDelta = RenderUtil.getFrameDelta();
         float virtualMouseX = ScreenScaleUtil.screenToVirtual(mouseX);
         float virtualMouseY = ScreenScaleUtil.screenToVirtual(mouseY);
 
         for (MainMenuButton button : buttons) {
-            button.tick(virtualMouseX, virtualMouseY - yOffset, frameDelta);
+            button.tick(virtualMouseX, virtualMouseY - yOffset, 1f);
         }
 
         ctx.getMatrices().push();
         ctx.getMatrices().scale(screenScale, screenScale, 1.0f);
         ctx.getMatrices().translate(0.0f, yOffset, 0.0f);
-        renderHeader(ctx, scale, alpha);
-        for (MainMenuButton button : buttons) {
-            button.render(ctx, scale, alpha);
+        renderHeader(ctx, scale, alpha, animation.openProgress());
+        for (int i = 0; i < buttons.size(); i++) {
+            float buttonAlpha = alpha * animation.buttonAlpha(i);
+            float appear = animation.buttonProgress(i);
+            buttons.get(i).render(ctx, scale, buttonAlpha, appear);
         }
         ctx.getMatrices().pop();
     }
 
-    private void renderHeader(DrawContext ctx, float scale, float alpha) {
+    private void renderHeader(DrawContext ctx, float scale, float alpha, float appear) {
         String username = "player";
         if (client != null && client.getSession() != null && client.getSession().getUsername() != null) {
             username = client.getSession().getUsername();
@@ -120,44 +138,50 @@ public final class CustomMainMenuScreen extends Screen {
 
         float centerX = virtualWidth * 0.5f;
         float centerY = virtualHeight * 0.5f;
-        float subtitleSize = 6.8f * scale;
-        float titleSize = 14.0f * scale;
+        float subtitleSize = 6.0f * scale;
+        float titleSize = 12.2f * scale;
         float lineGap = 0.2f * scale;
 
+        float grow = 1.3f - 0.3f * appear;
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(centerX, centerY - 45.0f * scale, 0.0f);
+        ctx.getMatrices().scale(grow, grow, 1.0f);
+        ctx.getMatrices().translate(-centerX, -(centerY - 45.0f * scale), 0.0f);
         CustomFontRenderer.drawCenteredText(ctx,
                 "\u0434\u0430\u0432\u043d\u043e \u043d\u0435 \u0432\u0438\u0434\u0435\u043b\u0438\u0441\u044c, " + username,
                 centerX,
-                centerY - 70.0f * scale,
+                centerY - 63.0f * scale,
                 subtitleSize,
                 RenderUtil.withAlpha(SUBTITLE, alpha),
                 FontWeight.REGULAR);
         CustomFontRenderer.drawCenteredText(ctx,
                 "\u0414\u043e\u0431\u0440\u043e \u043f\u043e\u0436\u0430\u043b\u043e\u0432\u0430\u0442\u044c \u0432",
                 centerX,
-                centerY - 61.5f * scale,
+                centerY - 55.5f * scale,
                 titleSize,
                 RenderUtil.withAlpha(WHITE, alpha),
                 FontWeight.BOLD);
         CustomFontRenderer.drawCenteredText(ctx,
                 "Enough Visuals!",
                 centerX,
-                centerY - 61.5f * scale + CustomFontRenderer.getTextHeight(titleSize, FontWeight.BOLD) + lineGap,
+                centerY - 55.5f * scale + CustomFontRenderer.getTextHeight(titleSize, FontWeight.BOLD) + lineGap,
                 titleSize,
                 RenderUtil.withAlpha(WHITE, alpha),
                 FontWeight.BOLD);
+        ctx.getMatrices().pop();
     }
 
     private void layoutButtons() {
         if (buttons.size() < 5) return;
 
         float scale = layoutScale();
-        float fullW = 178.0f * scale;
-        float fullH = 23.0f * scale;
-        float gap = 4.5f * scale;
-        float splitGap = 5.0f * scale;
+        float fullW = 160.0f * scale;
+        float fullH = 19.5f * scale;
+        float gap = 4.0f * scale;
+        float splitGap = 4.5f * scale;
         float halfW = (fullW - splitGap) * 0.5f;
         float x = virtualWidth * 0.5f - fullW * 0.5f;
-        float y = virtualHeight * 0.5f - 9.0f * scale;
+        float y = virtualHeight * 0.5f - 4.0f * scale;
 
         buttons.get(0).setBounds(x, y, fullW, fullH);
         buttons.get(1).setBounds(x, y + (fullH + gap), fullW, fullH);
@@ -171,7 +195,7 @@ public final class CustomMainMenuScreen extends Screen {
     private float layoutScale() {
         float byWidth = virtualWidth / 960.0f;
         float byHeight = virtualHeight / 540.0f;
-        return Math.max(0.62f, Math.min(1.65f, Math.min(byWidth, byHeight)));
+        return Math.max(0.58f, Math.min(1.42f, Math.min(byWidth, byHeight)));
     }
 
     private void updateVirtualScreen() {
@@ -278,7 +302,7 @@ public final class CustomMainMenuScreen extends Screen {
     private void openAccountManager() {
         if (client == null) return;
         EnoughSoundPlayer.playScroll();
-        client.setScreen(new AccountSwitcherBridgeScreen(this));
+        client.setScreen(new AccountSwitcherScreen(this));
     }
 
     @Override
