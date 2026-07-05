@@ -1,5 +1,6 @@
 package fun.enoughvisuals.ui.hud;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.mixins.accessors.ItemCooldownEntryAccessor;
 import fun.enoughvisuals.mixins.accessors.ItemCooldownManagerAccessor;
 import fun.enoughvisuals.systems.hud.HudElement;
@@ -33,6 +34,11 @@ public class CooldownsHud extends HudElement {
     }
 
     @Override
+    protected boolean usesSplitAppearanceAnimation() {
+        return true;
+    }
+
+    @Override
     protected void update(float delta) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null) return;
@@ -43,9 +49,12 @@ public class CooldownsHud extends HudElement {
 
         List<CooldownLine> lines = collectCooldowns(mc.player.getItemCooldownManager());
         boolean isEditing = mc.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen;
+        boolean visible = !lines.isEmpty() || isEditing;
+        setContentVisibleTarget(visible);
 
-        if (lines.isEmpty() && !isEditing) {
-            setHeight(RenderUtil.animate(getHeight(), 0f, 0.2f, frameDelta));
+        if (!visible) {
+            float targetH = getContentAnim() <= 0.01f ? 0f : HEADER_H * s;
+            setHeight(RenderUtil.animate(getHeight(), targetH, 0.2f, frameDelta));
             setWidth(RenderUtil.animate(getWidth(), minW, 0.2f, frameDelta));
             return;
         }
@@ -82,25 +91,35 @@ public class CooldownsHud extends HudElement {
         drawMenuStyleBackground(ctx, x, y, w, h, 6f * s, alpha);
         RenderUtil.enableScissor(x, y, w, h);
 
-        float headerAlpha = Math.min(1f, h / headerH) * alpha;
-        CustomFontRenderer.drawText(ctx, "Кулдауны", x + PAD * s, y + 4.8f * s, 6.5f * s,
-                RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.SEMIBOLD);
-        CustomFontRenderer.drawRightText(ctx, "\uF000", x + w - PAD * s, y + 3.8f * s, 8.2f * s,
+        float headerAlpha = Math.min(1f, h / headerH) * alpha * getHeaderRenderAlpha();
+        RenderUtil.drawRoundedRect(ctx, x, y, w, Math.min(h, headerH), 6f * s, 6f * s, 0f, 0f,
+                RenderUtil.withAlpha(0x000000, headerAlpha * 0.18f));
+        CustomFontRenderer.drawText(ctx, "\uF000", x + PAD * s, y + 3.8f * s, 8.2f * s,
                 RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.TIME);
-        RenderUtil.drawRect(ctx, x + PAD * s, y + headerH - 1f, w - 2f * PAD * s, 0.5f,
-                RenderUtil.withAlpha(0xFFFFFF, headerAlpha * 0.15f));
+        CustomFontRenderer.drawText(ctx, "Кулдауны", x + 18f * s, y + 4.8f * s, 6.5f * s,
+                RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.SEMIBOLD);
 
         if (h <= headerH + 2f) {
             RenderUtil.disableScissor();
             return;
         }
 
+        float bodyReveal = getBodyRevealProgress();
+        if (bodyReveal <= 0.01f) {
+            RenderUtil.disableScissor();
+            return;
+        }
+        float bodyAlpha = alpha * getBodyRenderAlpha();
+        RenderUtil.enableScissor(x, y + headerH, w, Math.max(0f, h - headerH) * bodyReveal);
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(0f, getBodySlideOffset() * s, 0f);
+
         List<CooldownLine> lines = collectCooldowns(mc.player.getItemCooldownManager());
         float currentY = y + headerH + 2f * s;
 
         if (lines.isEmpty()) {
             CustomFontRenderer.drawCenteredText(ctx, "Нет кулдаунов", x + w * 0.5f, currentY + 3.5f * s,
-                    6.0f * s, RenderUtil.withAlpha(0xFFAAAAAA, alpha), FontWeight.SEMIBOLD);
+                    6.0f * s, RenderUtil.withAlpha(0xFFAAAAAA, bodyAlpha), FontWeight.SEMIBOLD);
         } else {
             for (CooldownLine line : lines) {
                 if (currentY > y + h) break;
@@ -111,18 +130,22 @@ public class CooldownsHud extends HudElement {
                 ctx.getMatrices().push();
                 ctx.getMatrices().translate(iconX, iconY, 0f);
                 ctx.getMatrices().scale(iconSize / 16f, iconSize / 16f, 1f);
+                RenderSystem.setShaderColor(1f, 1f, 1f, bodyAlpha);
                 ctx.drawItem(line.stack, 0, 0);
+                RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
                 ctx.getMatrices().pop();
 
                 CustomFontRenderer.drawText(ctx, line.label, x + 20f * s, currentY + 3.5f * s, 6.0f * s,
-                        RenderUtil.withAlpha(0xFFFFFF, alpha), FontWeight.SEMIBOLD);
+                        RenderUtil.withAlpha(0xFFFFFF, bodyAlpha), FontWeight.SEMIBOLD);
                 CustomFontRenderer.drawRightText(ctx, line.timeText, x + w - PAD * s, currentY + 3.5f * s, 6.0f * s,
-                        RenderUtil.withAlpha(line.color, alpha), FontWeight.SEMIBOLD);
+                        RenderUtil.withAlpha(line.color, bodyAlpha), FontWeight.SEMIBOLD);
                 currentY += rowH;
             }
         }
 
         ctx.draw();
+        ctx.getMatrices().pop();
+        RenderUtil.disableScissor();
         RenderUtil.disableScissor();
     }
 

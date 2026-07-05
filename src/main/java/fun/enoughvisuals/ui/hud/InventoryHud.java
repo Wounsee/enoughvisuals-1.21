@@ -1,5 +1,6 @@
 package fun.enoughvisuals.ui.hud;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.systems.hud.HudElement;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
@@ -48,14 +49,24 @@ public class InventoryHud extends HudElement {
         drawMenuStyleBackground(ctx, x, y, w, h, 7f * s, alpha);
         RenderUtil.enableScissor(x, y, w, h);
 
+        float headerAlpha = alpha * getHeaderRenderAlpha();
         float contentY = y + PAD * s;
         if (title.get()) {
             CustomFontRenderer.drawText(ctx, "Inventory", x + PAD * s, y + 5.1f * s,
-                    6.5f * s, RenderUtil.withAlpha(0xFFFFFF, alpha), FontWeight.SEMIBOLD);
-            RenderUtil.drawRect(ctx, x + PAD * s, y + HEADER_H * s - 1f,
-                    w - PAD * 2f * s, 0.5f, RenderUtil.withAlpha(0xFFFFFF, alpha * 0.14f));
+                    6.5f * s, RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.SEMIBOLD);
             contentY = y + (HEADER_H + 6f) * s;
         }
+
+        float bodyReveal = getBodyRevealProgress();
+        if (bodyReveal <= 0.01f) {
+            RenderUtil.disableScissor();
+            return;
+        }
+        float bodyAlpha = alpha * getBodyRenderAlpha();
+        float bodyClipY = title.get() ? y + HEADER_H * s : y;
+        RenderUtil.enableScissor(x, bodyClipY, w, Math.max(0f, h - (bodyClipY - y)) * bodyReveal);
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(0f, getBodySlideOffset() * s, 0f);
 
         PlayerInventory inventory = mc.player.getInventory();
         int rowCount = hotbar.get() ? 4 : 3;
@@ -65,14 +76,16 @@ public class InventoryHud extends HudElement {
                 ItemStack stack = inventory.main.get(invIndex);
                 float slotX = x + PAD * s + col * SLOT * s;
                 float slotY = contentY + row * SLOT * s;
-                drawSlot(ctx, slotX, slotY, s, alpha);
+                drawSlot(ctx, slotX, slotY, s, bodyAlpha);
                 if (!stack.isEmpty()) {
-                    drawStack(ctx, mc, stack, slotX + 1f * s, slotY + 1f * s, s);
+                    drawStack(ctx, mc, stack, slotX + 1f * s, slotY + 1f * s, s, bodyAlpha);
                 }
             }
         }
 
         ctx.draw();
+        ctx.getMatrices().pop();
+        RenderUtil.disableScissor();
         RenderUtil.disableScissor();
     }
 
@@ -84,12 +97,14 @@ public class InventoryHud extends HudElement {
                 RenderUtil.withAlpha(0x05050A, alpha * 0.22f));
     }
 
-    private void drawStack(DrawContext ctx, MinecraftClient mc, ItemStack stack, float x, float y, float scale) {
+    private void drawStack(DrawContext ctx, MinecraftClient mc, ItemStack stack, float x, float y, float scale, float alpha) {
         ctx.getMatrices().push();
         ctx.getMatrices().translate(x, y, 0f);
         ctx.getMatrices().scale(scale, scale, 1f);
+        RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
         ctx.drawItem(stack, 0, 0);
         ctx.drawStackOverlay(mc.textRenderer, stack, 0, 0);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         ctx.getMatrices().pop();
     }
 }

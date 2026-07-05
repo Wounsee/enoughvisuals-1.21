@@ -118,6 +118,7 @@ public class MenuScreen extends Screen {
         boolean menuColor = theme != null && theme.isEnabled() && theme.menu.get();
         int accent = menuColor ? theme.guiAccentColor() : DEFAULT_ACCENT;
         float guiOpacity = CustomTheme.clickGuiOpacity();
+        boolean forceOpaque = CustomTheme.blurDisabled();
         ACCENT = accent;
         ACCENT_LIGHT = lighten(accent, 0.35f);
         TOGGLE_ON = accent;
@@ -130,21 +131,21 @@ public class MenuScreen extends Screen {
             SETTING_PANEL_INNER = darken(accent, 0.78f);
             SETTING_INPUT_BG = darken(accent, 0.82f);
             PANEL_TINT = accent;
-            PANEL_TINT_ALPHA = 0.80f * guiOpacity;
+            PANEL_TINT_ALPHA = forceOpaque ? 1.0f : 0.80f * guiOpacity;
             HEADER_TINT = accent;
-            HEADER_TINT_ALPHA = 0.20f * guiOpacity;
+            HEADER_TINT_ALPHA = forceOpaque ? 1.0f : 0.20f * guiOpacity;
             SEARCH_TINT = accent;
-            SEARCH_TINT_ALPHA = 0.82f * guiOpacity;
+            SEARCH_TINT_ALPHA = forceOpaque ? 1.0f : 0.82f * guiOpacity;
         } else {
             SETTING_PANEL_OUTER = 0xFF090A0C;
             SETTING_PANEL_INNER = 0xFF111319;
             SETTING_INPUT_BG = 0xFF000000;
             PANEL_TINT = 0x000000;
-            PANEL_TINT_ALPHA = 0.80f * guiOpacity;
+            PANEL_TINT_ALPHA = forceOpaque ? 1.0f : 0.80f * guiOpacity;
             HEADER_TINT = 0x000000;
-            HEADER_TINT_ALPHA = 0.20f * guiOpacity;
+            HEADER_TINT_ALPHA = forceOpaque ? 1.0f : 0.20f * guiOpacity;
             SEARCH_TINT = 0x000000;
-            SEARCH_TINT_ALPHA = 0.82f * guiOpacity;
+            SEARCH_TINT_ALPHA = forceOpaque ? 1.0f : 0.82f * guiOpacity;
         }
     }
 

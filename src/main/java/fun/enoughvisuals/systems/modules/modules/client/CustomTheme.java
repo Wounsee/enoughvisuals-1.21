@@ -6,12 +6,15 @@ import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.ColorSetting;
-import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
 
 @Register(name = "Theme", id = "custom_theme", description = "Меняет цвета, прозрачность и блюр интерфейса", category = Category.CLIENT)
 public class CustomTheme extends Module {
+    private static final float DEFAULT_HUD_BLUR = 1.5f;
+    private static final float DEFAULT_CLICK_GUI_BLUR = 1.5f;
+    private static final float DEFAULT_HUD_OPACITY = 0.90f;
+    private static final float DEFAULT_CLICK_GUI_OPACITY = 1.0f;
 
     public final BooleanSetting menu = add(new BooleanSetting(
             "Меню",
@@ -56,46 +59,6 @@ public class CustomTheme extends Module {
             "Цвет подсветки предметов",
             MenuScreen.DEFAULT_ACCENT,
             false
-    ));
-
-    public final SliderSetting hudBlur = add(new SliderSetting(
-            "Блюр HUD",
-            "hud_blur",
-            "Сила размытия под HUD элементами",
-            3.0,
-            0.0,
-            3.0,
-            0.05
-    ));
-
-    public final SliderSetting clickGuiBlur = add(new SliderSetting(
-            "Блюр ClickGUI",
-            "click_gui_blur",
-            "Сила размытия под меню",
-            3.0,
-            0.0,
-            3.0,
-            0.05
-    ));
-
-    public final SliderSetting hudOpacity = add(new SliderSetting(
-            "Прозрачность HUD",
-            "hud_opacity",
-            "Прозрачность стеклянных HUD панелей",
-            0.90,
-            0.0,
-            1.0,
-            0.05
-    ));
-
-    public final SliderSetting clickGuiOpacity = add(new SliderSetting(
-            "Прозрачность ClickGUI",
-            "click_gui_opacity",
-            "Прозрачность стеклянных панелей меню",
-            0.90,
-            0.0,
-            1.0,
-            0.05
     ));
 
     public final BooleanSetting disableBlur = add(new BooleanSetting(
@@ -146,6 +109,9 @@ public class CustomTheme extends Module {
     }
 
     public static float hudPanelTintAlpha() {
+        if (blurDisabled()) {
+            return 1.0f;
+        }
         return 0.74f * hudOpacity();
     }
 
@@ -154,23 +120,19 @@ public class CustomTheme extends Module {
     }
 
     public static float hudBlurLevel() {
-        CustomTheme theme = activeTheme();
-        return theme != null ? theme.hudBlur.get().floatValue() : 0.0f;
+        return DEFAULT_HUD_BLUR;
     }
 
     public static float clickGuiBlurLevel() {
-        CustomTheme theme = activeTheme();
-        return theme != null ? theme.clickGuiBlur.get().floatValue() : 0.0f;
+        return DEFAULT_CLICK_GUI_BLUR;
     }
 
     public static float hudOpacity() {
-        CustomTheme theme = activeTheme();
-        return theme != null ? theme.hudOpacity.get().floatValue() : 1.0f;
+        return blurDisabled() ? 1.0f : DEFAULT_HUD_OPACITY;
     }
 
     public static float clickGuiOpacity() {
-        CustomTheme theme = activeTheme();
-        return theme != null ? theme.clickGuiOpacity.get().floatValue() : 1.0f;
+        return blurDisabled() ? 1.0f : DEFAULT_CLICK_GUI_OPACITY;
     }
 
     public static boolean blurDisabled() {
@@ -180,12 +142,12 @@ public class CustomTheme extends Module {
 
     public static boolean hudBlurEnabled() {
         CustomTheme theme = activeTheme();
-        return theme != null && !theme.disableBlur.get() && theme.hudBlur.get().floatValue() > 0.01f;
+        return theme != null && !theme.disableBlur.get() && DEFAULT_HUD_BLUR > 0.01f;
     }
 
     public static boolean clickGuiBlurEnabled() {
         CustomTheme theme = activeTheme();
-        return theme != null && !theme.disableBlur.get() && theme.clickGuiBlur.get().floatValue() > 0.01f;
+        return theme != null && !theme.disableBlur.get() && DEFAULT_CLICK_GUI_BLUR > 0.01f;
     }
 
     public static int hudSliderBg() {

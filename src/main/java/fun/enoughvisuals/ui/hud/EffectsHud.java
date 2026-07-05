@@ -24,6 +24,11 @@ public class EffectsHud extends HudElement {
         super(x, y, 100f, 16f);
     }
 
+    @Override
+    protected boolean usesSplitAppearanceAnimation() {
+        return true;
+    }
+
     private String getRomanNumeral(int amplifier) {
         String[] numerals = {"I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"};
         if (amplifier >= 0 && amplifier < numerals.length) return numerals[amplifier];
@@ -43,10 +48,13 @@ public class EffectsHud extends HudElement {
 
         Collection<StatusEffectInstance> effects = mc.player.getActiveStatusEffects().values();
         boolean isEditing = mc.currentScreen instanceof ChatScreen;
+        boolean visible = !effects.isEmpty() || isEditing;
+        setContentVisibleTarget(visible);
 
         // Если эффектов нет и мы не в чате - схлопываем
-        if (effects.isEmpty() && !isEditing) {
-            setHeight(RenderUtil.animate(getHeight(), 0f, 0.2f, frameDelta));
+        if (!visible) {
+            float targetH = getContentAnim() <= 0.01f ? 0f : headerH;
+            setHeight(RenderUtil.animate(getHeight(), targetH, 0.2f, frameDelta));
             setWidth(RenderUtil.animate(getWidth(), minW, 0.2f, frameDelta));
             return;
         }
@@ -93,21 +101,32 @@ public class EffectsHud extends HudElement {
 
         RenderUtil.enableScissor(x, y, w, h);
 
-        float headerAlpha = Math.min(1f, h / headerH) * alpha;
+        float headerAlpha = Math.min(1f, h / headerH) * alpha * getHeaderRenderAlpha();
+        RenderUtil.drawRoundedRect(ctx, x, y, w, Math.min(h, headerH), 6f * s, 6f * s, 0f, 0f,
+                RenderUtil.withAlpha(0x000000, headerAlpha * 0.18f));
 
         // Заголовок
-        CustomFontRenderer.drawText(ctx, "Эффекты", x + 5f * s, y + 4.8f * s, 6.5f * s, RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.SEMIBOLD);
+        CustomFontRenderer.drawText(ctx, "\uF002", x + 5f * s, y + 3.8f * s, 9.5f * s, RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.POTIONS);
+        CustomFontRenderer.drawText(ctx, "Эффекты", x + 18f * s, y + 4.8f * s, 6.5f * s, RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.SEMIBOLD);
 
         // Иконка зелья (сделана меньше - 9f, выровнена по Y)
-        CustomFontRenderer.drawRightText(ctx, "\uF002", x + w - 5f * s, y + 3.8f * s, 9.5f * s, RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.POTIONS);
 
         // Разделительная линия (толщину линии 0.5f не скейлим, чтобы она не "мылилась")
-        RenderUtil.drawRect(ctx, x + 5f * s, y + headerH - 1f, w - 10f * s, 0.5f, RenderUtil.withAlpha(0xFFFFFF, headerAlpha * 0.15f));
 
         if (h <= headerH + 2f) {
             RenderUtil.disableScissor();
             return;
         }
+
+        float bodyReveal = getBodyRevealProgress();
+        if (bodyReveal <= 0.01f) {
+            RenderUtil.disableScissor();
+            return;
+        }
+        float bodyAlpha = alpha * getBodyRenderAlpha();
+        RenderUtil.enableScissor(x, y + headerH, w, Math.max(0f, h - headerH) * bodyReveal);
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(0f, getBodySlideOffset() * s, 0f);
 
         float currentY = y + headerH + 2f * s;
         boolean isEditing = mc.currentScreen instanceof ChatScreen;
@@ -115,7 +134,7 @@ public class EffectsHud extends HudElement {
 
         // Заглушка, если эффектов нет, но мы в режиме редактирования
         if (effects.isEmpty() && isEditing) {
-            CustomFontRenderer.drawCenteredText(ctx, "Нет эффектов", x + w / 2f, currentY + 3.5f * s, 6.0f * s, RenderUtil.withAlpha(0xFFAAAAAA, alpha), FontWeight.SEMIBOLD);
+            CustomFontRenderer.drawCenteredText(ctx, "Нет эффектов", x + w / 2f, currentY + 3.5f * s, 6.0f * s, RenderUtil.withAlpha(0xFFAAAAAA, bodyAlpha), FontWeight.SEMIBOLD);
         } else {
             for (StatusEffectInstance effect : effects) {
                 if (currentY > y + h) break;
@@ -129,7 +148,7 @@ public class EffectsHud extends HudElement {
                             (int)(x + 5f * s),
                             (int)(currentY + 2.5f * s),
                             (int)(9f * s), (int)(9f * s),
-                            RenderUtil.withAlpha(0xFFFFFF, alpha)
+                            RenderUtil.withAlpha(0xFFFFFF, bodyAlpha)
                     );
                 }
 
@@ -137,7 +156,7 @@ public class EffectsHud extends HudElement {
                 String name = effect.getEffectType().value().getName().getString();
                 int amp = effect.getAmplifier();
                 if (amp > 0) name += " " + getRomanNumeral(amp);
-                CustomFontRenderer.drawText(ctx, name, x + 18f * s, currentY + 3.5f * s, 6.0f * s, RenderUtil.withAlpha(0xFFFFFF, alpha), FontWeight.SEMIBOLD);
+                CustomFontRenderer.drawText(ctx, name, x + 18f * s, currentY + 3.5f * s, 6.0f * s, RenderUtil.withAlpha(0xFFFFFF, bodyAlpha), FontWeight.SEMIBOLD);
 
                 // Динамический таймер
                 int duration = effect.getDuration();
@@ -157,7 +176,7 @@ public class EffectsHud extends HudElement {
                     timeColor = RenderUtil.lerpColor(0xFFFF4444, 0xFFAAAAAA, prog);
                 }
 
-                CustomFontRenderer.drawRightText(ctx, timeStr, x + w - 5f * s, currentY + 3.5f * s, 6.0f * s, RenderUtil.withAlpha(timeColor, alpha), FontWeight.SEMIBOLD);
+                CustomFontRenderer.drawRightText(ctx, timeStr, x + w - 5f * s, currentY + 3.5f * s, 6.0f * s, RenderUtil.withAlpha(timeColor, bodyAlpha), FontWeight.SEMIBOLD);
 
                 currentY += rowH;
             }
@@ -166,6 +185,8 @@ public class EffectsHud extends HudElement {
         // Flush queued DrawContext sprites/text here, before other HUD modules
         // can enable their own scissor regions in the same frame.
         ctx.draw();
+        ctx.getMatrices().pop();
+        RenderUtil.disableScissor();
         RenderUtil.disableScissor();
     }
 }

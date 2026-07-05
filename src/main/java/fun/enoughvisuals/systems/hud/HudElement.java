@@ -45,6 +45,10 @@ public abstract class HudElement {
     private long contentAnimStartMs = 0L;
     private boolean contentVisibleTarget = true;
     private boolean contentVisibilityManaged = false;
+    private float headerRenderAlpha = 1f;
+    private float bodyRenderAlpha = 1f;
+    private float bodyRevealProgress = 1f;
+    private float bodySlideOffset = 0f;
 
     public HudElement(float x, float y, float width, float height) {
         this.x = x;
@@ -69,6 +73,11 @@ public abstract class HudElement {
             }
         } else {
             contentAnim = 1f;
+        }
+
+        if (usesSplitAppearanceAnimation()) {
+            renderSplitAppearance(ctx, delta, frameDelta);
+            return;
         }
 
         long now = System.currentTimeMillis();
@@ -133,6 +142,70 @@ public abstract class HudElement {
         }
     }
 
+    private void renderSplitAppearance(DrawContext ctx, float delta, float frameDelta) {
+        long now = System.currentTimeMillis();
+        float appearProgress = clamp01((now - spawnTime) / (float) APPEAR_MS);
+        float closeProgress = removeTime < 0L
+                ? 0f
+                : clamp01((now - removeTime) / (float) REMOVE_MS);
+
+        if (removeTime < 0L) {
+            headerRenderAlpha = easeOutQuad(clamp01(appearProgress / 0.42f));
+            float bodyProgress = clamp01((appearProgress - 0.38f) / 0.62f);
+            bodyRevealProgress = RenderUtil.easeInOutCubic(bodyProgress);
+            bodyRenderAlpha = easeOutQuad(bodyProgress);
+        } else {
+            float bodyClose = RenderUtil.easeInOutCubic(clamp01(closeProgress / 0.64f));
+            bodyRevealProgress = 1f - bodyClose;
+            bodyRenderAlpha = 1f - bodyClose;
+            float headerClose = RenderUtil.easeInOutCubic(clamp01((closeProgress - 0.60f) / 0.40f));
+            headerRenderAlpha = 1f - headerClose;
+        }
+
+        if (contentVisibilityManaged) {
+            float p = clamp01(contentAnim);
+            if (contentVisibleTarget) {
+                float headerProgress = clamp01(p / 0.42f);
+                float bodyProgress = clamp01((p - 0.38f) / 0.62f);
+                headerRenderAlpha *= easeOutQuad(headerProgress);
+                bodyRevealProgress *= RenderUtil.easeInOutCubic(bodyProgress);
+                bodyRenderAlpha *= easeOutQuad(bodyProgress);
+            } else {
+                headerRenderAlpha *= easeOutQuad(clamp01(p / 0.40f));
+                bodyRevealProgress *= RenderUtil.easeInOutCubic(p);
+                bodyRenderAlpha *= easeOutQuad(p);
+            }
+        }
+        bodySlideOffset = (1f - bodyRevealProgress) * -8f;
+
+        float alpha = Math.max(headerRenderAlpha, bodyRenderAlpha);
+        if (alpha <= 0.01f) {
+            return;
+        }
+
+        boolean dragging = DragAndDrop.getInstance().getDragging() == this;
+        float targetTiltDeg = dragging ? clamp(dragVelocityX * 2.8f, -9f, 9f) : 0f;
+        tiltAnimDeg = RenderUtil.animate(tiltAnimDeg, targetTiltDeg, dragging ? 0.16f : 0.22f, frameDelta);
+
+        float centerX = x + width * 0.5f;
+        float centerY = y + height * 0.5f;
+        float hudScale = hudScale();
+
+        ctx.getMatrices().push();
+        ctx.getMatrices().scale(hudScale, hudScale, 1f);
+        float previousScissorScale = setActiveScissorScale(hudScale);
+        ctx.getMatrices().translate(centerX, centerY, 0);
+        ctx.getMatrices().multiply(new Quaternionf().rotateZ((float) Math.toRadians(tiltAnimDeg)));
+        ctx.getMatrices().translate(-centerX, -centerY, 0);
+
+        try {
+            renderContent(ctx, x, y, width, height, delta, alpha);
+        } finally {
+            setActiveScissorScale(previousScissorScale);
+            ctx.getMatrices().pop();
+        }
+    }
+
     protected void update(float delta) {
     }
 
@@ -172,6 +245,26 @@ public abstract class HudElement {
 
     protected final float getContentAnim() {
         return contentAnim;
+    }
+
+    protected boolean usesSplitAppearanceAnimation() {
+        return false;
+    }
+
+    protected final float getHeaderRenderAlpha() {
+        return headerRenderAlpha;
+    }
+
+    protected final float getBodyRenderAlpha() {
+        return bodyRenderAlpha;
+    }
+
+    protected final float getBodyRevealProgress() {
+        return bodyRevealProgress;
+    }
+
+    protected final float getBodySlideOffset() {
+        return bodySlideOffset;
     }
 
     protected final boolean isContentVisibleTarget() {
