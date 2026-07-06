@@ -142,6 +142,8 @@ public final class EnoughCore {
 
                 new HitParticles(),
 
+                new KillEffect(),
+
                 new WorldParticles(),
 
                 new MouseParticles(),
@@ -249,6 +251,8 @@ public final class EnoughCore {
         WorldRenderEvents.LAST.register(CustomModelRenderer::renderInWorld);
 
         WorldRenderEvents.LAST.register(TargetESP::renderInWorld);
+
+        WorldRenderEvents.LAST.register(KillEffect::renderInWorld);
 
         WorldRenderEvents.LAST.register(FriendMarker::renderInWorld);
 

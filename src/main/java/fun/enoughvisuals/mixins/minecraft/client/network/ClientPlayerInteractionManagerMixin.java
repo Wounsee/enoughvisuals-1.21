@@ -5,6 +5,7 @@ import fun.enoughvisuals.systems.modules.modules.utils.PvPSave;
 import fun.enoughvisuals.systems.modules.modules.utils.FakePlayer;
 import fun.enoughvisuals.systems.modules.modules.utils.ShiftTap;
 import fun.enoughvisuals.systems.modules.modules.visual.TargetESP;
+import fun.enoughvisuals.utils.sound.CombatSoundService;
 import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -25,6 +26,7 @@ public class ClientPlayerInteractionManagerMixin {
             return;
         }
         PvPSave.recordAttack(target);
+        CombatSoundService.recordAttackTarget(target);
         TargetESP.onAttack(target);
         ShiftTap.onAttack();
     }

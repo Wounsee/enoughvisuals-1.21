@@ -84,6 +84,12 @@ public class HitParticles extends Module {
             0xFFFF3B30
     ));
 
+    public final BooleanSetting rainbow = add(new BooleanSetting(
+            "Радуга",
+            "rainbow",
+            "Плавно менять цвет частиц",
+            false
+    ));
     public final SliderSetting count = add(new SliderSetting(
             "Количество",
             "count",
@@ -174,7 +180,6 @@ public class HitParticles extends Module {
     private void spawnBurst(Entity target) {
         Vec3d center = target.getBoundingBox().getCenter().add(0.0, -target.getHeight() * 0.08, 0.0);
         int count = (int) this.count.get().doubleValue();
-        int baseColor = color.get() & 0x00FFFFFF;
         float speedMul = speed.get().floatValue();
         float baseLife = life.get().floatValue();
         float baseSize = size.get().floatValue();
@@ -198,8 +203,9 @@ public class HitParticles extends Module {
             float rotation = randomRotation.get() ? random.nextFloat() * 360f : 0f;
             float rotationSpeed = (random.nextFloat() - 0.5f) * 24f;
             Identifier texture = pickTexture();
+            int particleColor = rainbow.get() ? rainbowColor(i * 27f + random.nextFloat() * 45f) : color.get() & 0x00FFFFFF;
 
-            particles.add(new HitParticle(spawnPos, velocity, pLife, pLife, pSize, rotation, rotationSpeed, texture, baseColor));
+            particles.add(new HitParticle(spawnPos, velocity, pLife, pLife, pSize, rotation, rotationSpeed, texture, particleColor));
         }
     }
 
@@ -333,6 +339,11 @@ public class HitParticles extends Module {
         if (isPointVisible(eye, new Vec3d(box.maxX - 0.07, center.y, center.z))) return true;
         if (isPointVisible(eye, new Vec3d(center.x, center.y, box.minZ + 0.07))) return true;
         return isPointVisible(eye, new Vec3d(center.x, center.y, box.maxZ - 0.07));
+    }
+
+    private int rainbowColor(float offset) {
+        float hue = ((System.currentTimeMillis() % 6000L) / 6000f + offset / 360f) % 1.0f;
+        return java.awt.Color.HSBtoRGB(hue, 0.58f, 1.0f) & 0x00FFFFFF;
     }
 
     private boolean isPointVisible(Vec3d from, Vec3d to) {

@@ -5,6 +5,7 @@ import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.modules.visual.HitParticles;
+import fun.enoughvisuals.systems.modules.modules.visual.TargetESP;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.ModeSetting;
 import fun.enoughvisuals.utils.player.ClientActionUtil;
@@ -12,7 +13,6 @@ import net.minecraft.client.network.OtherClientPlayerEntity;
 import net.minecraft.entity.DamageUtil;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.MovementType;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffectInstance;
@@ -26,8 +26,6 @@ import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.Hand;
-import net.minecraft.util.math.Vec3d;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -45,6 +43,10 @@ public class FakePlayer extends Module {
     public static OtherClientPlayerEntity fakePlayer;
     private static boolean suppressLocalAttackSounds;
     private static long suppressAttackSoundsUntilMs;
+    private static boolean suppressSwingHitModules;
+    private boolean fakeDead;
+
+    private final BooleanSetting immortal = add(new BooleanSetting("Бессмертный", "immortal", "Восстанавливает здоровье и использует тотем", true));
 
     private final BooleanSetting helmet = add(new BooleanSetting("Шлем", "helmet", "Надеть шлем", true));
     private final BooleanSetting chestplate = add(new BooleanSetting("Нагрудник", "chestplate", "Надеть нагрудник", true));
@@ -77,13 +79,19 @@ public class FakePlayer extends Module {
         return suppressLocalAttackSounds || System.currentTimeMillis() < suppressAttackSoundsUntilMs;
     }
 
+    public static boolean shouldSuppressSwingHitModules() {
+        return suppressSwingHitModules;
+    }
+
     @Override
     protected void onEnable() {
+        fakeDead = false;
         ensureFakePlayer();
     }
 
     @Override
     protected void onDisable() {
+        fakeDead = false;
         removeFakePlayer(true);
     }
 
@@ -91,15 +99,22 @@ public class FakePlayer extends Module {
     public void onTick() {
         if (!isInGame()) {
             removeFakePlayer(false);
+            fakeDead = false;
             return;
         }
+
+        if (fakeDead) return;
 
         ensureFakePlayer();
         if (fakePlayer == null) return;
 
         syncHands();
         equipArmor();
-        tickRegeneration();
+        if (immortal.get()) {
+            tickRegeneration();
+        } else {
+            tickMortalState();
+        }
         tickMovement();
     }
 
@@ -130,7 +145,12 @@ public class FakePlayer extends Module {
         fakePlayer.hurtTime = 10;
         fakePlayer.maxHurtTime = 10;
         fakePlayer.animateDamage(fakePlayer.getYaw());
-        mc.player.swingHand(Hand.MAIN_HAND);
+        suppressSwingHitModules = true;
+        try {
+            mc.player.swingHand(Hand.MAIN_HAND);
+        } finally {
+            suppressSwingHitModules = false;
+        }
 
         suppressLocalAttackSounds = HitSound.INSTANCE != null && HitSound.INSTANCE.isEnabled();
         if (suppressLocalAttackSounds) {
@@ -141,11 +161,16 @@ public class FakePlayer extends Module {
         } finally {
             suppressLocalAttackSounds = false;
         }
+        TargetESP.onAttack(target);
         notifyHitModules(target);
 
         float nextHealth = fakePlayer.getHealth() - afterArmor;
         if (nextHealth <= 0.0f) {
-            popTotem();
+            if (immortal.get()) {
+                popTotem();
+            } else {
+                killFakePlayer(source);
+            }
         } else {
             fakePlayer.setHealth(nextHealth);
         }
@@ -153,6 +178,7 @@ public class FakePlayer extends Module {
     }
 
     private void ensureFakePlayer() {
+        if (fakeDead) return;
         if (!isInGame()) return;
         if (fakePlayer != null && fakePlayer.getWorld() == mc.world && !fakePlayer.isRemoved()) return;
 
@@ -167,7 +193,9 @@ public class FakePlayer extends Module {
         fakePlayer.setAbsorptionAmount(0.0f);
         syncHands();
         equipArmor();
-        fakePlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 9999, 5, false, false));
+        if (immortal.get()) {
+            fakePlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 9999, 5, false, false));
+        }
         mc.world.addEntity(fakePlayer);
         ClientActionUtil.clientMessage("FakePlayer включён");
     }
@@ -180,31 +208,8 @@ public class FakePlayer extends Module {
     }
 
     private void tickMovement() {
-        float forward = key(GLFW.GLFW_KEY_UP) ? 1.0f : key(GLFW.GLFW_KEY_DOWN) ? -1.0f : 0.0f;
-        float strafe = key(GLFW.GLFW_KEY_LEFT) ? 1.0f : key(GLFW.GLFW_KEY_RIGHT) ? -1.0f : 0.0f;
-
-        if (forward == 0.0f && strafe == 0.0f) {
-            fakePlayer.setSprinting(false);
-            fakePlayer.setVelocity(0.0, fakePlayer.getVelocity().y, 0.0);
-            return;
-        }
-
-        float yaw = mc.player.getYaw();
-        double speed = 0.2;
-        double motionX = strafe * Math.cos(Math.toRadians(yaw)) - forward * Math.sin(Math.toRadians(yaw));
-        double motionZ = forward * Math.cos(Math.toRadians(yaw)) + strafe * Math.sin(Math.toRadians(yaw));
-        Vec3d velocity = new Vec3d(motionX * speed, fakePlayer.getVelocity().y, motionZ * speed);
-
-        fakePlayer.setYaw(yaw);
-        fakePlayer.setHeadYaw(yaw);
-        fakePlayer.setBodyYaw(yaw);
-        fakePlayer.setVelocity(velocity);
-        fakePlayer.move(MovementType.SELF, velocity);
-        fakePlayer.setSprinting(true);
-    }
-
-    private boolean key(int key) {
-        return mc.getWindow() != null && GLFW.glfwGetKey(mc.getWindow().getHandle(), key) == GLFW.GLFW_PRESS;
+        fakePlayer.setSprinting(false);
+        fakePlayer.setVelocity(0.0, fakePlayer.getVelocity().y, 0.0);
     }
 
     private void tickRegeneration() {
@@ -213,6 +218,21 @@ public class FakePlayer extends Module {
         }
         if (fakePlayer.age % 20 == 0 && fakePlayer.getHealth() < fakePlayer.getMaxHealth()) {
             fakePlayer.setHealth(Math.min(fakePlayer.getMaxHealth(), fakePlayer.getHealth() + 15.0f));
+        }
+    }
+
+    private void tickMortalState() {
+        if (fakePlayer.hasStatusEffect(StatusEffects.REGENERATION)) {
+            fakePlayer.removeStatusEffect(StatusEffects.REGENERATION);
+        }
+        if (fakePlayer.hasStatusEffect(StatusEffects.ABSORPTION)) {
+            fakePlayer.removeStatusEffect(StatusEffects.ABSORPTION);
+        }
+        if (fakePlayer.hasStatusEffect(StatusEffects.FIRE_RESISTANCE)) {
+            fakePlayer.removeStatusEffect(StatusEffects.FIRE_RESISTANCE);
+        }
+        if (fakePlayer.getAbsorptionAmount() > 0.0f) {
+            fakePlayer.setAbsorptionAmount(0.0f);
         }
     }
 
@@ -267,6 +287,21 @@ public class FakePlayer extends Module {
         fakePlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, 800, 0, false, true));
         fakePlayer.setAbsorptionAmount(8.0f);
         fakePlayer.setHealth(1.0f);
+    }
+
+    private void killFakePlayer(DamageSource source) {
+        if (fakePlayer == null || mc.world == null || mc.player == null) return;
+
+        fakePlayer.setHealth(0.0f);
+        fakePlayer.setAbsorptionAmount(0.0f);
+        fakePlayer.clearStatusEffects();
+        fakePlayer.onDeath(source);
+        fakePlayer.handleStatus((byte) 3);
+        mc.world.playSound(mc.player, fakePlayer.getX(), fakePlayer.getY(), fakePlayer.getZ(),
+                SoundEvents.ENTITY_PLAYER_DEATH, SoundCategory.PLAYERS, 1.0f, 1.0f);
+        removeFakePlayer(false, Entity.RemovalReason.KILLED);
+        fakeDead = true;
+        ClientActionUtil.clientMessage("FakePlayer умер");
     }
 
     private static boolean isCriticalHit(PlayerEntity player, float cooldown) {
@@ -368,10 +403,14 @@ public class FakePlayer extends Module {
     }
 
     private void removeFakePlayer(boolean notify) {
+        removeFakePlayer(notify, Entity.RemovalReason.DISCARDED);
+    }
+
+    private void removeFakePlayer(boolean notify, Entity.RemovalReason reason) {
         if (fakePlayer != null) {
-            fakePlayer.discard();
+            fakePlayer.remove(reason);
             if (mc.world != null) {
-                mc.world.removeEntity(fakePlayer.getId(), Entity.RemovalReason.DISCARDED);
+                mc.world.removeEntity(fakePlayer.getId(), reason);
             }
             fakePlayer = null;
             if (notify) ClientActionUtil.clientMessage("FakePlayer выключен");

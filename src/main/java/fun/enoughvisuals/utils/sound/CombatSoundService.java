@@ -2,6 +2,7 @@ package fun.enoughvisuals.utils.sound;
 
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.modules.utils.KillSound;
+import fun.enoughvisuals.systems.modules.modules.visual.KillEffect;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -22,6 +23,23 @@ public final class CombatSoundService {
     private static final Map<Integer, Long> deathCandidates = new HashMap<>();
     private static final Map<Integer, Long> killPlayedAt = new HashMap<>();
 
+    public static void recordAttackTarget(Entity target) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null || client.player == null || client.world == null || !(target instanceof LivingEntity)) {
+            return;
+        }
+
+        KillSound killModule = ModuleManager.getInstance().get(KillSound.class);
+        boolean killEnabled = killModule != null && killModule.isEnabled();
+        boolean effectEnabled = KillEffect.active();
+        if (!killEnabled && !effectEnabled) {
+            return;
+        }
+
+        deathCandidates.put(target.getId(), System.currentTimeMillis() + CANDIDATE_TIMEOUT_MS);
+        KillEffect.rememberCandidate(target);
+    }
+
     public static void onClientTick(MinecraftClient client) {
         if (client == null || client.player == null || client.world == null) {
             clear();
@@ -30,8 +48,9 @@ public final class CombatSoundService {
 
         KillSound killModule = ModuleManager.getInstance().get(KillSound.class);
         boolean killEnabled = killModule != null && killModule.isEnabled();
+        boolean effectEnabled = KillEffect.active();
 
-        if (!killEnabled) {
+        if (!killEnabled && !effectEnabled) {
             clear();
             return;
         }
@@ -45,7 +64,7 @@ public final class CombatSoundService {
                 if (client.crosshairTarget instanceof EntityHitResult hitResult) {
                     Entity target = hitResult.getEntity();
                     if (target instanceof LivingEntity) {
-                        deathCandidates.put(target.getId(), now + CANDIDATE_TIMEOUT_MS);
+                        recordAttackTarget(target);
                     }
                 }
             }
@@ -68,7 +87,10 @@ public final class CombatSoundService {
 
                                                      
             if (e instanceof LivingEntity living && (living.isDead() || living.getHealth() <= 0.0f)) {
-                if (!wasRecentlyPlayed(killPlayedAt, entityId, now, 1000L)) {
+                if (effectEnabled) {
+                    KillEffect.onKill(e, entityId);
+                }
+                if (killEnabled && !wasRecentlyPlayed(killPlayedAt, entityId, now, 1000L)) {
                                                                              
                     EnoughSoundPlayer.playKill(killModule.getVolume());
                     killPlayedAt.put(entityId, now);
@@ -76,7 +98,10 @@ public final class CombatSoundService {
                 it.remove();
             } else if (e == null || e.isRemoved()) {
                                                                                     
-                if (!wasRecentlyPlayed(killPlayedAt, entityId, now, 1000L)) {
+                if (effectEnabled) {
+                    KillEffect.onKill(e, entityId);
+                }
+                if (killEnabled && !wasRecentlyPlayed(killPlayedAt, entityId, now, 1000L)) {
                     EnoughSoundPlayer.playKill(killModule.getVolume());
                     killPlayedAt.put(entityId, now);
                 }
