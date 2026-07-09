@@ -25,22 +25,22 @@ float maskAt(vec2 uv) {
 float outlineAt(vec2 uv, float center) {
     vec2 px = TexelSize * max(OutlineWidth, 0.5);
     float nearby = 0.0;
-    nearby = max(nearby, maskAt(uv + vec2(px.x, 0.0)));
-    nearby = max(nearby, maskAt(uv - vec2(px.x, 0.0)));
-    nearby = max(nearby, maskAt(uv + vec2(0.0, px.y)));
-    nearby = max(nearby, maskAt(uv - vec2(0.0, px.y)));
-    nearby = max(nearby, maskAt(uv + px));
-    nearby = max(nearby, maskAt(uv - px));
-    nearby = max(nearby, maskAt(uv + vec2(px.x, -px.y)));
-    nearby = max(nearby, maskAt(uv + vec2(-px.x, px.y)));
-    return smoothstep(0.02, 0.35, max(nearby - center, 0.0));
+    for (int i = 0; i < 16; i++) {
+        float angle = float(i) * 0.39269908;
+        vec2 dir = vec2(cos(angle), sin(angle));
+        nearby = max(nearby, maskAt(uv + dir * px * 0.55));
+        nearby = max(nearby, maskAt(uv + dir * px));
+    }
+    float outside = 1.0 - smoothstep(0.02, 0.18, center);
+    return smoothstep(0.02, 0.35, nearby) * outside;
 }
 
 void main() {
     vec2 uv = TexCoord;
     float mask = maskAt(uv);
     float blurred = texture(Sampler1, uv).a;
-    float outer = max(blurred - mask * 0.42, 0.0);
+    float outside = 1.0 - smoothstep(0.02, 0.22, mask);
+    float outer = smoothstep(0.01, 0.58, blurred) * outside;
     float outline = outlineAt(uv, mask);
 
     if (Pass == 0) {
@@ -61,8 +61,8 @@ void main() {
 
     float fullBoost = Mode == 2 ? 1.35 : 1.0;
     float fillAlpha = mask * FillOpacity * fullBoost;
-    float glowAlpha = outer * GlowStrength * (Mode == 2 ? 1.35 : 1.0);
-    float outlineAlpha = outline * OutlineStrength;
+    float glowAlpha = outer * GlowStrength * (Mode == 2 ? 1.25 : 1.45);
+    float outlineAlpha = outline * OutlineStrength * 1.15;
     vec4 echo = Mode == 1 ? texture(Sampler2, uv) : vec4(0.0);
 
     float alpha = clamp(fillAlpha + glowAlpha + outlineAlpha + echo.a * 0.72, 0.0, 0.94);

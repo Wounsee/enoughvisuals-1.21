@@ -1,5 +1,5 @@
 {
-  "vertex": "enough:core/hand_blur",
+  "vertex": "enough:core/screen_quad",
   "fragment": "enough:core/shader_esp",
   "samplers": [
     { "name": "Sampler0" },
@@ -7,8 +7,6 @@
     { "name": "Sampler2" }
   ],
   "uniforms": [
-    { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
-    { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
     { "name": "TexelSize", "type": "float", "count": 2, "values": [1.0, 1.0] },
     { "name": "FillColor", "type": "float", "count": 4, "values": [0.45, 0.36, 1.0, 1.0] },
     { "name": "GlowColor", "type": "float", "count": 4, "values": [0.91, 0.89, 1.0, 1.0] },

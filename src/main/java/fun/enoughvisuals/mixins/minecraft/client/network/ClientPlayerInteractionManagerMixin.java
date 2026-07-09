@@ -27,7 +27,7 @@ public class ClientPlayerInteractionManagerMixin {
         }
         PvPSave.recordAttack(target);
         CombatSoundService.recordAttackTarget(target);
-        TargetESP.onAttack(target);
+        TargetESP.onAttackAttempt(target);
         ShiftTap.onAttack();
     }
 

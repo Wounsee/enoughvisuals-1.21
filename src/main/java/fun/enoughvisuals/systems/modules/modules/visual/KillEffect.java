@@ -1,7 +1,6 @@
 package fun.enoughvisuals.systems.modules.modules.visual;
 
 import com.mojang.authlib.GameProfile;
-import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
@@ -9,7 +8,9 @@ import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.ColorSetting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.network.OtherClientPlayerEntity;
+import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
@@ -17,7 +18,9 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.state.EntityRenderState;
+import net.minecraft.client.util.SkinTextures;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Hand;
@@ -41,10 +44,10 @@ public class KillEffect extends Module {
     private static KillEffect INSTANCE;
 
     public final ColorSetting accent = add(new ColorSetting(
-            "Акцент",
-            "accent",
-            "Цвет тления и свечения",
-            0xFFA777FF
+            "Color",
+            "color",
+            "Burn accent color",
+            0xFFE85CFF
     ));
 
     public final SliderSetting lifetime = add(new SliderSetting(
@@ -175,7 +178,7 @@ public class KillEffect extends Module {
             RenderSystem.depthMask(false);
 
             int light = WorldRenderer.getLightmapCoordinates(mc.world, BlockPos.ofFloored(effect.pos.add(0.0, yOffset, 0.0)));
-            float burnProgress = spinProgress;
+            float burnProgress = MathHelper.clamp(progress * 1.08f, 0.0f, 1.0f);
             VertexConsumerProvider tinted = new AlphaTintProvider(
                     consumers,
                     burnProgress,
@@ -185,8 +188,7 @@ public class KillEffect extends Module {
                     effect.pos.x + sway - cam.x,
                     effect.pos.y + yOffset - cam.y,
                     effect.pos.z + drift - cam.z,
-                    spin,
-                    false
+                    spin
             );
             EntityRenderer renderer = mc.getEntityRenderDispatcher().getRenderer(effect.copy);
             EntityRenderState state = (EntityRenderState) renderer.getAndUpdateRenderState(effect.copy, tickDelta);
@@ -195,28 +197,6 @@ public class KillEffect extends Module {
             if (consumers instanceof VertexConsumerProvider.Immediate immediate) {
                 immediate.draw();
             }
-
-            RenderSystem.blendFunc(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE);
-            RenderSystem.disableDepthTest();
-            VertexConsumerProvider edgeGlow = new AlphaTintProvider(
-                    consumers,
-                    burnProgress,
-                    effect.seed,
-                    accentColor,
-                    effect.spots,
-                    effect.pos.x + sway - cam.x,
-                    effect.pos.y + yOffset - cam.y,
-                    effect.pos.z + drift - cam.z,
-                    spin,
-                    true
-            );
-            renderer.render(state, matrices, edgeGlow, light);
-
-            if (consumers instanceof VertexConsumerProvider.Immediate immediate) {
-                immediate.draw();
-            }
-            RenderSystem.enableDepthTest();
-            RenderSystem.defaultBlendFunc();
 
             matrices.pop();
 
@@ -245,6 +225,7 @@ public class KillEffect extends Module {
         final float bodyYaw;
         final int age;
         final int seed;
+        final SkinTextures skinTextures;
         final net.minecraft.item.ItemStack mainHand;
         final net.minecraft.item.ItemStack offHand;
         final long expiresAtMs;
@@ -258,6 +239,7 @@ public class KillEffect extends Module {
             this.bodyYaw = player.bodyYaw;
             this.age = player.age;
             this.seed = player.getId() * 9973 + player.age * 37;
+            this.skinTextures = resolveSkinTextures(player);
             this.mainHand = player.getStackInHand(Hand.MAIN_HAND).copy();
             this.offHand = player.getStackInHand(Hand.OFF_HAND).copy();
             this.expiresAtMs = expiresAtMs;
@@ -266,7 +248,7 @@ public class KillEffect extends Module {
         OtherClientPlayerEntity createCopy() {
             GameProfile profileCopy = new GameProfile(profile.getId() == null ? UUID.randomUUID() : profile.getId(), profile.getName());
             profileCopy.getProperties().putAll(profile.getProperties());
-            OtherClientPlayerEntity copy = new OtherClientPlayerEntity(mc.world, profileCopy);
+            OtherClientPlayerEntity copy = new BurnCopyPlayerEntity(mc.world, profileCopy, skinTextures);
             copy.updatePositionAndAngles(0.0, 0.0, 0.0, yaw, pitch);
             copy.prevYaw = yaw;
             copy.prevPitch = pitch;
@@ -278,6 +260,33 @@ public class KillEffect extends Module {
             copy.setStackInHand(Hand.MAIN_HAND, mainHand.copy());
             copy.setStackInHand(Hand.OFF_HAND, offHand.copy());
             return copy;
+        }
+
+        private static SkinTextures resolveSkinTextures(PlayerEntity player) {
+            if (mc.getNetworkHandler() != null) {
+                PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(player.getUuid());
+                if (entry != null) {
+                    return entry.getSkinTextures();
+                }
+            }
+            if (player instanceof AbstractClientPlayerEntity clientPlayer) {
+                return clientPlayer.getSkinTextures();
+            }
+            return null;
+        }
+    }
+
+    private static final class BurnCopyPlayerEntity extends OtherClientPlayerEntity {
+        private final SkinTextures skinTextures;
+
+        private BurnCopyPlayerEntity(ClientWorld world, GameProfile profile, SkinTextures skinTextures) {
+            super(world, profile);
+            this.skinTextures = skinTextures;
+        }
+
+        @Override
+        public SkinTextures getSkinTextures() {
+            return skinTextures != null ? skinTextures : super.getSkinTextures();
         }
     }
 
@@ -311,7 +320,7 @@ public class KillEffect extends Module {
 
     private record BurnSpot(float x, float y, float z, float maxRadius, float power, float yScale) {
         static BurnSpot[] create(int seed) {
-            BurnSpot[] spots = new BurnSpot[14];
+            BurnSpot[] spots = new BurnSpot[9];
             for (int i = 0; i < spots.length; i++) {
                 float side = hash(seed, i, 3) < 0.5f ? -1.0f : 1.0f;
                 float x = side * (0.08f + hash(seed, i, 5) * 0.70f);
@@ -344,10 +353,9 @@ public class KillEffect extends Module {
         private final double originY;
         private final double originZ;
         private final float spin;
-        private final boolean edgeOnly;
 
         private AlphaTintProvider(VertexConsumerProvider delegate, float progress, int seed, int accent, BurnSpot[] spots,
-                                  double originX, double originY, double originZ, float spin, boolean edgeOnly) {
+                                  double originX, double originY, double originZ, float spin) {
             this.delegate = delegate;
             this.progress = progress;
             this.seed = seed;
@@ -357,12 +365,11 @@ public class KillEffect extends Module {
             this.originY = originY;
             this.originZ = originZ;
             this.spin = spin;
-            this.edgeOnly = edgeOnly;
         }
 
         @Override
         public VertexConsumer getBuffer(RenderLayer layer) {
-            return new AlphaTintConsumer(delegate.getBuffer(layer), progress, seed, accent, spots, originX, originY, originZ, spin, edgeOnly);
+            return new AlphaTintConsumer(delegate.getBuffer(layer), progress, seed, accent, spots, originX, originY, originZ, spin);
         }
     }
 
@@ -384,10 +391,9 @@ public class KillEffect extends Module {
         private float lastZ;
         private VertexData current;
         private int quadSize;
-        private final boolean edgeOnly;
 
         private AlphaTintConsumer(VertexConsumer delegate, float progress, int seed, int accent, BurnSpot[] spots,
-                                  double originX, double originY, double originZ, float spin, boolean edgeOnly) {
+                                  double originX, double originY, double originZ, float spin) {
             this.delegate = delegate;
             this.progress = progress;
             this.seed = seed;
@@ -396,7 +402,6 @@ public class KillEffect extends Module {
             this.originX = originX;
             this.originY = originY;
             this.originZ = originZ;
-            this.edgeOnly = edgeOnly;
             float inverseSpin = (float) Math.toRadians(-spin);
             this.inverseSpinCos = MathHelper.cos(inverseSpin);
             this.inverseSpinSin = MathHelper.sin(inverseSpin);
@@ -553,7 +558,7 @@ public class KillEffect extends Module {
         }
 
         private void emitSubdividedQuad() {
-            int steps = 8;
+            int steps = 4;
             for (int y = 0; y < steps; y++) {
                 float v0 = y / (float) steps;
                 float v1 = (y + 1) / (float) steps;
@@ -620,11 +625,6 @@ public class KillEffect extends Module {
             int hotR = Math.min(255, ar + 62);
             int hotG = Math.min(255, ag + 58);
             int hotB = Math.min(255, ab + 72);
-
-            if (edgeOnly) {
-                int edgeAlpha = MathHelper.clamp((int) (vertex.alpha * ember * 2.35f), 0, 255);
-                return new int[]{hotR, hotG, hotB, edgeAlpha};
-            }
 
             float mix = MathHelper.clamp(ember * 1.75f, 0.0f, 1.0f);
             int r = (int) MathHelper.lerp(mix, vertex.red, hotR);

@@ -8,6 +8,8 @@ import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.ColorSetting;
 import fun.enoughvisuals.systems.modules.settings.ModeSetting;
+import fun.enoughvisuals.systems.modules.settings.SelectSetting;
+import fun.enoughvisuals.systems.modules.settings.Setting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.gl.ShaderProgramKeys;
@@ -32,8 +34,10 @@ import org.joml.Vector4f;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 @Register(name = "Hit Particles", id = "hit_particles", description = "Партиклы при ударе", category = Category.VISUAL)
 public class HitParticles extends Module {
@@ -53,6 +57,26 @@ public class HitParticles extends Module {
     };
 
     private static final int MAX_PARTICLES = 600;
+    private static final String STAR_1 = "Р—РІРµР·РґР° 1";
+    private static final String STAR_2 = "Р—РІРµР·РґР° 2";
+    private static final String HEART = "РЎРµСЂРґС†Рµ";
+    private static final String CROWN = "РљРѕСЂРѕРЅР°";
+    private static final String LIGHTNING = "РњРѕР»РЅРёСЏ";
+    private static final String SNOWFLAKE = "РЎРЅРµР¶РёРЅРєР°";
+    private static final String BLOOM = "Bloom";
+    private static final String[] TYPES = new String[]{STAR_1, STAR_2, HEART, CROWN, LIGHTNING, SNOWFLAKE, BLOOM};
+    private static final String[] SELECT_TYPES = new String[]{"Star 1", "Star 2", "Heart", "Crown", "Lightning", "Snowflake", "Bloom"};
+    private static final String SPAWN_NORMAL = "Обычный";
+    private static final String SPAWN_APPEARING = "Появляющиеся";
+
+    public final ModeSetting spawnStyle = add(new ModeSetting(
+            "Вид",
+            "spawn_style",
+            "Как частицы появляются после удара",
+            SPAWN_NORMAL,
+            SPAWN_NORMAL,
+            SPAWN_APPEARING
+    ));
 
     public final ModeSetting mode = add(new ModeSetting(
             "Режим",
@@ -77,6 +101,14 @@ public class HitParticles extends Module {
             "Bloom"
     ));
 
+    public final SelectSetting particleTypes = add(new SelectSetting(
+            "РџР°СЂС‚РёРєР»С‹",
+            "particles",
+            "РњРѕР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ РЅРµСЃРєРѕР»СЊРєРѕ РІРёРґРѕРІ РїР°СЂС‚РёРєР»РѕРІ",
+            defaults("Star 1"),
+            SELECT_TYPES
+    ));
+
     public final ColorSetting color = add(new ColorSetting(
             "Цвет",
             "color",
@@ -90,6 +122,13 @@ public class HitParticles extends Module {
             "Плавно менять цвет частиц",
             false
     ));
+    public final BooleanSetting disableCritParticles = add(new BooleanSetting(
+            "Выключить частицы",
+            "disable_crit_particles",
+            "Отключает стандартные частицы крита Minecraft",
+            false
+    ));
+
     public final SliderSetting count = add(new SliderSetting(
             "Количество",
             "count",
@@ -118,33 +157,14 @@ public class HitParticles extends Module {
             1.0, 0.1, 3.0, 0.05
     ));
 
-    public final BooleanSetting bloom = add(new BooleanSetting(
-            "Свечение",
-            "bloom",
-            "Рисовать bloom-ореол вокруг партиклов",
-            true
-    ));
-
-    public final BooleanSetting randomRotation = add(new BooleanSetting(
-            "Случайный поворот",
-            "random_rotation",
-            "Каждый партикл повёрнут случайно",
-            true
-    ));
-
-    public final BooleanSetting gravity = add(new BooleanSetting(
-            "Гравитация",
-            "gravity",
-            "Партиклы падают вниз со временем",
-            true
-    ));
-
     private final Random random = new Random();
     private final List<HitParticle> particles = new ArrayList<>();
     private long lastUpdateMs = 0L;
 
     public HitParticles() {
         INSTANCE = this;
+        mode.visibleWhen(() -> false);
+        type.visibleWhen(() -> false);
         type.visibleWhen(() -> mode.is("Выбранный"));
     }
 
@@ -170,6 +190,14 @@ public class HitParticles extends Module {
         }
     }
 
+    @Override
+    public List<Setting<?>> getVisibleSettings() {
+        List<Setting<?>> visible = new ArrayList<>(super.getVisibleSettings());
+        visible.remove(mode);
+        visible.remove(type);
+        return visible;
+    }
+
     public static void onHit(Entity target) {
         if (INSTANCE == null || !INSTANCE.isEnabled()) return;
         if (mc.player == null || mc.world == null || target == null) return;
@@ -177,39 +205,124 @@ public class HitParticles extends Module {
         INSTANCE.spawnBurst(target);
     }
 
+    public static boolean shouldDisableCritParticles() {
+        return INSTANCE != null && INSTANCE.isEnabled() && INSTANCE.disableCritParticles.get();
+    }
+
     private void spawnBurst(Entity target) {
-        Vec3d center = target.getBoundingBox().getCenter().add(0.0, -target.getHeight() * 0.08, 0.0);
+        Box box = target.getBoundingBox();
+        Vec3d center = box.getCenter().add(0.0, -target.getHeight() * 0.08, 0.0);
         int count = (int) this.count.get().doubleValue();
         float speedMul = speed.get().floatValue();
         float baseLife = life.get().floatValue();
         float baseSize = size.get().floatValue();
+        boolean appearing = spawnStyle.is(SPAWN_APPEARING);
 
         for (int i = 0; i < count; i++) {
             while (particles.size() >= MAX_PARTICLES) {
                 particles.remove(0);
             }
 
-            double angle = random.nextDouble() * Math.PI * 2.0;
-            double verticalAngle = Math.toRadians(16.0 + random.nextDouble() * 44.0);
-            double spd = (0.036 + random.nextDouble() * 0.066) * speedMul;
-            double horizontalSpeed = Math.cos(verticalAngle) * spd;
-            double rise = Math.sin(verticalAngle) * spd + 0.009;
-
-            Vec3d velocity = new Vec3d(Math.cos(angle) * horizontalSpeed, rise, Math.sin(angle) * horizontalSpeed);
-            Vec3d spawnPos = center;
+            ParticleMotion motion = appearing
+                    ? appearingMotion(box, speedMul)
+                    : normalMotion(center, speedMul);
 
             float pLife = baseLife + random.nextFloat() * 20f;
             float pSize = baseSize + random.nextFloat() * 10.0f;
-            float rotation = randomRotation.get() ? random.nextFloat() * 360f : 0f;
+            float rotation = random.nextFloat() * 360f;
             float rotationSpeed = (random.nextFloat() - 0.5f) * 24f;
             Identifier texture = pickTexture();
             int particleColor = rainbow.get() ? rainbowColor(i * 27f + random.nextFloat() * 45f) : color.get() & 0x00FFFFFF;
 
-            particles.add(new HitParticle(spawnPos, velocity, pLife, pLife, pSize, rotation, rotationSpeed, texture, particleColor));
+            particles.add(new HitParticle(
+                    motion.pos,
+                    motion.initialVelocity,
+                    motion.launchVelocity,
+                    pLife,
+                    pLife,
+                    pSize,
+                    rotation,
+                    rotationSpeed,
+                    texture,
+                    particleColor,
+                    motion.appearDelay
+            ));
         }
     }
 
+    private ParticleMotion normalMotion(Vec3d center, float speedMul) {
+        double angle = random.nextDouble() * Math.PI * 2.0;
+        double verticalAngle = Math.toRadians(16.0 + random.nextDouble() * 44.0);
+        double spd = (0.036 + random.nextDouble() * 0.066) * speedMul;
+        double horizontalSpeed = Math.cos(verticalAngle) * spd;
+        double rise = Math.sin(verticalAngle) * spd + 0.009;
+        Vec3d velocity = new Vec3d(Math.cos(angle) * horizontalSpeed, rise, Math.sin(angle) * horizontalSpeed);
+        return new ParticleMotion(center, velocity, velocity, 0f);
+    }
+
+    private ParticleMotion appearingMotion(Box box, float speedMul) {
+        Vec3d center = box.getCenter();
+        double padding = 0.16 + random.nextDouble() * 0.24;
+        double x = MathHelper.lerp(random.nextDouble(), box.minX, box.maxX);
+        double y = MathHelper.lerp(random.nextDouble(), box.minY, box.maxY);
+        double z = MathHelper.lerp(random.nextDouble(), box.minZ, box.maxZ);
+
+        int face = random.nextInt(5);
+        if (face == 0) {
+            x = box.minX - padding;
+        } else if (face == 1) {
+            x = box.maxX + padding;
+        } else if (face == 2) {
+            z = box.minZ - padding;
+        } else if (face == 3) {
+            z = box.maxZ + padding;
+        } else {
+            y = box.minY - padding * 0.55;
+        }
+
+        Vec3d spawnPos = new Vec3d(x, y, z);
+        Vec3d fromCenter = spawnPos.subtract(center);
+        Vec3d side = new Vec3d(fromCenter.x, 0.0, fromCenter.z);
+        if (side.lengthSquared() < 1.0E-5) {
+            double angle = random.nextDouble() * Math.PI * 2.0;
+            side = new Vec3d(Math.cos(angle), 0.0, Math.sin(angle));
+        }
+        side = side.normalize();
+
+        double sideSpeed = (0.040 + random.nextDouble() * 0.078) * speedMul;
+        double downSpeed = (0.010 + random.nextDouble() * 0.040) * speedMul;
+        Vec3d launchVelocity = side.multiply(sideSpeed).add(0.0, -downSpeed, 0.0);
+        Vec3d initialVelocity = side.multiply(sideSpeed * (0.03 + random.nextDouble() * 0.04)).add(0.0, -downSpeed * 0.18, 0.0);
+        float appearDelay = 6.0f + random.nextFloat() * 5.0f;
+        return new ParticleMotion(spawnPos, initialVelocity, launchVelocity, appearDelay);
+    }
+
     private Identifier pickTexture() {
+        if (particleTypes != null) {
+            Set<String> selected = particleTypes.get();
+            if (selected.isEmpty()) return STAR1_TEXTURE;
+
+            int index = random.nextInt(selected.size());
+            int i = 0;
+            String picked = "Star 1";
+            for (String option : selected) {
+                if (i++ == index) {
+                    picked = option;
+                    break;
+                }
+            }
+
+            return switch (picked) {
+                case "Star 2" -> STAR2_TEXTURE;
+                case "Heart" -> HEART_TEXTURE;
+                case "Crown" -> CROWN_TEXTURE;
+                case "Lightning" -> LIGHTNING_TEXTURE;
+                case "Snowflake" -> SNOWFLAKE_TEXTURE;
+                case "Bloom" -> BLOOM_TEXTURE;
+                default -> STAR1_TEXTURE;
+            };
+        }
+
         if (mode.is("Рандомно")) {
             return ALL_PARTICLE_TEXTURES[random.nextInt(ALL_PARTICLE_TEXTURES.length)];
         }
@@ -248,21 +361,20 @@ public class HitParticles extends Module {
             float progress = 1f - lifeRatio;
             float distance = (float) camera.getPos().distanceTo(particle.pos);
             float distanceScale = MathHelper.clamp(1.38f - distance * 0.065f, 0.66f, 1.28f);
-            float size = particle.baseSize * distanceScale * (0.96f + progress * 0.55f);
+            float appear = easeOutCubic(particle.appearFactor());
+            float size = particle.baseSize * distanceScale * (0.96f + progress * 0.55f) * (0.34f + appear * 0.66f);
 
             float px = (float) screen.x;
             float py = (float) screen.y;
-            float alpha = MathHelper.clamp(fade * 1.28f, 0.0f, 1.0f);
+            float alpha = MathHelper.clamp(fade * 1.28f * appear, 0.0f, 1.0f);
 
             drawParticle(ctx, particle, px, py, size, alpha);
         }
     }
 
     private void drawParticle(DrawContext ctx, HitParticle particle, float x, float y, float size, float alpha) {
-        if (bloom.get()) {
-            float bloomSize = size * 1.9f;
-            drawTintedImage(ctx, BLOOM_TEXTURE, x, y, bloomSize, particle.rgbColor, alpha * 0.52f, particle.rotation * 0.4f);
-        }
+        float bloomSize = size * 1.9f;
+        drawTintedImage(ctx, BLOOM_TEXTURE, x, y, bloomSize, particle.rgbColor, alpha * 0.52f, particle.rotation * 0.4f);
         drawTintedImage(ctx, particle.texture, x, y, size, particle.rgbColor, alpha, particle.rotation);
     }
 
@@ -318,13 +430,24 @@ public class HitParticles extends Module {
                 continue;
             }
 
-            p.pos = p.pos.add(p.velocity.multiply(dt));
-            p.velocity = p.velocity.multiply(Math.pow(0.945, dt));
-            if (gravity.get()) {
+            if (p.appearDelay > 0f) {
+                p.appearDelay = Math.max(0f, p.appearDelay - dt);
+                p.pos = p.pos.add(p.velocity.multiply(dt));
+                if (p.appearDelay <= 0f) {
+                    p.velocity = p.launchVelocity;
+                }
+            } else {
+                p.pos = p.pos.add(p.velocity.multiply(dt));
+                p.velocity = p.velocity.multiply(Math.pow(0.945, dt));
                 p.velocity = p.velocity.add(0.0, -0.0013 * dt, 0.0);
             }
             p.rotation += p.rotationSpeed * dt;
         }
+    }
+
+    private float easeOutCubic(float value) {
+        float t = 1.0f - MathHelper.clamp(value, 0.0f, 1.0f);
+        return 1.0f - t * t * t;
     }
 
     private boolean isVisibleTarget(Entity target) {
@@ -388,9 +511,21 @@ public class HitParticles extends Module {
         return new Vec3d(screenX, screenY, 0.0);
     }
 
+    private record ParticleMotion(Vec3d pos, Vec3d initialVelocity, Vec3d launchVelocity, float appearDelay) {
+    }
+
+    private static LinkedHashSet<String> defaults(String... values) {
+        LinkedHashSet<String> set = new LinkedHashSet<>();
+        for (String value : values) {
+            set.add(value);
+        }
+        return set;
+    }
+
     private static final class HitParticle {
         Vec3d pos;
         Vec3d velocity;
+        final Vec3d launchVelocity;
         float life;
         final float maxLife;
         final float baseSize;
@@ -398,10 +533,14 @@ public class HitParticles extends Module {
         final float rotationSpeed;
         final Identifier texture;
         final int rgbColor;
+        float appearDelay;
+        final float maxAppearDelay;
 
-        private HitParticle(Vec3d pos, Vec3d velocity, float life, float maxLife, float baseSize, float rotation, float rotationSpeed, Identifier texture, int rgbColor) {
+        private HitParticle(Vec3d pos, Vec3d velocity, Vec3d launchVelocity, float life, float maxLife, float baseSize,
+                            float rotation, float rotationSpeed, Identifier texture, int rgbColor, float appearDelay) {
             this.pos = pos;
             this.velocity = velocity;
+            this.launchVelocity = launchVelocity;
             this.life = life;
             this.maxLife = maxLife;
             this.baseSize = baseSize;
@@ -409,6 +548,13 @@ public class HitParticles extends Module {
             this.rotationSpeed = rotationSpeed;
             this.texture = texture;
             this.rgbColor = rgbColor;
+            this.appearDelay = appearDelay;
+            this.maxAppearDelay = appearDelay;
+        }
+
+        private float appearFactor() {
+            if (maxAppearDelay <= 0f) return 1f;
+            return 1f - MathHelper.clamp(appearDelay / maxAppearDelay, 0f, 1f);
         }
     }
 }

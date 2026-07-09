@@ -1,5 +1,7 @@
 package fun.enoughvisuals.systems.modules.settings;
 
+import fun.enoughvisuals.utils.system.ClientLanguage;
+
 import java.util.*;
 
 public class SelectSetting extends Setting<Set<String>> {
@@ -44,6 +46,10 @@ public class SelectSetting extends Setting<Set<String>> {
 
     public List<String> getOptions() {
         return options;
+    }
+
+    public String getDisplayOption(String option) {
+        return ClientLanguage.modeValue(getOwnerModuleId(), getId(), option);
     }
 
     @Override

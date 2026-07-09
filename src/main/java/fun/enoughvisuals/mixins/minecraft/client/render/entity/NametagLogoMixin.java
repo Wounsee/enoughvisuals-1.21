@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.systems.modules.modules.client.Globals;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.render.ShaderEspRenderer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
@@ -25,6 +26,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class NametagLogoMixin {
     private static final float LOGO_SIZE = 15.0f;
     private static final float OFFSET_Y = -1.0f;
+
+    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true)
+    private void enough$skipLabelDuringShaderMask(EntityRenderState state, Text text, MatrixStack matrices,
+                                                  VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
+        if (ShaderEspRenderer.isRenderingMask()) {
+            ci.cancel();
+        }
+    }
 
     @ModifyVariable(
             method = "renderLabelIfPresent",

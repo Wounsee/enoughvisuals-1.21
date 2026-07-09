@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.mixins.accessors.FramebufferAccessor;
 import fun.enoughvisuals.mixins.accessors.ShaderProgramAccessor;
+import fun.enoughvisuals.systems.modules.modules.visual.Glow;
 import fun.enoughvisuals.systems.modules.modules.visual.ShaderESP;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
@@ -23,13 +24,23 @@ import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.render.entity.feature.FeatureRenderer;
-import net.minecraft.client.render.entity.state.EntityRenderState;
+import net.minecraft.client.render.entity.state.LivingEntityRenderState;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
+import net.minecraft.client.option.Perspective;
 import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL11;
@@ -42,7 +53,7 @@ public final class ShaderEspRenderer {
 
     private static final int GL_BLEND_EQUATION = 0x8009;
     private static final ShaderProgramKey BLUR_SHADER = new ShaderProgramKey(
-            Identifier.of("enough", "core/hand_glass_blur"),
+            Identifier.of("enough", "core/shader_esp_blur"),
             VertexFormats.POSITION_COLOR,
             net.minecraft.client.gl.Defines.EMPTY
     );
@@ -63,21 +74,26 @@ public final class ShaderEspRenderer {
     private static boolean captured;
     private static boolean depthCopied;
     private static long lastRenderNanos;
+    private static boolean echoDirty;
+    private static EspRenderConfig frameConfig;
+    private static boolean renderingMask;
 
     private ShaderEspRenderer() {
     }
 
     public static void beginWorldFrame(WorldRenderContext context) {
-        ShaderESP module = ShaderESP.active();
+        EspRenderConfig config = activeConfig();
         MinecraftClient client = MinecraftClient.getInstance();
-        if (module == null || client.world == null || client.player == null || client.getFramebuffer() == null) {
+        if (config == null || client.world == null || client.player == null || client.getFramebuffer() == null) {
             frameReady = false;
             captured = false;
+            frameConfig = null;
             return;
         }
 
-        if (!prepare(client.getFramebuffer())) {
+        if (!prepare(client.getFramebuffer(), config.echoMode())) {
             frameReady = false;
+            frameConfig = null;
             return;
         }
 
@@ -85,17 +101,19 @@ public final class ShaderEspRenderer {
         frameReady = true;
         captured = false;
         depthCopied = false;
+        frameConfig = config;
     }
 
-    public static void capturePlayer(
-            PlayerEntityRenderState state,
+    public static void captureLiving(
+            LivingEntityRenderState state,
             MatrixStack matrices,
             Model model,
             List<FeatureRenderer<?, ?>> features,
             Identifier texture
     ) {
-        ShaderESP module = ShaderESP.active();
-        if (module == null || !frameReady || state.invisible || !module.shouldRender(state.id, state.squaredDistanceToCamera)) {
+        EspRenderConfig config = frameConfig;
+        int entityId = state instanceof PlayerEntityRenderState playerState ? playerState.id : -1;
+        if (renderingMask || config == null || config.manualWorldCapture() || !frameReady || state.invisible || !config.shouldRender(entityId, state.squaredDistanceToCamera)) {
             return;
         }
 
@@ -113,6 +131,7 @@ public final class ShaderEspRenderer {
 
             mask.beginWrite(false);
             RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
             RenderSystem.depthMask(true);
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
@@ -128,7 +147,6 @@ public final class ShaderEspRenderer {
                         OverlayTexture.DEFAULT_UV,
                         0xFFFFFFFF
                 );
-                renderFeatures(matrices, consumers, state, features);
                 consumers.draw();
             }
             captured = true;
@@ -141,36 +159,39 @@ public final class ShaderEspRenderer {
     }
 
     public static void renderInWorld(WorldRenderContext context) {
+        EspRenderConfig config = frameConfig;
+        if (config != null && config.manualWorldCapture()) {
+            captureWorldEntities(context, config);
+        }
         render();
     }
 
-    private static void render() {
-        ShaderESP module = ShaderESP.active();
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (module == null || !frameReady || !captured || client.getFramebuffer() == null) {
-            return;
-        }
-        if (!prepare(client.getFramebuffer())) {
-            return;
-        }
+    public static boolean isRenderingMask() {
+        return renderingMask;
+    }
 
-        int screenWidth = client.getWindow().getScaledWidth();
-        int screenHeight = client.getWindow().getScaledHeight();
-        Matrix4f matrix = new Matrix4f().ortho(0.0F, screenWidth, screenHeight, 0.0F, 1000.0F, 3000.0F);
+    private static void render() {
+        EspRenderConfig config = frameConfig;
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (config == null || !frameReady || !captured || client.getFramebuffer() == null) {
+            return;
+        }
+        if (!prepare(client.getFramebuffer(), config.echoMode())) {
+            return;
+        }
 
         RenderStateSnapshot stateSnapshot = RenderStateSnapshot.capture();
         try {
             RenderSystem.disableBlend();
             RenderSystem.disableDepthTest();
             RenderSystem.depthMask(false);
-            renderBlur(matrix, screenWidth, screenHeight, module.glowRadius.get().floatValue());
+            renderBlur(config.glowRadius());
 
-            if (module.mode.is("Echo")) {
-                updateEcho(matrix, screenWidth, screenHeight, module);
+            if (config.echoMode()) {
+                updateEcho(config);
             } else {
-                clearFramebuffer(echoTrail, false);
-                clearFramebuffer(echoScratch, false);
-                lastRenderNanos = System.nanoTime();
+                clearEchoIfDirty();
+                lastRenderNanos = 0L;
             }
 
             client.getFramebuffer().beginWrite(true);
@@ -184,18 +205,19 @@ public final class ShaderEspRenderer {
             RenderSystem.disableCull();
             RenderSystem.setShaderTexture(0, mask.getColorAttachment());
             RenderSystem.setShaderTexture(1, blurVertical.getColorAttachment());
-            RenderSystem.setShaderTexture(2, echoTrail.getColorAttachment());
-            setEspUniforms(shader, module, 1, 1.0F);
-            drawFullscreenQuad(matrix, screenWidth, screenHeight);
+            RenderSystem.setShaderTexture(2, config.echoMode() && echoTrail != null ? echoTrail.getColorAttachment() : mask.getColorAttachment());
+            setEspUniforms(shader, config, 1, 1.0F);
+            drawFullscreenQuad();
         } finally {
             client.getFramebuffer().beginWrite(true);
             stateSnapshot.restore();
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             frameReady = false;
+            frameConfig = null;
         }
     }
 
-    private static void renderBlur(Matrix4f matrix, int screenWidth, int screenHeight, float radius) {
+    private static void renderBlur(float radius) {
         ShaderProgram shader = RenderSystem.setShader(BLUR_SHADER);
         if (shader == null) return;
 
@@ -204,7 +226,7 @@ public final class ShaderEspRenderer {
         setUniform(shader, "TexelSize", 1.0F / width, 1.0F / height);
         setUniform(shader, "Direction", 1.0F, 0.0F);
         setUniform(shader, "Radius", radius);
-        drawFullscreenQuad(matrix, screenWidth, screenHeight);
+        drawFullscreenQuad();
 
         blurVertical.beginWrite(true);
         shader = RenderSystem.setShader(BLUR_SHADER);
@@ -213,16 +235,180 @@ public final class ShaderEspRenderer {
         setUniform(shader, "TexelSize", 1.0F / width, 1.0F / height);
         setUniform(shader, "Direction", 0.0F, 1.0F);
         setUniform(shader, "Radius", radius);
-        drawFullscreenQuad(matrix, screenWidth, screenHeight);
+        drawFullscreenQuad();
     }
 
-    private static void updateEcho(Matrix4f matrix, int screenWidth, int screenHeight, ShaderESP module) {
+    private static void captureWorldEntities(WorldRenderContext context, EspRenderConfig config) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (!frameReady || client.world == null || client.player == null || client.getFramebuffer() == null
+                || context.matrixStack() == null || context.camera() == null) {
+            return;
+        }
+        if (!prepare(client.getFramebuffer(), config.echoMode())) {
+            return;
+        }
+
+        RenderStateSnapshot stateSnapshot = RenderStateSnapshot.capture();
+        int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        int previousDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+        int[] viewport = new int[4];
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
+
+        try {
+            copyDepth(previousDraw, mask);
+            depthCopied = true;
+
+            mask.beginWrite(false);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(true);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.disableCull();
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+
+            renderingMask = true;
+            EntityRenderDispatcher dispatcher = client.getEntityRenderDispatcher();
+            dispatcher.setRenderShadows(false);
+
+            try (BufferAllocator allocator = new BufferAllocator(RenderLayer.DEFAULT_BUFFER_SIZE)) {
+                VertexConsumerProvider.Immediate consumers = VertexConsumerProvider.immediate(allocator);
+                float tickDelta = context.tickCounter() != null ? context.tickCounter().getTickDelta(true) : 1.0F;
+                Vec3d cameraPos = context.camera().getPos();
+                MatrixStack matrices = context.matrixStack();
+                double distance = Math.sqrt(config.distanceSquared());
+
+                if (config.self()
+                        && client.options.getPerspective() != Perspective.FIRST_PERSON
+                        && isValidManualTarget(client.player, config, context, cameraPos, tickDelta)) {
+                    renderEntityMask(client.player, dispatcher, matrices, consumers, cameraPos, tickDelta);
+                }
+
+                Box searchBox = client.player.getBoundingBox().expand(distance + 2.0);
+                for (Entity entity : client.world.getOtherEntities(client.player, searchBox, candidate -> candidate instanceof LivingEntity)) {
+                    if (!(entity instanceof LivingEntity living)) continue;
+                    if (!isValidManualTarget(living, config, context, cameraPos, tickDelta)) continue;
+                    renderEntityMask(living, dispatcher, matrices, consumers, cameraPos, tickDelta);
+                }
+
+                consumers.draw();
+            } finally {
+                dispatcher.setRenderShadows(true);
+                renderingMask = false;
+            }
+        } finally {
+            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
+            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDraw);
+            GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+            stateSnapshot.restore();
+        }
+    }
+
+    private static void renderEntityMask(LivingEntity entity, EntityRenderDispatcher dispatcher, MatrixStack matrices,
+                                         VertexConsumerProvider.Immediate consumers, Vec3d cameraPos, float tickDelta) {
+        double x = MathHelper.lerp(tickDelta, entity.prevX, entity.getX()) - cameraPos.x;
+        double y = MathHelper.lerp(tickDelta, entity.prevY, entity.getY()) - cameraPos.y;
+        double z = MathHelper.lerp(tickDelta, entity.prevZ, entity.getZ()) - cameraPos.z;
+        float yaw = entity.getYaw(tickDelta);
+        int light = dispatcher.getLight(entity, tickDelta);
+
+        matrices.push();
+        dispatcher.render(entity, x, y, z, yaw, matrices, consumers, light);
+        matrices.pop();
+        captured = true;
+    }
+
+    private static boolean isValidManualTarget(LivingEntity entity, EspRenderConfig config, WorldRenderContext context,
+                                               Vec3d cameraPos, float tickDelta) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || entity == null || !entity.isAlive() || entity.isRemoved() || entity.isSpectator()) {
+            return false;
+        }
+        if (entity == client.player && !config.self()) {
+            return false;
+        }
+        if (entity.isInvisible() && !isWearingFullHighTierArmor(entity)) {
+            return false;
+        }
+
+        Box box = interpolateBox(entity, tickDelta).expand(0.12, 0.12, 0.12);
+        if (cameraPos.squaredDistanceTo(box.getCenter()) > config.distanceSquared()) {
+            return false;
+        }
+        if (context.frustum() != null && !context.frustum().isVisible(box)) {
+            return false;
+        }
+        return entity == client.player || hasLineOfSight(client.player.getCameraPosVec(tickDelta), box);
+    }
+
+    private static Box interpolateBox(Entity entity, float tickDelta) {
+        Box base = entity.getBoundingBox();
+        double x = MathHelper.lerp(tickDelta, entity.prevX, entity.getX());
+        double y = MathHelper.lerp(tickDelta, entity.prevY, entity.getY());
+        double z = MathHelper.lerp(tickDelta, entity.prevZ, entity.getZ());
+        return base.offset(x - entity.getX(), y - entity.getY(), z - entity.getZ());
+    }
+
+    private static boolean hasLineOfSight(Vec3d eye, Box box) {
+        Vec3d center = box.getCenter();
+        if (isPointVisible(eye, center)) return true;
+        if (isPointVisible(eye, new Vec3d(center.x, box.maxY - 0.05, center.z))) return true;
+        if (isPointVisible(eye, new Vec3d(center.x, box.minY + 0.05, center.z))) return true;
+        if (isPointVisible(eye, new Vec3d(box.minX + 0.06, center.y, center.z))) return true;
+        if (isPointVisible(eye, new Vec3d(box.maxX - 0.06, center.y, center.z))) return true;
+        if (isPointVisible(eye, new Vec3d(center.x, center.y, box.minZ + 0.06))) return true;
+        return isPointVisible(eye, new Vec3d(center.x, center.y, box.maxZ - 0.06));
+    }
+
+    private static boolean isPointVisible(Vec3d eye, Vec3d point) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.world == null || client.player == null) {
+            return false;
+        }
+
+        RaycastContext context = new RaycastContext(
+                eye,
+                point,
+                RaycastContext.ShapeType.COLLIDER,
+                RaycastContext.FluidHandling.NONE,
+                client.player
+        );
+        BlockHitResult hitResult = client.world.raycast(context);
+        if (hitResult.getType() == HitResult.Type.MISS) {
+            return true;
+        }
+
+        double hitDistanceSq = eye.squaredDistanceTo(hitResult.getPos());
+        double pointDistanceSq = eye.squaredDistanceTo(point);
+        return hitDistanceSq + 1.0E-4 >= pointDistanceSq;
+    }
+
+    private static boolean isWearingFullHighTierArmor(LivingEntity entity) {
+        int count = 0;
+        for (ItemStack stack : entity.getArmorItems()) {
+            if (stack == null || stack.isEmpty()) {
+                return false;
+            }
+            String name = stack.getItem().getTranslationKey().toLowerCase();
+            if (!name.contains("diamond") && !name.contains("netherite")) {
+                return false;
+            }
+            count++;
+        }
+        return count == 4;
+    }
+
+    private static void updateEcho(EspRenderConfig config) {
+        if (echoTrail == null || echoScratch == null) {
+            return;
+        }
+
         long now = System.nanoTime();
         float deltaSeconds = lastRenderNanos == 0L
                 ? 1.0F / 60.0F
                 : MathHelper.clamp((now - lastRenderNanos) / 1_000_000_000.0F, 1.0F / 240.0F, 0.1F);
         lastRenderNanos = now;
-        float decay = (float) Math.pow(module.echoDecay.get(), deltaSeconds * 60.0F);
+        float decay = (float) Math.pow(config.echoDecay(), deltaSeconds * 60.0F);
 
         echoScratch.beginWrite(true);
         ShaderProgram shader = RenderSystem.setShader(ESP_SHADER);
@@ -230,17 +416,18 @@ public final class ShaderEspRenderer {
         RenderSystem.setShaderTexture(0, mask.getColorAttachment());
         RenderSystem.setShaderTexture(1, blurVertical.getColorAttachment());
         RenderSystem.setShaderTexture(2, echoTrail.getColorAttachment());
-        setEspUniforms(shader, module, 0, decay);
-        drawFullscreenQuad(matrix, screenWidth, screenHeight);
+        setEspUniforms(shader, config, 0, decay);
+        drawFullscreenQuad();
 
         SimpleFramebuffer previous = echoTrail;
         echoTrail = echoScratch;
         echoScratch = previous;
+        echoDirty = true;
     }
 
-    private static void setEspUniforms(ShaderProgram shader, ShaderESP module, int pass, float echoDecay) {
-        int fill = module.fillColor.get();
-        int glow = module.glowColor.get();
+    private static void setEspUniforms(ShaderProgram shader, EspRenderConfig config, int pass, float echoDecay) {
+        int fill = config.fillColor();
+        int glow = config.glowColor();
         setUniform(shader, "FillColor",
                 ((fill >> 16) & 0xFF) / 255.0F,
                 ((fill >> 8) & 0xFF) / 255.0F,
@@ -252,18 +439,25 @@ public final class ShaderEspRenderer {
                 (glow & 0xFF) / 255.0F,
                 1.0F);
         setUniform(shader, "TexelSize", 1.0F / width, 1.0F / height);
-        setUniform(shader, "FillOpacity", module.fillOpacity.get().floatValue());
-        setUniform(shader, "GlowStrength", module.glowStrength.get().floatValue());
-        setUniform(shader, "OutlineStrength", module.outlineStrength.get().floatValue());
-        setUniform(shader, "OutlineWidth", module.outlineWidth.get().floatValue());
+        setUniform(shader, "FillOpacity", config.fillOpacity());
+        setUniform(shader, "GlowStrength", config.glowStrength());
+        setUniform(shader, "OutlineStrength", config.outlineStrength());
+        setUniform(shader, "OutlineWidth", config.outlineWidth());
         setUniform(shader, "EchoDecay", echoDecay);
-        setUniform(shader, "Mode", module.modeIndex());
+        setUniform(shader, "Mode", config.modeIndex());
         setUniform(shader, "Pass", pass);
     }
 
-    private static boolean prepare(Framebuffer main) {
+    private static boolean prepare(Framebuffer main, boolean needsEcho) {
         if (main.textureWidth <= 0 || main.textureHeight <= 0) return false;
-        if (mask != null && width == main.textureWidth && height == main.textureHeight) return true;
+        if (mask != null && width == main.textureWidth && height == main.textureHeight) {
+            if (needsEcho) {
+                ensureEchoBuffers();
+            } else {
+                resetEcho();
+            }
+            return true;
+        }
 
         reset();
         width = main.textureWidth;
@@ -271,17 +465,35 @@ public final class ShaderEspRenderer {
         mask = new SimpleFramebuffer(width, height, true);
         blurHorizontal = new SimpleFramebuffer(width, height, false);
         blurVertical = new SimpleFramebuffer(width, height, false);
-        echoTrail = new SimpleFramebuffer(width, height, false);
-        echoScratch = new SimpleFramebuffer(width, height, false);
         mask.setTexFilter(GL11.GL_LINEAR);
         blurHorizontal.setTexFilter(GL11.GL_LINEAR);
         blurVertical.setTexFilter(GL11.GL_LINEAR);
+        clearFramebuffer(mask, true);
+        if (needsEcho) {
+            ensureEchoBuffers();
+        }
+        return true;
+    }
+
+    private static void ensureEchoBuffers() {
+        if (echoTrail != null && echoScratch != null) {
+            return;
+        }
+
+        resetEcho();
+        echoTrail = new SimpleFramebuffer(width, height, false);
+        echoScratch = new SimpleFramebuffer(width, height, false);
         echoTrail.setTexFilter(GL11.GL_LINEAR);
         echoScratch.setTexFilter(GL11.GL_LINEAR);
-        clearFramebuffer(mask, true);
         clearFramebuffer(echoTrail, false);
         clearFramebuffer(echoScratch, false);
-        return true;
+    }
+
+    private static void clearEchoIfDirty() {
+        if (!echoDirty) return;
+        clearFramebuffer(echoTrail, false);
+        clearFramebuffer(echoScratch, false);
+        echoDirty = false;
     }
 
     private static void copyDepth(int sourceFbo, Framebuffer destination) {
@@ -314,12 +526,12 @@ public final class ShaderEspRenderer {
         GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
     }
 
-    private static void drawFullscreenQuad(Matrix4f matrix, int screenWidth, int screenHeight) {
+    private static void drawFullscreenQuad() {
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-        builder.vertex(matrix, 0.0F, screenHeight, 0.0F).color(0xFFFFFFFF);
-        builder.vertex(matrix, 0.0F, 0.0F, 0.0F).color(0xFFFFFFFF);
-        builder.vertex(matrix, screenWidth, 0.0F, 0.0F).color(0xFFFFFFFF);
-        builder.vertex(matrix, screenWidth, screenHeight, 0.0F).color(0xFFFFFFFF);
+        builder.vertex(-1.0F, -1.0F, 0.0F).color(0xFFFFFFFF);
+        builder.vertex(1.0F, -1.0F, 0.0F).color(0xFFFFFFFF);
+        builder.vertex(1.0F, 1.0F, 0.0F).color(0xFFFFFFFF);
+        builder.vertex(-1.0F, 1.0F, 0.0F).color(0xFFFFFFFF);
         BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
@@ -327,19 +539,94 @@ public final class ShaderEspRenderer {
         if (mask != null) mask.delete();
         if (blurHorizontal != null) blurHorizontal.delete();
         if (blurVertical != null) blurVertical.delete();
-        if (echoTrail != null) echoTrail.delete();
-        if (echoScratch != null) echoScratch.delete();
         mask = null;
         blurHorizontal = null;
         blurVertical = null;
-        echoTrail = null;
-        echoScratch = null;
+        resetEcho();
         width = 0;
         height = 0;
         frameReady = false;
         captured = false;
         depthCopied = false;
         lastRenderNanos = 0L;
+        frameConfig = null;
+    }
+
+    private static void resetEcho() {
+        if (echoTrail != null) echoTrail.delete();
+        if (echoScratch != null) echoScratch.delete();
+        echoTrail = null;
+        echoScratch = null;
+        echoDirty = false;
+    }
+
+    private static EspRenderConfig activeConfig() {
+        Glow glow = Glow.active();
+        if (glow != null) {
+            int color = glow.color();
+            boolean fillMode = glow.isFillMode();
+            float strength = glow.strength.get().floatValue();
+            return new EspRenderConfig(
+                    color,
+                    color,
+                    fillMode ? glow.opacity.get().floatValue() : 0.0F,
+                    fillMode ? strength * 1.15F : strength * 0.85F,
+                    fillMode ? strength * 0.90F : strength * 1.35F,
+                    glow.outlineWidth.get().floatValue(),
+                    glow.radius.get().floatValue(),
+                    0.0F,
+                    glow.modeIndex(),
+                    false,
+                    glow.self.get(),
+                    glow.distanceSquared(),
+                    false
+            );
+        }
+
+        ShaderESP shader = ShaderESP.active();
+        if (shader == null) {
+            return null;
+        }
+
+        double distance = shader.distance.get();
+        return new EspRenderConfig(
+                shader.fillColor.get(),
+                shader.glowColor.get(),
+                shader.fillOpacity.get().floatValue(),
+                shader.glowStrength.get().floatValue(),
+                shader.outlineStrength.get().floatValue(),
+                shader.outlineWidth.get().floatValue(),
+                shader.glowRadius.get().floatValue(),
+                shader.echoDecay.get().floatValue(),
+                shader.modeIndex(),
+                shader.mode.is("Echo"),
+                shader.self.get(),
+                distance * distance,
+                false
+        );
+    }
+
+    private record EspRenderConfig(
+            int fillColor,
+            int glowColor,
+            float fillOpacity,
+            float glowStrength,
+            float outlineStrength,
+            float outlineWidth,
+            float glowRadius,
+            float echoDecay,
+            int modeIndex,
+            boolean echoMode,
+            boolean self,
+            double distanceSquared,
+            boolean manualWorldCapture
+    ) {
+        private boolean shouldRender(int entityId, double squaredDistance) {
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client.player == null) return false;
+            if (!self && entityId == client.player.getId()) return false;
+            return squaredDistance <= distanceSquared;
+        }
     }
 
     private static void setUniform(ShaderProgram shader, String name, float... values) {
@@ -364,25 +651,6 @@ public final class ShaderEspRenderer {
             return uniforms == null ? null : uniforms.get(name);
         } catch (Exception ignored) {
             return null;
-        }
-    }
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private static void renderFeatures(
-            MatrixStack matrices,
-            VertexConsumerProvider.Immediate consumers,
-            PlayerEntityRenderState state,
-            List<FeatureRenderer<?, ?>> features
-    ) {
-        for (FeatureRenderer feature : features) {
-            feature.render(
-                    matrices,
-                    consumers,
-                    LightmapTextureManager.MAX_LIGHT_COORDINATE,
-                    state,
-                    state.yawDegrees,
-                    state.pitch
-            );
         }
     }
 

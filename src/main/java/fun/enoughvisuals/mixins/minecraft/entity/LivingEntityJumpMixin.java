@@ -1,6 +1,7 @@
 package fun.enoughvisuals.mixins.minecraft.entity;
 
 import fun.enoughvisuals.systems.modules.modules.visual.JumpEffect;
+import fun.enoughvisuals.systems.modules.modules.visual.JumpCircle;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.LivingEntity;
@@ -18,5 +19,6 @@ public abstract class LivingEntityJumpMixin {
         if (!(self instanceof ClientPlayerEntity clientPlayer)) return;
         if (MinecraftClient.getInstance().player != clientPlayer) return;
         JumpEffect.onLocalPlayerJump();
+        JumpCircle.onLocalPlayerJump();
     }
 }

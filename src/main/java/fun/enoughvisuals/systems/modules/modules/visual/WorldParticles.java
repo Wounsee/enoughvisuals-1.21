@@ -8,6 +8,8 @@ import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.ColorSetting;
 import fun.enoughvisuals.systems.modules.settings.ModeSetting;
+import fun.enoughvisuals.systems.modules.settings.SelectSetting;
+import fun.enoughvisuals.systems.modules.settings.Setting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.gl.ShaderProgramKeys;
@@ -28,8 +30,10 @@ import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 @Register(name = "World Particles", id = "world_particles", description = "Красивые частицы по миру с большим радиусом", category = Category.VISUAL)
 public class WorldParticles extends Module {
@@ -61,6 +65,7 @@ public class WorldParticles extends Module {
     private static final String[] TYPES = new String[]{
             STAR_1, STAR_2, HEART, CROWN, LIGHTNING, SNOWFLAKE, BLOOM, CUBES
     };
+    private static final String[] SELECT_TYPES = new String[]{"Star 1", "Star 2", "Heart", "Crown", "Lightning", "Snowflake", "Bloom", "Cubes"};
 
     private static WorldParticles INSTANCE;
 
@@ -86,6 +91,14 @@ public class WorldParticles extends Module {
             SNOWFLAKE,
             BLOOM,
             CUBES
+    ));
+
+    public final SelectSetting particleTypes = add(new SelectSetting(
+            "РџР°СЂС‚РёРєР»С‹",
+            "particles",
+            "РњРѕР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ РЅРµСЃРєРѕР»СЊРєРѕ РІРёРґРѕРІ РїР°СЂС‚РёРєР»РѕРІ",
+            defaults("Cubes", "Star 1", "Star 2"),
+            SELECT_TYPES
     ));
 
     public final ModeSetting physics = add(new ModeSetting(
@@ -221,6 +234,7 @@ public class WorldParticles extends Module {
 
     public WorldParticles() {
         INSTANCE = this;
+        mode.visibleWhen(() -> false);
         type.visibleWhen(() -> mode.is(SELECTED));
     }
 
@@ -248,6 +262,14 @@ public class WorldParticles extends Module {
 
         update(System.nanoTime());
         spawn();
+    }
+
+    @Override
+    public List<Setting<?>> getVisibleSettings() {
+        List<Setting<?>> visible = new ArrayList<>(super.getVisibleSettings());
+        visible.remove(mode);
+        visible.remove(type);
+        return visible;
     }
 
     private void update(long nowNs) {
@@ -321,7 +343,7 @@ public class WorldParticles extends Module {
 
     private WorldParticle createParticle() {
         String pickedType = pickType();
-        boolean cube = pickedType.equals(CUBES);
+        boolean cube = pickedType.equals(CUBES) || pickedType.equals("Cubes");
         boolean snow = physics.is(SNOW);
 
         Vec3d base = mc.player.getPos();
@@ -664,6 +686,20 @@ public class WorldParticles extends Module {
     }
 
     private String pickType() {
+        if (particleTypes != null) {
+            Set<String> selected = particleTypes.get();
+            if (selected.isEmpty()) {
+                return "Star 1";
+            }
+
+            int index = random.nextInt(selected.size());
+            int i = 0;
+            for (String option : selected) {
+                if (i++ == index) return option;
+            }
+            return "Star 1";
+        }
+
         if (mode.is(RANDOM)) {
             return TYPES[random.nextInt(TYPES.length)];
         }
@@ -672,11 +708,11 @@ public class WorldParticles extends Module {
 
     private Identifier textureFor(String type) {
         return switch (type) {
-            case STAR_2 -> STAR2_TEXTURE;
-            case HEART -> HEART_TEXTURE;
-            case CROWN -> CROWN_TEXTURE;
-            case LIGHTNING -> LIGHTNING_TEXTURE;
-            case SNOWFLAKE -> SNOWFLAKE_TEXTURE;
+            case STAR_2, "Star 2" -> STAR2_TEXTURE;
+            case HEART, "Heart" -> HEART_TEXTURE;
+            case CROWN, "Crown" -> CROWN_TEXTURE;
+            case LIGHTNING, "Lightning" -> LIGHTNING_TEXTURE;
+            case SNOWFLAKE, "Snowflake" -> SNOWFLAKE_TEXTURE;
             case BLOOM -> BLOOM_TEXTURE;
             default -> STAR1_TEXTURE;
         };
@@ -728,6 +764,14 @@ public class WorldParticles extends Module {
 
     private float lerp(float from, float to, float delta) {
         return MathHelper.lerp(delta, from, to);
+    }
+
+    private static LinkedHashSet<String> defaults(String... values) {
+        LinkedHashSet<String> set = new LinkedHashSet<>();
+        for (String value : values) {
+            set.add(value);
+        }
+        return set;
     }
 
     private static final class WorldParticle {

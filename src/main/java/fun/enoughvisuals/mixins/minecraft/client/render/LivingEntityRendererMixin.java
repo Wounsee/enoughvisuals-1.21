@@ -10,7 +10,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
-import net.minecraft.client.render.entity.PlayerEntityRenderer;
 import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
@@ -20,6 +19,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LivingEntityRenderer.class)
 public class LivingEntityRendererMixin {
@@ -73,7 +73,7 @@ public class LivingEntityRendererMixin {
             at = @At(
                     value = "INVOKE",
                     target = "Lnet/minecraft/client/render/entity/model/EntityModel;render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;III)V",
-                    shift = At.Shift.AFTER
+                    shift = At.Shift.BEFORE
             )
     )
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -84,17 +84,21 @@ public class LivingEntityRendererMixin {
             int light,
             CallbackInfo ci
     ) {
-        if (!(state instanceof PlayerEntityRenderState playerState) || !((Object) this instanceof PlayerEntityRenderer renderer)) {
-            return;
-        }
-
         LivingEntityRenderer livingRenderer = (LivingEntityRenderer) (Object) this;
-        ShaderEspRenderer.capturePlayer(
-                playerState,
+        ShaderEspRenderer.captureLiving(
+                state,
                 matrices,
                 (Model) livingRenderer.getModel(),
                 ((LivingEntityRendererAccessor) livingRenderer).enoughvisuals$getFeatures(),
-                renderer.getTexture(playerState)
+                livingRenderer.getTexture(state)
         );
+    }
+
+    @Inject(method = "shouldRenderFeatures", at = @At("HEAD"), cancellable = true)
+    private void enough$skipFeaturesDuringShaderMask(net.minecraft.client.render.entity.state.LivingEntityRenderState state,
+                                                     CallbackInfoReturnable<Boolean> cir) {
+        if (ShaderEspRenderer.isRenderingMask()) {
+            cir.setReturnValue(false);
+        }
     }
 }

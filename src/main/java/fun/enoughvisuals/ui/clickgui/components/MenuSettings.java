@@ -68,6 +68,8 @@ public class MenuSettings {
 
     private ModeSetting expandedMode = null;
     private final Map<ModeSetting, Float> modeExpandAnims = new HashMap<>();
+    private SelectSetting expandedSelect = null;
+    private final Map<SelectSetting, Float> selectExpandAnims = new HashMap<>();
     private final Map<ClickSetting, Float> clickHoverAnims = new HashMap<>();
     private final Map<ClickSetting, Float> clickPressAnims = new HashMap<>();
     private ItemSelectSetting expandedItemSelect = null;
@@ -151,6 +153,10 @@ public class MenuSettings {
             if (s instanceof ModeSetting ms) {
                 float target = (ms == expandedMode) ? 1f : 0f;
                 modeExpandAnims.put(ms, smooth(modeExpandAnims.getOrDefault(ms, 0f), target, 7.5f, speed));
+            }
+            if (s instanceof SelectSetting sel) {
+                float target = (sel == expandedSelect) ? 1f : 0f;
+                selectExpandAnims.put(sel, smooth(selectExpandAnims.getOrDefault(sel, 0f), target, 7.5f, speed));
             }
             if (s instanceof ItemSelectSetting itemSelect) {
                 float target = (itemSelect == expandedItemSelect) ? 1f : 0f;
@@ -237,8 +243,10 @@ public class MenuSettings {
             float anim = modeExpandAnims.getOrDefault(ms, 0f);
             return MODE_HEADER_H + (ms.getModes().size() * MODE_OPT_H + 6) * anim;
         }
-        if (s instanceof SelectSetting sel)
-            return ROW_H + sel.getOptions().size() * SELECT_OPT_H + 6;
+        if (s instanceof SelectSetting sel) {
+            float anim = selectExpandAnims.getOrDefault(sel, 0f);
+            return ROW_H + (sel.getOptions().size() * SELECT_OPT_H + 6) * anim;
+        }
         if (s instanceof ColorSetting cs)
             return COLOR_ROW_H + COLOR_PICKER_FULL * colorExpandAnims.getOrDefault(cs, 0f);
         if (s instanceof StringSetting)   return STRING_ROW_H;
@@ -711,35 +719,47 @@ public class MenuSettings {
     }
 
     private void renderSelect(DrawContext ctx, SelectSetting s, float px, float sy, float pw, float alpha) {
+        float expandAnim = selectExpandAnims.getOrDefault(s, 0f);
         String count = s.get().size() + " \u0438\u0437 " + s.getOptions().size();
         float countW = CustomFontRenderer.getTextWidth(count, 6.5f, FontWeight.REGULAR);
-        drawSettingLabel(ctx, s.getName(), px + 10, sy + 4.5f, pw - 30f - countW, 7f,
+        drawSettingLabel(ctx, s.getName(), px + 10, sy + 4.5f, pw - 42f - countW, 7f,
                 applyAlpha(MenuScreen.TEXT_WHITE, alpha * 0.7f), FontWeight.REGULAR);
-        CustomFontRenderer.drawRightText(ctx, count, px + pw - 10, sy + 4.5f, 6.5f,
-                applyAlpha(MenuScreen.TEXT_DIM, alpha * 0.8f), FontWeight.REGULAR);
+        float headerFade = alpha * (0.72f + 0.28f * (1.0f - expandAnim));
+        CustomFontRenderer.drawRightText(ctx, count, px + pw - 24f, sy + 4.5f, 6.5f,
+                applyAlpha(MenuScreen.TEXT_DIM, headerFade), FontWeight.REGULAR);
+        renderDropIcon(ctx, px + pw - 14, sy + ROW_H / 2f, 8, 4, expandAnim, alpha * 0.85f);
+
+        if (expandAnim <= 0.01f) return;
 
         float listY = sy + ROW_H;
         float listH = s.getOptions().size() * SELECT_OPT_H + 6;
+        float visibleH = listH * expandAnim;
 
-        RenderUtil.drawRoundedRect(ctx, px + 8, listY, pw - 16, listH, 5,
-                applyAlpha(MenuScreen.SETTING_PANEL_OUTER, alpha * 0.78f));
-        RenderUtil.drawRoundedRect(ctx, px + 9, listY + 1, pw - 18, listH - 2, 4,
-                applyAlpha(MenuScreen.SETTING_PANEL_INNER, alpha * 0.35f));
+        ctx.draw();
+        enableLocalScissor(px + 8, listY, pw - 16, visibleH);
+
+        RenderUtil.drawRoundedRect(ctx, px + 8, listY, pw - 16, visibleH, 5,
+                applyAlpha(MenuScreen.SETTING_PANEL_OUTER, alpha * 0.78f * expandAnim));
+        RenderUtil.drawRoundedRect(ctx, px + 9, listY + 1, pw - 18, Math.max(0f, visibleH - 2), 4,
+                applyAlpha(MenuScreen.SETTING_PANEL_INNER, alpha * 0.35f * expandAnim));
 
         float optY = listY + 3;
         for (String opt : s.getOptions()) {
             boolean sel = s.isSelected(opt);
-            float optAlpha = alpha * (sel ? 1f : 0.5f);
+            float optAlpha = alpha * expandAnim * (sel ? 1f : 0.5f);
 
-            CustomFontRenderer.drawText(ctx, opt, px + 16, optY + 4f, 6.5f,
+            CustomFontRenderer.drawText(ctx, s.getDisplayOption(opt), px + 16, optY + 4f, 6.5f,
                     applyAlpha(MenuScreen.TEXT_WHITE, optAlpha), FontWeight.REGULAR);
 
             if (sel) {
                 Draw.image(ctx, MenuScreen.MODULE_ON_ICON, px + pw - 26, optY + 5.1f, 8, 8,
-                        MenuScreen.MOD_ICON_TEX, MenuScreen.MOD_ICON_TEX, alpha);
+                        MenuScreen.MOD_ICON_TEX, MenuScreen.MOD_ICON_TEX, alpha * expandAnim);
             }
             optY += SELECT_OPT_H;
         }
+
+        ctx.draw();
+        StencilUtil.disableScissor();
     }
 
                                                                                                                                                                             
@@ -1007,6 +1027,7 @@ public class MenuSettings {
                     expandedItemSelect = itemSelect;
                     expandedMultiItemSelect = null;
                     expandedMode = null;
+                    expandedSelect = null;
                     editingMultiItemSearch = null;
                     editingItemSearch = null;
                     itemSearchCursor = itemSelect.getSearchQuery().length();
@@ -1063,6 +1084,7 @@ public class MenuSettings {
                     expandedMultiItemSelect = multiItemSelect;
                     expandedMode = null;
                     expandedItemSelect = null;
+                    expandedSelect = null;
                     editingItemSearch = null;
                     editingMultiItemSearch = null;
                     itemSearchCursor = multiItemSelect.getSearchQuery().length();
@@ -1126,6 +1148,18 @@ public class MenuSettings {
                 }
             }
         } else if (s instanceof SelectSetting sel) {
+            if (my >= sy && my <= sy + ROW_H && button == 0) {
+                expandedSelect = (expandedSelect == sel) ? null : sel;
+                if (expandedSelect != null) {
+                    expandedMode = null;
+                    expandedItemSelect = null;
+                    expandedMultiItemSelect = null;
+                    editingItemSearch = null;
+                    editingMultiItemSearch = null;
+                }
+                return true;
+            }
+            if (selectExpandAnims.getOrDefault(sel, 0f) <= 0.5f) return false;
             float optY = sy + ROW_H + 3;
             for (String opt : sel.getOptions()) {
                 if (mx >= px + 8 && mx <= px + pw - 8 && my >= optY && my <= optY + SELECT_OPT_H) {

@@ -28,6 +28,7 @@
       "minecraft.client.render.GameRendererMixin",
       "minecraft.client.render.CameraMixin",
       "minecraft.client.render.LivingEntityRendererMixin",
+      "minecraft.client.render.PlayerEntityRendererMixin",
       "minecraft.client.render.LivingEntityRendererHitColorMixin",
       "minecraft.client.render.EquipmentRendererMixin",
       "minecraft.client.render.BackgroundRendererMixin",

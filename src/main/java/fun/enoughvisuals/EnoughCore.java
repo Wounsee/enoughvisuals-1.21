@@ -142,6 +142,12 @@ public final class EnoughCore {
 
                 new HitParticles(),
 
+                new JumpCircle(),
+
+                new TrailParticles(),
+
+                new ChinaHat(),
+
                 new KillEffect(),
 
                 new WorldParticles(),
@@ -164,7 +170,7 @@ public final class EnoughCore {
 
                 new ShaderHands(),
 
-                new EchoHands(),
+                new Glow(),
 
                 new Pet(),
 
@@ -235,7 +241,7 @@ public final class EnoughCore {
                 new LowArmorNotify(),
 
                 new ShiftTap(),
-
+                new Trails(),
                 new SpecBind(),
 
                 new DeathCords());
@@ -245,6 +251,8 @@ public final class EnoughCore {
         manager.init();
 
         WorldRenderEvents.BEFORE_ENTITIES.register(ShaderEspRenderer::beginWorldFrame);
+
+        WorldRenderEvents.LAST.register(ShaderEspRenderer::renderInWorld);
 
         WorldRenderEvents.LAST.register(BlockOverlay::renderInWorld);
 
@@ -260,11 +268,15 @@ public final class EnoughCore {
 
         WorldRenderEvents.LAST.register(WorldParticles::renderInWorld);
 
+        WorldRenderEvents.LAST.register(JumpCircle::renderInWorld);
+
+        WorldRenderEvents.LAST.register(TrailParticles::renderInWorld);
+
+        WorldRenderEvents.LAST.register(ChinaHat::renderInWorld);
+
         WorldRenderEvents.LAST.register(JumpEffect::renderInWorld);
 
         WorldRenderEvents.LAST.register(Trails::renderInWorld);
-
-        WorldRenderEvents.LAST.register(ShaderEspRenderer::renderInWorld);
 
         HudRenderCallback.EVENT.register((drawContext, tickCounter) ->
 

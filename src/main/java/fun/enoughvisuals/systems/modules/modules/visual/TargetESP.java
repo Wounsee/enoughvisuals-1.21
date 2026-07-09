@@ -51,8 +51,8 @@ public class TargetESP extends Module {
     private static final Identifier SQUARE_1 = Identifier.of("enough", "textures/targetesp/target.png");
     private static final Identifier SQUARE_2 = Identifier.of("enough", "textures/targetesp/target2.png");
     private static final Identifier BLOOM_TEXTURE = Identifier.of("enough", "textures/bloom.png");
-    private static final float CUBE_HALF_SIZE = 0.3f;
-    private static final float CUBE_TURN_SPEED = 0.045f;
+    private static final float CUBE_HALF_SIZE = 0.22f;
+    private static final long CUBE_TURN_DURATION_MS = 300L;
     private static final int MAX_PENDING_CUBE_TURNS = 8;
     private static TargetESP INSTANCE;
 
@@ -95,8 +95,18 @@ public class TargetESP extends Module {
     private float cubeTargetY = 0f;
     private float cubeTargetZ = 0f;
     private float cubeTurnProgress = 1f;
+    private long cubeTurnStartMs = 0L;
     private int cubeNextAxis = 0;
+    private int lastCubeAxisMask = 0;
     private int pendingCubeTurns = 0;
+    private int pendingHitEntityId = -1;
+    private int pendingHitBaselineHurtTime = 0;
+    private long pendingHitUntilMs = 0L;
+    private int lastCubeEntityId = -1;
+    private Vec3d lastCubeCenter = null;
+    private float lastCubeRenderRotationX = 0f;
+    private float lastCubeRenderRotationY = 0f;
+    private float lastCubeRenderRotationZ = 0f;
     private final Random random = new Random();
     private final List<CubeShard> cubeShards = new ArrayList<>();
 
@@ -120,22 +130,37 @@ public class TargetESP extends Module {
         hitFlashUntilMs = 0L;
         hitFlash = 0f;
         cubeTurnProgress = 1f;
+        cubeTurnStartMs = 0L;
         cubeNextAxis = 0;
+        lastCubeAxisMask = 0;
         pendingCubeTurns = 0;
+        pendingHitEntityId = -1;
+        pendingHitBaselineHurtTime = 0;
+        pendingHitUntilMs = 0L;
+        lastCubeEntityId = -1;
+        lastCubeCenter = null;
+        lastCubeRenderRotationX = 0f;
+        lastCubeRenderRotationY = 0f;
+        lastCubeRenderRotationZ = 0f;
         cubeShards.clear();
     }
 
     @Override
     public void onTick() {
+        confirmPendingHit();
+
         if (logicTarget != null && (!logicTarget.isAlive() || logicTarget.isRemoved())) {
             if (style.is(MODE_CUBE)) {
                 spawnCubeShatter(logicTarget);
             }
+            clearPendingHit();
             logicTarget = null;
             displayTarget = null;
             displayAlpha = 0f;
             globalTarget = null;
             lastTargetTime = 0L;
+            lastCubeEntityId = -1;
+            lastCubeCenter = null;
             return;
         }
 
@@ -175,12 +200,70 @@ public class TargetESP extends Module {
         INSTANCE.doRender(ctx);
     }
 
+    public static void onAttackAttempt(Entity target) {
+        if (INSTANCE == null || !INSTANCE.isEnabled() || !(target instanceof LivingEntity living)) return;
+        INSTANCE.clearPendingHit();
+        INSTANCE.markAttackVisual(living);
+    }
+
     public static void onAttack(Entity target) {
         if (INSTANCE == null || !INSTANCE.isEnabled() || !(target instanceof LivingEntity living)) return;
-        if (living == INSTANCE.logicTarget || living == INSTANCE.displayTarget) {
-            INSTANCE.hitFlashUntilMs = System.currentTimeMillis() + 340L;
-            INSTANCE.hitFlash = Math.max(INSTANCE.hitFlash, 0.65f);
-            INSTANCE.kickCubeSpin();
+        INSTANCE.clearPendingHit();
+        INSTANCE.applyConfirmedHit(living);
+    }
+
+    private void confirmPendingHit() {
+        if (pendingHitEntityId == -1) return;
+        if (mc.world == null) {
+            clearPendingHit();
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (now > pendingHitUntilMs) {
+            clearPendingHit();
+            return;
+        }
+
+        Entity entity = mc.world.getEntityById(pendingHitEntityId);
+        if (!(entity instanceof LivingEntity living) || living.isRemoved() || !living.isAlive()) {
+            clearPendingHit();
+            return;
+        }
+
+        if (living.hurtTime > pendingHitBaselineHurtTime) {
+            clearPendingHit();
+            applyConfirmedHit(living);
+        }
+    }
+
+    private void clearPendingHit() {
+        pendingHitEntityId = -1;
+        pendingHitBaselineHurtTime = 0;
+        pendingHitUntilMs = 0L;
+    }
+
+    private void applyConfirmedHit(LivingEntity living) {
+        markAttackVisual(living);
+    }
+
+    private void markAttackVisual(LivingEntity living) {
+        if (living == null || living.isRemoved() || !living.isAlive()) return;
+        if (living != logicTarget && living != displayTarget) {
+            if (displayTarget != null && displayAlpha > 0.01f) {
+                prevTarget = displayTarget;
+                prevAlpha = displayAlpha;
+            }
+            logicTarget = living;
+            displayTarget = living;
+            displayAlpha = Math.max(displayAlpha, 0.35f);
+            lastTargetTime = System.currentTimeMillis();
+            globalTarget = living;
+        }
+        hitFlashUntilMs = System.currentTimeMillis() + 340L;
+        hitFlash = Math.max(hitFlash, 0.65f);
+        if (style.is(MODE_CUBE)) {
+            kickCubeSpin();
         }
     }
 
@@ -202,7 +285,7 @@ public class TargetESP extends Module {
         float tickDelta = mc.getRenderTickCounter().getTickDelta(true);
         float targetFlash = System.currentTimeMillis() < hitFlashUntilMs ? 1f : 0f;
         hitFlash = RenderUtil.animate(hitFlash, targetFlash, 0.22f, frameDelta);
-        updateCubeRotation(frameDelta);
+        updateCubeRotation();
         if (style.is(MODE_CUBE)) {
             updateCubeShards(frameDelta);
         }
@@ -247,9 +330,20 @@ public class TargetESP extends Module {
         if (matrices == null || camera == null || alpha <= 0.01f) return;
 
         Vec3d cameraPos = camera.getPos();
-        double x = MathHelper.lerp(tickDelta, entity.prevX, entity.getX()) - cameraPos.x;
-        double y = MathHelper.lerp(tickDelta, entity.prevY, entity.getY()) + entity.getHeight() * 0.52 - cameraPos.y;
-        double z = MathHelper.lerp(tickDelta, entity.prevZ, entity.getZ()) - cameraPos.z;
+        double worldX = MathHelper.lerp(tickDelta, entity.prevX, entity.getX());
+        double worldY = MathHelper.lerp(tickDelta, entity.prevY, entity.getY()) + entity.getHeight() * 0.52;
+        double worldZ = MathHelper.lerp(tickDelta, entity.prevZ, entity.getZ());
+        double x = worldX - cameraPos.x;
+        double y = worldY - cameraPos.y;
+        double z = worldZ - cameraPos.z;
+
+        if (entity == displayTarget || entity == logicTarget) {
+            lastCubeEntityId = entity.getId();
+            lastCubeCenter = new Vec3d(worldX, worldY, worldZ);
+            lastCubeRenderRotationX = cubeRotationX;
+            lastCubeRenderRotationY = cubeRotationY;
+            lastCubeRenderRotationZ = cubeRotationZ;
+        }
         float size = Math.max(entity.getWidth() * 1.45f, entity.getHeight() * 0.82f) * squareSize.get().floatValue();
         float half = size * 0.5f;
         float rotation = (System.currentTimeMillis() % 3600L) * 0.10f;
@@ -313,7 +407,7 @@ public class TargetESP extends Module {
         cubeTargetZ = cubeRotationZ;
 
         int axisMask = nextCubeAxisMask();
-        float turn = Integer.bitCount(axisMask) == 1 ? 180f : 90f;
+        float turn = 180f;
         if ((axisMask & 1) != 0) {
             cubeTargetX += turn;
         }
@@ -324,33 +418,63 @@ public class TargetESP extends Module {
             cubeTargetZ += turn;
         }
         cubeTurnProgress = 0f;
+        cubeTurnStartMs = System.currentTimeMillis();
     }
 
     private int nextCubeAxisMask() {
-        int singleAxis = 1 << cubeNextAxis;
-        cubeNextAxis = (cubeNextAxis + 1) % 3;
+        boolean lastWasCombo = Integer.bitCount(lastCubeAxisMask) > 1;
+        int mask;
+        if (lastWasCombo) {
+            mask = nextSingleAxisMask(lastCubeAxisMask);
+        } else if (lastCubeAxisMask != 0 && random.nextFloat() < 0.42f) {
+            mask = comboWithoutAxis(lastCubeAxisMask);
+        } else if (lastCubeAxisMask == 0 && random.nextFloat() < 0.36f) {
+            mask = randomComboAxisMask();
+        } else {
+            mask = nextSingleAxisMask(lastCubeAxisMask);
+        }
 
-        float roll = random.nextFloat();
-        if (roll < 0.45f) {
-            return singleAxis;
+        if (mask == 0 || mask == lastCubeAxisMask || Integer.bitCount(mask) > 2) {
+            mask = nextSingleAxisMask(lastCubeAxisMask);
         }
-        if (roll < 0.63f) {
-            return 1 | 2;
-        }
-        if (roll < 0.81f) {
-            return 2 | 4;
-        }
-        return 1 | 4;
+
+        lastCubeAxisMask = mask;
+        return mask;
     }
 
-    private void updateCubeRotation(float frameDelta) {
+    private int nextSingleAxisMask(int forbiddenMask) {
+        for (int i = 0; i < 3; i++) {
+            int mask = 1 << cubeNextAxis;
+            cubeNextAxis = (cubeNextAxis + 1) % 3;
+            if ((mask & forbiddenMask) == 0) {
+                return mask;
+            }
+        }
+
+        int fallback = 1 << cubeNextAxis;
+        cubeNextAxis = (cubeNextAxis + 1) % 3;
+        return fallback;
+    }
+
+    private int comboWithoutAxis(int singleAxisMask) {
+        int mask = (1 | 2 | 4) & ~singleAxisMask;
+        return Integer.bitCount(mask) == 2 ? mask : randomComboAxisMask();
+    }
+
+    private int randomComboAxisMask() {
+        int[] combos = {1 | 2, 1 | 4, 2 | 4};
+        return combos[random.nextInt(combos.length)];
+    }
+
+    private void updateCubeRotation() {
         if (cubeTurnProgress >= 1f) {
             startNextCubeTurn();
             return;
         }
 
-        cubeTurnProgress = Math.min(1f, cubeTurnProgress + CUBE_TURN_SPEED * MathHelper.clamp(frameDelta, 0.25f, 3.0f));
-        float eased = RenderUtil.easeOutCubic(cubeTurnProgress);
+        long elapsed = System.currentTimeMillis() - cubeTurnStartMs;
+        cubeTurnProgress = MathHelper.clamp(elapsed / (float) CUBE_TURN_DURATION_MS, 0f, 1f);
+        float eased = cubeTurnCurve(cubeTurnProgress);
         cubeRotationX = MathHelper.lerp(eased, cubeStartX, cubeTargetX);
         cubeRotationY = MathHelper.lerp(eased, cubeStartY, cubeTargetY);
         cubeRotationZ = MathHelper.lerp(eased, cubeStartZ, cubeTargetZ);
@@ -361,6 +485,24 @@ public class TargetESP extends Module {
             cubeRotationZ = wrapDegrees(cubeTargetZ);
             startNextCubeTurn();
         }
+    }
+
+    private float cubeTurnCurve(float progress) {
+        progress = MathHelper.clamp(progress, 0f, 1f);
+        float slowStart = 0.62f;
+        float startSpeed = 1.16f;
+        float startValue = slowStart * startSpeed;
+        if (progress <= slowStart) {
+            return progress * startSpeed;
+        }
+
+        float u = (progress - slowStart) / (1f - slowStart);
+        float remaining = 1f - startValue;
+        float startSlope = startSpeed * (1f - slowStart) / remaining;
+        float u2 = u * u;
+        float u3 = u2 * u;
+        float easedTail = (u3 - 2f * u2 + u) * startSlope + (-2f * u3 + 3f * u2);
+        return startValue + remaining * easedTail;
     }
 
     private float wrapDegrees(float value) {
@@ -381,7 +523,7 @@ public class TargetESP extends Module {
         float redMix = MathHelper.clamp(flash, 0f, 1f);
         float half = CUBE_HALF_SIZE;
         float corner = half * 0.42f;
-        float thickness = Math.max(0.03f, half * 0.07f) * (1.0f + redMix * 0.16f);
+        float thickness = Math.max(0.046f, half * 0.13f) * (1.0f + redMix * 0.12f);
         float baseR = ((color >> 16) & 0xFF) / 255f;
         float baseG = ((color >> 8) & 0xFF) / 255f;
         float baseB = (color & 0xFF) / 255f;
@@ -393,12 +535,9 @@ public class TargetESP extends Module {
         float[] edge = new float[]{Math.min(1f, r * 1.55f), Math.min(1f, g * 1.55f), Math.min(1f, b * 1.55f), a * 0.92f};
 
         RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE);
         RenderSystem.disableCull();
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
-
-        renderCubeGlowBars(matrices, camera, x, y, z, half, corner, r, g, b, a, redMix);
 
         matrices.push();
         matrices.translate(x, y, z);
@@ -416,6 +555,9 @@ public class TargetESP extends Module {
 
         matrices.pop();
 
+        RenderSystem.blendFunc(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE);
+        renderCubeGlowBars(matrices, camera, x, y, z, half, corner, r, g, b, a, redMix);
+
         RenderSystem.depthMask(true);
         RenderSystem.enableDepthTest();
         RenderSystem.enableCull();
@@ -426,6 +568,13 @@ public class TargetESP extends Module {
     private void renderCubeGlowBars(MatrixStack matrices, Camera camera,
                                     double centerX, double centerY, double centerZ,
                                     float half, float length, float r, float g, float b, float alpha, float flash) {
+        float size = half * (0.30f + flash * 0.07f);
+        float glowAlpha = alpha * (0.23f + flash * 0.11f);
+        if (glowAlpha <= 0.004f) return;
+
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+        RenderSystem.setShaderTexture(0, BLOOM_TEXTURE);
+        BufferBuilder glow = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
         for (int ix = -1; ix <= 1; ix += 2) {
             float x = ix * half;
             float xInner = x - ix * length;
@@ -435,24 +584,25 @@ public class TargetESP extends Module {
                 for (int iz = -1; iz <= 1; iz += 2) {
                     float z = iz * half;
                     float zInner = z - iz * length;
-                    renderBloomSegment(matrices, camera, centerX, centerY, centerZ, x, y, z, xInner, y, z,
-                            cubeRotationX, cubeRotationY, cubeRotationZ, half * (0.20f + flash * 0.04f), r, g, b, alpha * (0.16f + flash * 0.08f), true);
-                    renderBloomSegment(matrices, camera, centerX, centerY, centerZ, x, y, z, x, yInner, z,
-                            cubeRotationX, cubeRotationY, cubeRotationZ, half * (0.20f + flash * 0.04f), r, g, b, alpha * (0.16f + flash * 0.08f), true);
-                    renderBloomSegment(matrices, camera, centerX, centerY, centerZ, x, y, z, x, y, zInner,
-                            cubeRotationX, cubeRotationY, cubeRotationZ, half * (0.20f + flash * 0.04f), r, g, b, alpha * (0.16f + flash * 0.08f), true);
+                    appendBloomSegment(glow, matrices, camera, centerX, centerY, centerZ, x, y, z, xInner, y, z,
+                            cubeRotationX, cubeRotationY, cubeRotationZ, size, r, g, b, glowAlpha, true);
+                    appendBloomSegment(glow, matrices, camera, centerX, centerY, centerZ, x, y, z, x, yInner, z,
+                            cubeRotationX, cubeRotationY, cubeRotationZ, size, r, g, b, glowAlpha, true);
+                    appendBloomSegment(glow, matrices, camera, centerX, centerY, centerZ, x, y, z, x, y, zInner,
+                            cubeRotationX, cubeRotationY, cubeRotationZ, size, r, g, b, glowAlpha, true);
                 }
             }
         }
+        BufferRenderer.drawWithGlobalProgram(glow.end());
     }
 
-    private void renderBloomSegment(MatrixStack matrices, Camera camera,
+    private void appendBloomSegment(BufferBuilder buffer, MatrixStack matrices, Camera camera,
                                     double centerX, double centerY, double centerZ,
                                     float x1, float y1, float z1,
                                     float x2, float y2, float z2,
                                     float rotationX, float rotationY, float rotationZ,
                                     float size, float r, float g, float b, float alpha, boolean hotEnds) {
-        int steps = 5;
+        int steps = 4;
         for (int i = 0; i < steps; i++) {
             float t = steps == 1 ? 0f : i / (float) (steps - 1);
             float lx = MathHelper.lerp(t, x1, x2);
@@ -461,13 +611,9 @@ public class TargetESP extends Module {
             Vec3d rotated = rotatePoint(lx, ly, lz, rotationX, rotationY, rotationZ);
             float endBoost = hotEnds && (i == 0 || i == steps - 1) ? 1.18f : 1.0f;
 
-            renderCubeGlowPoint(matrices, camera, centerX + rotated.x, centerY + rotated.y, centerZ + rotated.z,
+            appendCubeGlowPoint(buffer, matrices, camera, centerX + rotated.x, centerY + rotated.y, centerZ + rotated.z,
                     size * endBoost, r, g, b, alpha * endBoost);
         }
-    }
-
-    private Vec3d rotateCubePoint(float x, float y, float z) {
-        return rotatePoint(x, y, z, cubeRotationX, cubeRotationY, cubeRotationZ);
     }
 
     private Vec3d rotatePoint(float x, float y, float z, float rotationX, float rotationY, float rotationZ) {
@@ -494,24 +640,20 @@ public class TargetESP extends Module {
         return new Vec3d(px2, py3, pz3);
     }
 
-    private void renderCubeGlowPoint(MatrixStack matrices, Camera camera, double x, double y, double z,
+    private void appendCubeGlowPoint(BufferBuilder buffer, MatrixStack matrices, Camera camera, double x, double y, double z,
                                      float size, float r, float g, float b, float alpha) {
         if (alpha <= 0.004f) return;
 
         float h = size * 0.5f;
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-        RenderSystem.setShaderTexture(0, BLOOM_TEXTURE);
         matrices.push();
         matrices.translate(x, y, z);
         matrices.multiply(camera.getRotation());
 
         Matrix4f matrix = matrices.peek().getPositionMatrix();
-        BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
         buffer.vertex(matrix, -h, -h, 0f).texture(0f, 1f).color(r, g, b, alpha);
         buffer.vertex(matrix, h, -h, 0f).texture(1f, 1f).color(r, g, b, alpha);
         buffer.vertex(matrix, h, h, 0f).texture(1f, 0f).color(r, g, b, alpha);
         buffer.vertex(matrix, -h, h, 0f).texture(0f, 0f).color(r, g, b, alpha);
-        BufferRenderer.drawWithGlobalProgram(buffer.end());
 
         matrices.pop();
     }
@@ -519,11 +661,16 @@ public class TargetESP extends Module {
     private void spawnCubeShatter(LivingEntity entity) {
         if (entity == null || mc.world == null) return;
 
-        Vec3d center = new Vec3d(entity.getX(), entity.getY() + entity.getHeight() * 0.52, entity.getZ());
+        Vec3d center = lastCubeEntityId == entity.getId() && lastCubeCenter != null
+                ? lastCubeCenter
+                : new Vec3d(entity.getX(), entity.getY() + entity.getHeight() * 0.52, entity.getZ());
+        float shatterRotationX = lastCubeEntityId == entity.getId() ? lastCubeRenderRotationX : cubeRotationX;
+        float shatterRotationY = lastCubeEntityId == entity.getId() ? lastCubeRenderRotationY : cubeRotationY;
+        float shatterRotationZ = lastCubeEntityId == entity.getId() ? lastCubeRenderRotationZ : cubeRotationZ;
         int rgb = squareColor.get() & 0x00FFFFFF;
         float half = CUBE_HALF_SIZE;
         float length = half * 0.42f;
-        float thickness = Math.max(0.03f, half * 0.07f);
+        float thickness = Math.max(0.046f, half * 0.13f);
 
         cubeShards.clear();
         for (int ix = -1; ix <= 1; ix += 2) {
@@ -537,7 +684,7 @@ public class TargetESP extends Module {
                         if (axis == 1) ly -= iy * length * 0.5f;
                         if (axis == 2) lz -= iz * length * 0.5f;
 
-                        Vec3d local = rotateCubePoint(lx, ly, lz);
+                        Vec3d local = rotatePoint(lx, ly, lz, shatterRotationX, shatterRotationY, shatterRotationZ);
                         Vec3d outward = local.lengthSquared() > 1.0E-5 ? local.normalize() : new Vec3d(ix, iy, iz).normalize();
                         Vec3d velocity = outward.multiply(1.25 + random.nextDouble() * 0.62)
                                 .add((random.nextDouble() - 0.5) * 0.28, 0.36 + random.nextDouble() * 0.42, (random.nextDouble() - 0.5) * 0.28);
@@ -548,9 +695,9 @@ public class TargetESP extends Module {
                                 length,
                                 thickness,
                                 axis,
-                                cubeRotationX,
-                                cubeRotationY,
-                                cubeRotationZ,
+                                shatterRotationX,
+                                shatterRotationY,
+                                shatterRotationZ,
                                 randomSpin(210f, 430f),
                                 randomSpin(210f, 430f),
                                 randomSpin(210f, 430f),
@@ -652,25 +799,18 @@ public class TargetESP extends Module {
         RenderSystem.depthMask(false);
 
         RenderSystem.blendFunc(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE);
-        for (CubeShard shard : cubeShards) {
-            float progress = MathHelper.clamp(shard.age / shard.life, 0f, 1f);
-            float alpha = MathHelper.clamp((1f - progress) / 0.42f, 0f, 1f);
-            if (alpha <= 0.01f) continue;
-            float r = ((shard.rgb >> 16) & 0xFF) / 255f;
-            float g = ((shard.rgb >> 8) & 0xFF) / 255f;
-            float b = (shard.rgb & 0xFF) / 255f;
-            Vec3d pos = shard.pos.subtract(cam);
-            renderShardBloom(matrices, camera, pos, shard, r, g, b, alpha * 0.18f);
-        }
+        renderShardBlooms(matrices, camera, cam);
 
         RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
         RenderSystem.blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        BufferBuilder core = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-        boolean hasCoreVertices = false;
+        BufferBuilder core = null;
         for (CubeShard shard : cubeShards) {
             float progress = MathHelper.clamp(shard.age / shard.life, 0f, 1f);
             float alpha = MathHelper.clamp((1f - progress) / 0.42f, 0f, 1f);
             if (alpha <= 0.01f) continue;
+            if (core == null) {
+                core = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+            }
             float r = ((shard.rgb >> 16) & 0xFF) / 255f;
             float g = ((shard.rgb >> 8) & 0xFF) / 255f;
             float b = (shard.rgb & 0xFF) / 255f;
@@ -683,10 +823,9 @@ public class TargetESP extends Module {
             matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(shard.rotationY));
             matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(shard.rotationZ));
             renderShardBar(core, matrices.peek().getPositionMatrix(), shard, shard.thickness, colorCore);
-            hasCoreVertices = true;
             matrices.pop();
         }
-        if (hasCoreVertices) {
+        if (core != null) {
             BufferRenderer.drawWithGlobalProgram(core.end());
         }
 
@@ -697,7 +836,31 @@ public class TargetESP extends Module {
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
     }
 
-    private void renderShardBloom(MatrixStack matrices, Camera camera, Vec3d pos, CubeShard shard,
+    private void renderShardBlooms(MatrixStack matrices, Camera camera, Vec3d cam) {
+        BufferBuilder glow = null;
+        for (CubeShard shard : cubeShards) {
+            float progress = MathHelper.clamp(shard.age / shard.life, 0f, 1f);
+            float alpha = MathHelper.clamp((1f - progress) / 0.42f, 0f, 1f) * 0.18f;
+            if (alpha <= 0.004f) continue;
+            if (glow == null) {
+                RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+                RenderSystem.setShaderTexture(0, BLOOM_TEXTURE);
+                glow = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+            }
+
+            float r = ((shard.rgb >> 16) & 0xFF) / 255f;
+            float g = ((shard.rgb >> 8) & 0xFF) / 255f;
+            float b = (shard.rgb & 0xFF) / 255f;
+            Vec3d pos = shard.pos.subtract(cam);
+            appendShardBloom(glow, matrices, camera, pos, shard, r, g, b, alpha);
+        }
+
+        if (glow != null) {
+            BufferRenderer.drawWithGlobalProgram(glow.end());
+        }
+    }
+
+    private void appendShardBloom(BufferBuilder glow, MatrixStack matrices, Camera camera, Vec3d pos, CubeShard shard,
                                   float r, float g, float b, float alpha) {
         float halfLength = shard.length * 0.5f;
         float x1 = shard.axis == 0 ? -halfLength : 0f;
@@ -707,7 +870,7 @@ public class TargetESP extends Module {
         float y2 = shard.axis == 1 ? halfLength : 0f;
         float z2 = shard.axis == 2 ? halfLength : 0f;
 
-        renderBloomSegment(matrices, camera, pos.x, pos.y, pos.z, x1, y1, z1, x2, y2, z2,
+        appendBloomSegment(glow, matrices, camera, pos.x, pos.y, pos.z, x1, y1, z1, x2, y2, z2,
                 shard.rotationX, shard.rotationY, shard.rotationZ, shard.thickness * 5.2f, r, g, b, alpha, true);
     }
 
@@ -740,6 +903,8 @@ public class TargetESP extends Module {
                     cubeBarX(buffer, matrix, x, xInner, y, z, halfThickness, color);
                     cubeBarY(buffer, matrix, x, y, yInner, z, halfThickness, color);
                     cubeBarZ(buffer, matrix, x, y, z, zInner, halfThickness, color);
+                    float cap = halfThickness * 1.18f;
+                    cubeBox(buffer, matrix, x - cap, y - cap, z - cap, x + cap, y + cap, z + cap, color);
                 }
             }
         }
