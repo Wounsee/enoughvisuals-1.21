@@ -3,6 +3,7 @@ package fun.enoughvisuals.mixins.accessors;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.session.ProfileKeys;
 import net.minecraft.client.session.Session;
+import net.minecraft.client.gl.Framebuffer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
@@ -19,4 +20,8 @@ public interface MinecraftClientAccessor {
     @Mutable
     @Accessor("profileKeys")
     void enough$setProfileKeys(ProfileKeys profileKeys);
+
+    @Mutable
+    @Accessor("framebuffer")
+    void enough$setFramebuffer(Framebuffer framebuffer);
 }

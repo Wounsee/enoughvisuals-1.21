@@ -3,6 +3,7 @@ package fun.enoughvisuals.utils.render;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.mixins.accessors.FramebufferAccessor;
+import fun.enoughvisuals.mixins.accessors.MinecraftClientAccessor;
 import fun.enoughvisuals.mixins.accessors.ShaderProgramAccessor;
 import fun.enoughvisuals.systems.modules.modules.visual.Glow;
 import fun.enoughvisuals.systems.modules.modules.visual.ShaderESP;
@@ -113,7 +114,12 @@ public final class ShaderEspRenderer {
     ) {
         EspRenderConfig config = frameConfig;
         int entityId = state instanceof PlayerEntityRenderState playerState ? playerState.id : -1;
-        if (renderingMask || config == null || config.manualWorldCapture() || !frameReady || state.invisible || !config.shouldRender(entityId, state.squaredDistanceToCamera)) {
+        boolean playerState = state instanceof PlayerEntityRenderState;
+        boolean selfState = playerState && MinecraftClient.getInstance().player != null
+                && entityId == MinecraftClient.getInstance().player.getId();
+        if (renderingMask || config == null || config.manualWorldCapture() || !frameReady || state.invisible
+                || !config.shouldRender(entityId, state.squaredDistanceToCamera)
+                || !config.acceptsLivingState(playerState, selfState)) {
             return;
         }
 
@@ -122,7 +128,9 @@ public final class ShaderEspRenderer {
         int previousDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
         int[] viewport = new int[4];
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
-
+        MinecraftClient client = MinecraftClient.getInstance();
+        Framebuffer originalMain = client.getFramebuffer();
+        boolean mainFramebufferSwapped = false;
         try {
             if (!depthCopied) {
                 copyDepth(previousDraw, mask);
@@ -147,10 +155,16 @@ public final class ShaderEspRenderer {
                         OverlayTexture.DEFAULT_UV,
                         0xFFFFFFFF
                 );
+                ((MinecraftClientAccessor) client).enough$setFramebuffer(mask);
+                mainFramebufferSwapped = true;
+                mask.beginWrite(false);
                 consumers.draw();
             }
             captured = true;
         } finally {
+            if (mainFramebufferSwapped) {
+                ((MinecraftClientAccessor) client).enough$setFramebuffer(originalMain);
+            }
             GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
             GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDraw);
             GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
@@ -253,15 +267,24 @@ public final class ShaderEspRenderer {
         int previousDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
         int[] viewport = new int[4];
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
+        Framebuffer originalMain = client.getFramebuffer();
+        boolean mainFramebufferSwapped = false;
 
         try {
-            copyDepth(previousDraw, mask);
-            depthCopied = true;
+            if (!config.throughWalls()) {
+                copyDepth(previousDraw, mask);
+                depthCopied = true;
+            }
 
             mask.beginWrite(false);
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthFunc(GL11.GL_LEQUAL);
-            RenderSystem.depthMask(true);
+            if (config.throughWalls()) {
+                RenderSystem.disableDepthTest();
+                RenderSystem.depthMask(false);
+            } else {
+                RenderSystem.enableDepthTest();
+                RenderSystem.depthFunc(GL11.GL_LEQUAL);
+                RenderSystem.depthMask(true);
+            }
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
             RenderSystem.disableCull();
@@ -270,6 +293,13 @@ public final class ShaderEspRenderer {
             renderingMask = true;
             EntityRenderDispatcher dispatcher = client.getEntityRenderDispatcher();
             dispatcher.setRenderShadows(false);
+
+            // Entity RenderLayers bind MinecraftClient#getFramebuffer as their output target.
+            // Point that target at our mask for the duration of this isolated pass so the
+            // queued model buffers cannot silently jump back to the main world framebuffer.
+            ((MinecraftClientAccessor) client).enough$setFramebuffer(mask);
+            mainFramebufferSwapped = true;
+            mask.beginWrite(false);
 
             try (BufferAllocator allocator = new BufferAllocator(RenderLayer.DEFAULT_BUFFER_SIZE)) {
                 VertexConsumerProvider.Immediate consumers = VertexConsumerProvider.immediate(allocator);
@@ -285,18 +315,24 @@ public final class ShaderEspRenderer {
                 }
 
                 Box searchBox = client.player.getBoundingBox().expand(distance + 2.0);
-                for (Entity entity : client.world.getOtherEntities(client.player, searchBox, candidate -> candidate instanceof LivingEntity)) {
-                    if (!(entity instanceof LivingEntity living)) continue;
-                    if (!isValidManualTarget(living, config, context, cameraPos, tickDelta)) continue;
-                    renderEntityMask(living, dispatcher, matrices, consumers, cameraPos, tickDelta);
+                for (Entity entity : client.world.getOtherEntities(client.player, searchBox, config::accepts)) {
+                    if (!isValidManualTarget(entity, config, context, cameraPos, tickDelta)) continue;
+                    renderEntityMask(entity, dispatcher, matrices, consumers, cameraPos, tickDelta);
                 }
 
                 consumers.draw();
             } finally {
                 dispatcher.setRenderShadows(true);
                 renderingMask = false;
+                if (mainFramebufferSwapped) {
+                    ((MinecraftClientAccessor) client).enough$setFramebuffer(originalMain);
+                    mainFramebufferSwapped = false;
+                }
             }
         } finally {
+            if (mainFramebufferSwapped) {
+                ((MinecraftClientAccessor) client).enough$setFramebuffer(originalMain);
+            }
             GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
             GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDraw);
             GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
@@ -304,7 +340,7 @@ public final class ShaderEspRenderer {
         }
     }
 
-    private static void renderEntityMask(LivingEntity entity, EntityRenderDispatcher dispatcher, MatrixStack matrices,
+    private static void renderEntityMask(Entity entity, EntityRenderDispatcher dispatcher, MatrixStack matrices,
                                          VertexConsumerProvider.Immediate consumers, Vec3d cameraPos, float tickDelta) {
         double x = MathHelper.lerp(tickDelta, entity.prevX, entity.getX()) - cameraPos.x;
         double y = MathHelper.lerp(tickDelta, entity.prevY, entity.getY()) - cameraPos.y;
@@ -318,7 +354,7 @@ public final class ShaderEspRenderer {
         captured = true;
     }
 
-    private static boolean isValidManualTarget(LivingEntity entity, EspRenderConfig config, WorldRenderContext context,
+    private static boolean isValidManualTarget(Entity entity, EspRenderConfig config, WorldRenderContext context,
                                                Vec3d cameraPos, float tickDelta) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null || entity == null || !entity.isAlive() || entity.isRemoved() || entity.isSpectator()) {
@@ -327,7 +363,10 @@ public final class ShaderEspRenderer {
         if (entity == client.player && !config.self()) {
             return false;
         }
-        if (entity.isInvisible() && !isWearingFullHighTierArmor(entity)) {
+        if (!config.accepts(entity)) {
+            return false;
+        }
+        if (entity.isInvisible() && (!(entity instanceof LivingEntity living) || !isWearingFullHighTierArmor(living))) {
             return false;
         }
 
@@ -338,7 +377,8 @@ public final class ShaderEspRenderer {
         if (context.frustum() != null && !context.frustum().isVisible(box)) {
             return false;
         }
-        return entity == client.player || hasLineOfSight(client.player.getCameraPosVec(tickDelta), box);
+        return config.throughWalls() || entity == client.player
+                || hasLineOfSight(client.player.getCameraPosVec(tickDelta), box);
     }
 
     private static Box interpolateBox(Entity entity, float tickDelta) {
@@ -564,22 +604,24 @@ public final class ShaderEspRenderer {
         Glow glow = Glow.active();
         if (glow != null) {
             int color = glow.color();
-            boolean fillMode = glow.isFillMode();
             float strength = glow.strength.get().floatValue();
+            boolean fill = glow.isFillMode();
             return new EspRenderConfig(
                     color,
                     color,
-                    fillMode ? glow.opacity.get().floatValue() : 0.0F,
-                    fillMode ? strength * 1.15F : strength * 0.85F,
-                    fillMode ? strength * 0.90F : strength * 1.35F,
+                    fill ? ((color >>> 24) & 0xFF) / 255.0F : 0.0F,
+                    fill ? strength * 0.92F : strength,
+                    fill ? strength * 0.72F : strength * 0.82F,
                     glow.outlineWidth.get().floatValue(),
                     glow.radius.get().floatValue(),
                     0.0F,
-                    glow.modeIndex(),
+                    fill ? 2 : 0,
                     false,
                     glow.self.get(),
                     glow.distanceSquared(),
-                    false
+                    false,
+                    false,
+                    glow
             );
         }
 
@@ -602,7 +644,9 @@ public final class ShaderEspRenderer {
                 shader.mode.is("Echo"),
                 shader.self.get(),
                 distance * distance,
-                false
+                false,
+                false,
+                null
         );
     }
 
@@ -619,13 +663,27 @@ public final class ShaderEspRenderer {
             boolean echoMode,
             boolean self,
             double distanceSquared,
-            boolean manualWorldCapture
+            boolean manualWorldCapture,
+            boolean throughWalls,
+            Glow glow
     ) {
         private boolean shouldRender(int entityId, double squaredDistance) {
             MinecraftClient client = MinecraftClient.getInstance();
             if (client.player == null) return false;
             if (!self && entityId == client.player.getId()) return false;
             return squaredDistance <= distanceSquared;
+        }
+
+        private boolean accepts(Entity entity) {
+            return glow == null ? entity instanceof LivingEntity : glow.shouldRender(entity);
+        }
+
+        private boolean acceptsLivingState(boolean player, boolean selfState) {
+            if (glow == null) return !selfState || self;
+            if (player) {
+                return glow.entities.isSelected(Glow.ENTITY_PLAYERS) && (!selfState || glow.self.get());
+            }
+            return glow.entities.isSelected(Glow.ENTITY_MOBS);
         }
     }
 

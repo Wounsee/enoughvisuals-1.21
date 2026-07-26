@@ -96,7 +96,15 @@ public class DragAndDrop {
     }
 
     public void removeElement(HudElement element) {
-        if (element == null || element.isRemoving() || !element.isRemovable()) {
+        removeElement(element, false);
+    }
+
+    public void removeElementForced(HudElement element) {
+        removeElement(element, true);
+    }
+
+    private void removeElement(HudElement element, boolean forced) {
+        if (element == null || element.isRemoving() || (!forced && !element.isRemovable())) {
             return;
         }
 

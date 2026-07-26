@@ -7,6 +7,7 @@ import fun.enoughvisuals.systems.accounts.AccountSessionManager;
 import fun.enoughvisuals.systems.animations.AnimatedFloat;
 import fun.enoughvisuals.systems.animations.Easing;
 import fun.enoughvisuals.systems.animations.TimeAnimation;
+import fun.enoughvisuals.ui.mainmenu.MenuBackgroundManager;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.render.RenderUtil;
@@ -27,10 +28,6 @@ import java.util.List;
 import java.util.UUID;
 
 public final class AccountSwitcherScreen extends Screen {
-    private static final Identifier BACKGROUND = Identifier.of("enough", "textures/mainmenu/bg.png");
-    private static final int BACKGROUND_WIDTH = 1920;
-    private static final int BACKGROUND_HEIGHT = 1080;
-
     private static final int ACCENT = 0xFFA884FF;
     private static final int NORMAL = 0xE8151515;
     private static final int HOVER = 0xF01F1F1F;
@@ -53,7 +50,7 @@ public final class AccountSwitcherScreen extends Screen {
     private final List<AccountProfile> accounts = new ArrayList<>();
     private final List<RowAnim> rowAnimations = new ArrayList<>();
 
-    private boolean backgroundFilterConfigured;
+    private Identifier filteredBackground;
     private float screenScale = 1f;
     private float virtualWidth;
     private float virtualHeight;
@@ -491,56 +488,62 @@ public final class AccountSwitcherScreen extends Screen {
     private void drawBackground(DrawContext ctx) {
         configureBackgroundFiltering();
 
+        Identifier background = MenuBackgroundManager.texture();
+        int backgroundWidth = MenuBackgroundManager.textureWidth();
+        int backgroundHeight = MenuBackgroundManager.textureHeight();
+
         float screenAspect = width / (float) Math.max(1, height);
-        float textureAspect = BACKGROUND_WIDTH / (float) BACKGROUND_HEIGHT;
+        float textureAspect = backgroundWidth / (float) backgroundHeight;
         float sourceX = 0f;
         float sourceY = 0f;
-        int sourceW = BACKGROUND_WIDTH;
-        int sourceH = BACKGROUND_HEIGHT;
+        int sourceW = backgroundWidth;
+        int sourceH = backgroundHeight;
 
         if (screenAspect > textureAspect) {
-            sourceH = Math.round(BACKGROUND_WIDTH / screenAspect);
-            sourceY = (BACKGROUND_HEIGHT - sourceH) * 0.5f;
+            sourceH = Math.round(backgroundWidth / screenAspect);
+            sourceY = (backgroundHeight - sourceH) * 0.5f;
         } else if (screenAspect < textureAspect) {
-            sourceW = Math.round(BACKGROUND_HEIGHT * screenAspect);
-            sourceX = (BACKGROUND_WIDTH - sourceW) * 0.5f;
+            sourceW = Math.round(backgroundHeight * screenAspect);
+            sourceX = (backgroundWidth - sourceW) * 0.5f;
         }
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        drawBackgroundPass(ctx, sourceX, sourceY, sourceW, sourceH, 0.0f, 0.0f, 1.0f);
-        drawBackgroundPass(ctx, sourceX, sourceY, sourceW, sourceH, 0.45f, 0.0f, 0.055f);
-        drawBackgroundPass(ctx, sourceX, sourceY, sourceW, sourceH, -0.45f, 0.0f, 0.055f);
-        drawBackgroundPass(ctx, sourceX, sourceY, sourceW, sourceH, 0.0f, 0.45f, 0.055f);
-        drawBackgroundPass(ctx, sourceX, sourceY, sourceW, sourceH, 0.0f, -0.45f, 0.055f);
-        drawBackgroundPass(ctx, sourceX, sourceY, sourceW, sourceH, 0.35f, 0.35f, 0.035f);
-        drawBackgroundPass(ctx, sourceX, sourceY, sourceW, sourceH, -0.35f, 0.35f, 0.035f);
-        drawBackgroundPass(ctx, sourceX, sourceY, sourceW, sourceH, 0.35f, -0.35f, 0.035f);
-        drawBackgroundPass(ctx, sourceX, sourceY, sourceW, sourceH, -0.35f, -0.35f, 0.035f);
+        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, 0.0f, 0.0f, 1.0f);
+        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, 0.45f, 0.0f, 0.055f);
+        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, -0.45f, 0.0f, 0.055f);
+        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, 0.0f, 0.45f, 0.055f);
+        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, 0.0f, -0.45f, 0.055f);
+        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, 0.35f, 0.35f, 0.035f);
+        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, -0.35f, 0.35f, 0.035f);
+        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, 0.35f, -0.35f, 0.035f);
+        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, -0.35f, -0.35f, 0.035f);
         ctx.draw();
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         RenderSystem.disableBlend();
     }
 
-    private void drawBackgroundPass(DrawContext ctx, float sourceX, float sourceY, int sourceW, int sourceH,
+    private void drawBackgroundPass(DrawContext ctx, Identifier background, int backgroundWidth, int backgroundHeight,
+                                    float sourceX, float sourceY, int sourceW, int sourceH,
                                     float offsetX, float offsetY, float alpha) {
         RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
         ctx.getMatrices().push();
         ctx.getMatrices().translate(offsetX, offsetY, 0f);
-        ctx.drawTexture(RenderLayer::getGuiTextured, BACKGROUND, 0, 0, sourceX, sourceY,
-                width, height, sourceW, sourceH, BACKGROUND_WIDTH, BACKGROUND_HEIGHT);
+        ctx.drawTexture(RenderLayer::getGuiTextured, background, 0, 0, sourceX, sourceY,
+                width, height, sourceW, sourceH, backgroundWidth, backgroundHeight);
         ctx.getMatrices().pop();
     }
 
     private void configureBackgroundFiltering() {
-        if (backgroundFilterConfigured || client == null) return;
+        Identifier background = MenuBackgroundManager.texture();
+        if (background.equals(filteredBackground) || client == null) return;
 
         try {
-            AbstractTexture texture = client.getTextureManager().getTexture(BACKGROUND);
+            AbstractTexture texture = client.getTextureManager().getTexture(background);
             if (texture != null) {
                 texture.setFilter(true, true);
-                backgroundFilterConfigured = true;
+                filteredBackground = background;
             }
         } catch (Throwable ignored) {
         }

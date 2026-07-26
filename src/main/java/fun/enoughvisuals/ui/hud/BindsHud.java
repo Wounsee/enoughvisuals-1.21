@@ -1,5 +1,7 @@
 package fun.enoughvisuals.ui.hud;
 
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
+
 import fun.enoughvisuals.systems.hud.HudElement;
 import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
@@ -113,7 +115,7 @@ public class BindsHud extends HudElement {
                 RenderUtil.withAlpha(0x000000, headerAlpha * 0.18f));
 
         // Заголовок
-        CustomFontRenderer.drawText(ctx, "\uF003", x + 5f * s, y + 4.2f * s, 8.5f * s, RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.BINDS);
+        CustomFontRenderer.drawText(ctx, "\uF003", x + 5f * s, y + 4.2f * s, 8.5f * s, RenderUtil.withAlpha(CustomTheme.hudAccentLight(), headerAlpha), FontWeight.BINDS);
         CustomFontRenderer.drawText(ctx, "Бинды", x + 18f * s, y + 4.8f * s, 6.5f * s, RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.SEMIBOLD);
 
         if (h <= headerH + 2f) {

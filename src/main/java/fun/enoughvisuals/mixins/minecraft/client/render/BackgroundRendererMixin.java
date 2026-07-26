@@ -22,7 +22,7 @@ public class BackgroundRendererMixin {
                                               float skyDarkness,
                                               CallbackInfoReturnable<Vector4f> cir) {
         CustomWorld customWorld = CustomWorld.active();
-        if (customWorld != null && customWorld.shouldApplyFog(camera)) {
+        if (customWorld != null && customWorld.shouldApplyFog(camera, BackgroundRenderer.FogType.FOG_TERRAIN)) {
             cir.setReturnValue(customWorld.fogColorVector());
         }
     }
@@ -36,7 +36,7 @@ public class BackgroundRendererMixin {
                                          float tickDelta,
                                          CallbackInfoReturnable<Fog> cir) {
         CustomWorld customWorld = CustomWorld.active();
-        if (customWorld != null && customWorld.shouldApplyFog(camera)) {
+        if (customWorld != null && customWorld.shouldApplyFog(camera, fogType)) {
             cir.setReturnValue(customWorld.applyFog(cir.getReturnValue()));
         }
     }

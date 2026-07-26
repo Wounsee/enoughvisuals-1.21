@@ -16,7 +16,7 @@ import net.minecraft.util.math.Direction;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-@Register(name = "Item Swap", id = "item_swap", description = "Свап талисмана и сферы в левой руке", category = Category.UTILS)
+@Register(name = "Auto Swap", id = "item_swap", description = "Свап талисмана и сферы в левой руке", category = Category.UTILS)
 public class ItemSwap extends Module {
     private static ItemSwap INSTANCE;
 

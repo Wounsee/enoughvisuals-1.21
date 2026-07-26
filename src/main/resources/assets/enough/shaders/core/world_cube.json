@@ -1,0 +1,11 @@
+{
+  "vertex": "enough:core/world_effect",
+  "fragment": "enough:core/world_cube",
+  "samplers": [],
+  "uniforms": [
+    { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
+    { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
+    { "name": "Time", "type": "float", "count": 1, "values": [0.0] },
+    { "name": "GlowStrength", "type": "float", "count": 1, "values": [1.0] }
+  ]
+}

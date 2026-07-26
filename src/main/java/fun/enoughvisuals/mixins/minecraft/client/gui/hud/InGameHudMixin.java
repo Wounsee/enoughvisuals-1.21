@@ -99,31 +99,50 @@ public abstract class InGameHudMixin {
         StencilUtil.resetRenderState();
         LockSlot module = LockSlot.getInstance();
 
-        if (module != null && module.isEnabled()) {
-            MinecraftClient mc = MinecraftClient.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
+        int scaledWidth = mc.getWindow().getScaledWidth();
+        int scaledHeight = mc.getWindow().getScaledHeight();
 
-            // Используем 100% рабочий метод получения ширины/высоты экрана
-            int scaledWidth = mc.getWindow().getScaledWidth();
-            int scaledHeight = mc.getWindow().getScaledHeight();
+        context.getMatrices().push();
+        context.getMatrices().translate(0, 0, 200f);
 
-            context.getMatrices().push();
-            // Поднимаем Z-index (200), чтобы рисовать чётко поверх предметов и чар
-            context.getMatrices().translate(0, 0, 200f);
-
-            for (int slot = 0; slot < 9; slot++) {
+        for (int slot = 0; slot < 9; slot++) {
+            boolean isLocked = false;
+            if (module != null && module.isEnabled()) {
                 if (module.isLocked(slot)) {
-                    // Идеальные ванильные координаты предмета в хотбаре
                     int x = scaledWidth / 2 - 88 + slot * 20;
                     int y = scaledHeight - 19;
-
-                    // Рисуем красный квадрат ровно по размеру предмета (16x16)
                     context.fill(x, y, x + 16, y + 16, 0x60FF0000);
+                    isLocked = true;
                 }
             }
 
-            context.getMatrices().pop();
+            if (!isLocked && mc.player != null) {
+                net.minecraft.item.ItemStack stack = mc.player.getInventory().getStack(slot);
+                if (stack != null && !stack.isEmpty()) {
+                    int x = scaledWidth / 2 - 88 + slot * 20;
+                    int y = scaledHeight - 19;
+
+                    fun.enoughvisuals.systems.modules.modules.utils.HealingHelper healingHelper = fun.enoughvisuals.systems.modules.modules.utils.HealingHelper.getInstance();
+                    if (healingHelper != null && healingHelper.isEnabled()) {
+                        int color = healingHelper.colorForStack(stack);
+                        if ((color & 0xFF000000) != 0) {
+                            context.fill(x, y, x + 16, y + 16, color);
+                        }
+                    }
+
+                    fun.enoughvisuals.systems.modules.modules.visual.MaceIndicator maceIndicator = fun.enoughvisuals.systems.modules.modules.visual.MaceIndicator.getInstance();
+                    if (maceIndicator != null && maceIndicator.isEnabled()) {
+                        int color = maceIndicator.colorForStack(stack);
+                        if ((color & 0xFF000000) != 0) {
+                            context.fill(x, y, x + 16, y + 16, color);
+                        }
+                    }
+                }
+            }
         }
 
+        context.getMatrices().pop();
     }
 
     @Inject(method = "renderOverlay", at = @At("HEAD"), cancellable = true)

@@ -6,6 +6,7 @@ import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.ColorSetting;
+import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
 
@@ -20,7 +21,7 @@ public class CustomTheme extends Module {
             "Меню",
             "menu",
             "Менять цвет ClickGUI",
-            false
+            true
     ));
 
     public final BooleanSetting hud = add(new BooleanSetting(
@@ -37,21 +38,18 @@ public class CustomTheme extends Module {
             false
     ));
 
-    public final ColorSetting color = add(new ColorSetting(
-            "Меню",
-            "color",
-            "Основной цвет ClickGUI",
+    public final ColorSetting accent = add(new ColorSetting(
+            "Акцент",
+            "accent",
+            "Акцентный цвет ClickGUI и HUD",
             MenuScreen.DEFAULT_ACCENT,
             false
     ));
 
-    public final ColorSetting hudColor = add(new ColorSetting(
-            "Цвет HUD",
-            "hud_color",
-            "Акцентный цвет элементов HUD",
-            MenuScreen.DEFAULT_ACCENT,
-            false
-    ));
+    public final SliderSetting clickGuiRadius = add(new SliderSetting(
+            "Закругление ClickGUI", "click_gui_radius", 10.0, 3.0, 16.0, 0.5));
+    public final SliderSetting hudRadius = add(new SliderSetting(
+            "Закругление HUD", "hud_radius", 6.0, 2.0, 12.0, 0.5));
 
     public final ColorSetting itemColor = add(new ColorSetting(
             "Цвет предметов",
@@ -69,7 +67,7 @@ public class CustomTheme extends Module {
     ));
 
     public CustomTheme() {
-        color.visibleWhen(menu::get);
+        menu.visibleWhen(() -> false);
         enableSilent();
     }
 
@@ -85,6 +83,8 @@ public class CustomTheme extends Module {
 
     @Override
     public void onTick() {
+        if (!isEnabled()) enableSilent();
+        if (!menu.get()) menu.set(true);
         MenuScreen.syncTheme();
         if (disableBlur.get()) {
             GlassUtil.cleanup();
@@ -93,9 +93,7 @@ public class CustomTheme extends Module {
 
     public static int hudAccent() {
         CustomTheme theme = activeTheme();
-        if (theme != null && theme.hud.get()) {
-            return theme.hudAccentColor();
-        }
+        if (theme != null) return theme.guiAccentColor();
         return MenuScreen.DEFAULT_ACCENT;
     }
 
@@ -170,11 +168,26 @@ public class CustomTheme extends Module {
     }
 
     public int guiAccentColor() {
-        return 0xFF000000 | (color.get() & 0x00FFFFFF);
+        return 0xFF000000 | (accent.get() & 0x00FFFFFF);
     }
 
     public int hudAccentColor() {
-        return 0xFF000000 | (hudColor.get() & 0x00FFFFFF);
+        return guiAccentColor();
+    }
+
+    public static int guiAccent() {
+        CustomTheme theme = activeTheme();
+        return theme == null ? MenuScreen.DEFAULT_ACCENT : theme.guiAccentColor();
+    }
+
+    public static float clickGuiRadius() {
+        CustomTheme theme = activeTheme();
+        return theme == null ? 10f : theme.clickGuiRadius.get().floatValue();
+    }
+
+    public static float hudRadiusScale() {
+        CustomTheme theme = activeTheme();
+        return theme == null ? 1f : theme.hudRadius.get().floatValue() / 6f;
     }
 
     public int itemAccentColor() {
@@ -183,7 +196,30 @@ public class CustomTheme extends Module {
 
     private static CustomTheme activeTheme() {
         CustomTheme theme = ModuleManager.getInstance().get(CustomTheme.class);
-        return theme != null && theme.isEnabled() ? theme : null;
+        return theme;
+    }
+
+    @Override
+    public void toggle() {
+        if (!isEnabled()) enableSilent();
+    }
+
+    @Override
+    public void disable() {
+    }
+
+    @Override
+    public void disableSilent() {
+    }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        if (!isEnabled()) enableSilent();
+    }
+
+    @Override
+    public void setEnabledSilent(boolean enabled) {
+        if (!isEnabled()) enableSilent();
     }
 
     private static int lighten(int color, float amount) {

@@ -11,7 +11,8 @@ import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BindSetting;
 import fun.enoughvisuals.systems.modules.settings.ClickSetting;
 import fun.enoughvisuals.systems.modules.settings.StringSetting;
-import fun.enoughvisuals.ui.screen.MacrosScreen;
+import fun.enoughvisuals.ui.clickgui.MenuScreen;
+import fun.enoughvisuals.ui.clickgui.components.IntegratedToolPage;
 import fun.enoughvisuals.utils.player.ClientActionUtil;
 
 import java.util.ArrayList;
@@ -41,7 +42,7 @@ public class Macros extends Module {
     }
 
     public static void onKey(int key) {
-        if (INSTANCE == null || !INSTANCE.isEnabled() || !ClientActionUtil.inGame()) return;
+        if (INSTANCE == null || !ClientActionUtil.inGame()) return;
         if (INSTANCE.openMenuBind.isKey(key)) {
             INSTANCE.openMenu();
             return;
@@ -84,7 +85,7 @@ public class Macros extends Module {
 
     private void openMenu() {
         if (mc != null) {
-            mc.setScreen(new MacrosScreen(this));
+            mc.setScreen(new MenuScreen(IntegratedToolPage.Type.MACROS));
         }
     }
 

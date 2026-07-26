@@ -7,38 +7,53 @@ import fun.enoughvisuals.systems.modules.api.Register;
 @Register(
         name = "Auto Sprint",
         id = "auto_sprint",
-        description = "Автоматически бегает",
+        description = "Автоматически зажимает клавишу бега при движении вперед",
         category = Category.UTILS
 )
 public final class AutoSprint extends Module {
 
+    private static AutoSprint INSTANCE;
+
+    public AutoSprint() {
+        INSTANCE = this;
+    }
+
+    public static AutoSprint getInstance() {
+        return INSTANCE;
+    }
+
     @Override
     public void onTick() {
-        if (!isInGame()) return;
-
-        if (mc.currentScreen != null) {
-            stopControlledSprint();
+        if (!isInGame() || mc.options == null) {
             return;
         }
 
-        boolean canSprint = mc.player.input != null
+        if (!isEnabled()) {
+            // Release the sprint key when module is disabled
+            if (mc.options.sprintKey.isPressed()) {
+                mc.options.sprintKey.setPressed(false);
+            }
+            return;
+        }
+
+        // Hold the sprint key pressed while enabled
+        mc.options.sprintKey.setPressed(true);
+
+        // Force player sprint state if moving forward, not sneaking/using item, and has food
+        if (mc.player.input != null
                 && mc.player.input.movementForward > 0.8F
+                && !mc.player.isSprinting()
                 && !mc.player.isSneaking()
                 && !mc.player.isUsingItem()
-                && !mc.player.horizontalCollision
-                && (mc.player.getHungerManager().getFoodLevel() > 6
-                || mc.player.getAbilities().allowFlying);
-
-        if (canSprint && !mc.player.isSprinting()) {
+                && mc.player.getHungerManager().getFoodLevel() > 6) {
             mc.player.setSprinting(true);
-        } else if (!canSprint) {
-            stopControlledSprint();
         }
     }
 
-    private void stopControlledSprint() {
-        if (mc.player != null && mc.player.isSprinting() && !mc.options.sprintKey.isPressed()) {
-            mc.player.setSprinting(false);
+    @Override
+    protected void onDisable() {
+        if (mc.options != null && mc.options.sprintKey.isPressed()) {
+            mc.options.sprintKey.setPressed(false);
         }
     }
 }

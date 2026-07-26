@@ -178,12 +178,6 @@ public class TargetHud extends HudElement {
         float baseW = 120f * s;
         float baseH = 34f * s;
 
-        if (displayTarget != null) {
-            float nameW = CustomFontRenderer.getTextWidth(protectedName(displayTarget), 7f * s, FontWeight.SEMIBOLD);
-            float neededW = (5f + 24f + 6f + 30f + 5f) * s + Math.min(nameW, 72f * s);
-            baseW = Math.max(baseW, neededW);
-        }
-
         setWidth(baseW);
         setHeight(baseH);
     }
@@ -254,7 +248,7 @@ public class TargetHud extends HudElement {
         float nameFontSize = 7f * s;
         float nameMaxX = hpNumX - 4f * s;
         String originalName = protectedName(displayTarget);
-        float nameLimitW = CustomFontRenderer.getTextWidth("abcdefghijkl", nameFontSize, FontWeight.SEMIBOLD);
+        float nameLimitW = 58f * s;
         float nameMaxW = Math.min(Math.max(8f * s, nameMaxX - textX), nameLimitW);
         int nameColor = RenderUtil.withAlpha(0xFFFFFF, alpha);
         if (originalName.length() > 12 || CustomFontRenderer.getTextWidth(originalName, nameFontSize, FontWeight.SEMIBOLD) > nameMaxW) {

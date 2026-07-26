@@ -11,11 +11,6 @@ import net.minecraft.client.MinecraftClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -26,21 +21,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Polls the EnoughVisuals backend for remote configuration:
  * blocked modules, required client version and a global client block switch.
  *
- * <p>The endpoint ({@code api.enoughvisuals.fun}) is DNS-only (no Cloudflare proxy),
- * so players in Russia reach it directly without a VPN.
+ * <p>Production networking is owned by EnoughLauncher. The mod only sends a
+ * request document through the authenticated loopback bridge created for the
+ * current protected launch session.
  */
 public final class RemoteConfig {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("EnoughVisuals/Remote");
     private static final RemoteConfig INSTANCE = new RemoteConfig();
 
-    private static final String SYNC_URL = "https://api.enoughvisuals.fun/v1/sync";
     private static final long POLL_INTERVAL_MS = 5_000L;
-
-    private final HttpClient http = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(8))
-            .version(HttpClient.Version.HTTP_1_1)
-            .build();
 
     private final AtomicBoolean started = new AtomicBoolean(false);
 
@@ -93,20 +83,20 @@ public final class RemoteConfig {
 
     private void sync() throws Exception {
         String body = buildRequest();
-        HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(SYNC_URL))
-                .timeout(Duration.ofSeconds(10))
-                .header("Content-Type", "application/json")
-                .header("User-Agent", "EnoughVisuals/" + Info.VERSION)
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
-
-        HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
-        if (resp.statusCode() != 200) {
+        String response = launcherSync(body);
+        if (response == null || response.isBlank()) {
             return;
         }
-        apply(JsonParser.parseString(resp.body()).getAsJsonObject());
+        apply(JsonParser.parseString(response).getAsJsonObject());
         everSynced = true;
+    }
+
+    private static String launcherSync(String body) throws Exception {
+        Class<?> bridge =
+                Class.forName("net.fabricmc.loader.impl.secure.SecureModStore");
+        Object response =
+                bridge.getMethod("launcherSync", String.class).invoke(null, body);
+        return response instanceof String text ? text : null;
     }
 
     private String buildRequest() {

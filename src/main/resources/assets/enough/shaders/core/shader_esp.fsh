@@ -59,13 +59,13 @@ void main() {
         return;
     }
 
-    float fullBoost = Mode == 2 ? 1.35 : 1.0;
+    float fullBoost = 1.0;
     float fillAlpha = mask * FillOpacity * fullBoost;
     float glowAlpha = outer * GlowStrength * (Mode == 2 ? 1.25 : 1.45);
     float outlineAlpha = outline * OutlineStrength * 1.15;
     vec4 echo = Mode == 1 ? texture(Sampler2, uv) : vec4(0.0);
 
-    float alpha = clamp(fillAlpha + glowAlpha + outlineAlpha + echo.a * 0.72, 0.0, 0.94);
+    float alpha = clamp(fillAlpha + glowAlpha + outlineAlpha + echo.a * 0.72, 0.0, 1.0);
     if (alpha < 0.002) {
         discard;
     }

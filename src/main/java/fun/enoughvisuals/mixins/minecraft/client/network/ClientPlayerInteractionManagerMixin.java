@@ -4,6 +4,8 @@ import fun.enoughvisuals.systems.modules.modules.utils.LockSlot;
 import fun.enoughvisuals.systems.modules.modules.utils.PvPSave;
 import fun.enoughvisuals.systems.modules.modules.utils.FakePlayer;
 import fun.enoughvisuals.systems.modules.modules.utils.ShiftTap;
+import fun.enoughvisuals.systems.modules.modules.utils.TrapTimer;
+import fun.enoughvisuals.systems.modules.modules.visual.HealthIndicator;
 import fun.enoughvisuals.systems.modules.modules.visual.TargetESP;
 import fun.enoughvisuals.utils.sound.CombatSoundService;
 import net.minecraft.client.network.ClientPlayerInteractionManager;
@@ -11,10 +13,13 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ClientPlayerInteractionManager.class)
 public class ClientPlayerInteractionManagerMixin {
@@ -29,6 +34,21 @@ public class ClientPlayerInteractionManagerMixin {
         CombatSoundService.recordAttackTarget(target);
         TargetESP.onAttackAttempt(target);
         ShiftTap.onAttack();
+
+        if (target instanceof PlayerEntity victim) {
+            HealthIndicator indicator = HealthIndicator.getInstance();
+            if (indicator != null) {
+                indicator.recordAttack(victim);
+            }
+        }
+    }
+
+    @Inject(method = "interactItem", at = @At("HEAD"))
+    private void enough$onInteractItem(PlayerEntity player, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
+        TrapTimer trapTimer = TrapTimer.getInstance();
+        if (trapTimer != null) {
+            trapTimer.onItemUse(player, hand);
+        }
     }
 
     @Inject(method = "clickSlot", at = @At("HEAD"), cancellable = true)

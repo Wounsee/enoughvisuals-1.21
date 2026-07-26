@@ -167,6 +167,11 @@ public class ModuleManager {
         for (Module mod : modules) {
             if (isHidden(mod)) continue;
             if (isBlocked(mod)) continue;
+            try {
+                mod.onKeyPress(keyCode);
+            } catch (Exception e) {
+                LOGGER.error("Error in {}.onKeyPress()", mod.getId(), e);
+            }
             if (mod.getKeyBind() < 0) continue;
             if (mod.getKeyBind() == keyCode) {
                 mod.toggle();

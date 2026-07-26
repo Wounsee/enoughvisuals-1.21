@@ -47,17 +47,78 @@ public abstract class HandledScreenMixin {
     @Inject(method = "drawSlot", at = @At("TAIL"))
     private void onDrawSlot(DrawContext context, Slot slot, CallbackInfo ci) {
         LockSlot module = LockSlot.getInstance();
+        boolean isLocked = false;
         if (module != null && module.isEnabled()) {
-
             int trueIndex = module.getTruePlayerSlotIndex(slot);
-
             if (trueIndex != -1 && module.isLocked(trueIndex)) {
                 context.getMatrices().push();
                 context.getMatrices().translate(0, 0, 300f); // Рисуем поверх предмета в креативе
                 context.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, 0x60FF0000);
                 context.getMatrices().pop();
+                isLocked = true;
             }
         }
+
+        if (!isLocked) {
+            net.minecraft.item.ItemStack stack = slot.getStack();
+            if (stack != null && !stack.isEmpty()) {
+                fun.enoughvisuals.systems.modules.modules.utils.HealingHelper healingHelper = fun.enoughvisuals.systems.modules.modules.utils.HealingHelper.getInstance();
+                if (healingHelper != null && healingHelper.isEnabled()) {
+                    int color = healingHelper.colorForStack(stack);
+                    if ((color & 0xFF000000) != 0) {
+                        context.getMatrices().push();
+                        context.getMatrices().translate(0, 0, 300f);
+                        context.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, color);
+                        context.getMatrices().pop();
+                    }
+                }
+
+                fun.enoughvisuals.systems.modules.modules.visual.MaceIndicator maceIndicator = fun.enoughvisuals.systems.modules.modules.visual.MaceIndicator.getInstance();
+                if (maceIndicator != null && maceIndicator.isEnabled()) {
+                    int color = maceIndicator.colorForStack(stack);
+                    if ((color & 0xFF000000) != 0) {
+                        context.getMatrices().push();
+                        context.getMatrices().translate(0, 0, 300f);
+                        context.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, color);
+                        context.getMatrices().pop();
+                    }
+                }
+            }
+        }
+    }
+
+    @Inject(method = "drawMouseoverTooltip", at = @At("HEAD"), cancellable = true)
+    private void enough$suppressShulkerVanillaTooltip(DrawContext context, int mouseX, int mouseY, CallbackInfo ci) {
+        fun.enoughvisuals.systems.modules.modules.visual.ShulkerPreview module = fun.enoughvisuals.systems.modules.modules.visual.ShulkerPreview.getInstance();
+        if (module == null || !module.isEnabled() || !module.shouldShow()) {
+            return;
+        }
+        if (focusedSlot == null) {
+            return;
+        }
+        net.minecraft.item.ItemStack stack = focusedSlot.getStack();
+        net.minecraft.component.type.ContainerComponent container = module.extractContainer(stack);
+        if (container == null) {
+            return;
+        }
+        ci.cancel();
+    }
+
+    @Inject(method = "render", at = @At("TAIL"))
+    private void enough$drawShulkerPreview(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        fun.enoughvisuals.systems.modules.modules.visual.ShulkerPreview module = fun.enoughvisuals.systems.modules.modules.visual.ShulkerPreview.getInstance();
+        if (module == null || !module.isEnabled() || !module.shouldShow()) {
+            return;
+        }
+        if (focusedSlot == null) {
+            return;
+        }
+        net.minecraft.item.ItemStack stack = focusedSlot.getStack();
+        net.minecraft.component.type.ContainerComponent container = module.extractContainer(stack);
+        if (container == null) {
+            return;
+        }
+        module.renderPreview(context, mouseX, mouseY, container, stack);
     }
 
     // Отрисовка текстовой подсказки на экране

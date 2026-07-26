@@ -121,6 +121,7 @@ public abstract class Module {
     protected boolean canEnable() { return true; }
     public void onTick() {}
     public void onRender(float tickDelta) {}
+    public void onKeyPress(int key) {}
 
     
     

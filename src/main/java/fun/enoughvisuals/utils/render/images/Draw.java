@@ -102,12 +102,10 @@ public class Draw {
     public static void imagePlayerHeadRounded(DrawContext ctx, Identifier skin, float x, float y, float size, float radius, float alpha) {
         if (alpha <= 0.005f) return;
         float safeRadius = Math.min(radius, size * 0.5f);
-        RenderUtil.drawRoundedTextureUVCPU(ctx.getMatrices().peek().getPositionMatrix(), skin,
-                x, y, size, size, safeRadius, safeRadius, safeRadius, safeRadius,
-                8f, 8f, 8f, 8f, 64, 64, alpha);
-        RenderUtil.drawRoundedTextureUVCPU(ctx.getMatrices().peek().getPositionMatrix(), skin,
-                x, y, size, size, safeRadius, safeRadius, safeRadius, safeRadius,
-                40f, 8f, 8f, 8f, 64, 64, alpha);
+        RenderUtil.drawRoundedTextureShader(ctx, skin, x, y, size, size, safeRadius, alpha,
+                8f, 8f, 8f, 8f, 64f, 64f);
+        RenderUtil.drawRoundedTextureShader(ctx, skin, x, y, size, size, safeRadius, alpha,
+                40f, 8f, 8f, 8f, 64f, 64f);
     }
 
     private static void drawTextureUV(DrawContext ctx, Identifier texture, float x, float y, float w, float h,

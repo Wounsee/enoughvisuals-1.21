@@ -6,6 +6,7 @@ import fun.enoughvisuals.systems.hud.DragAndDrop;
 import fun.enoughvisuals.systems.hud.HudElement;
 import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
+import fun.enoughvisuals.systems.modules.modules.client.HUD;
 import fun.enoughvisuals.systems.modules.settings.Setting;
 import net.minecraft.client.MinecraftClient;
 import org.slf4j.Logger;
@@ -320,18 +321,21 @@ public final class ConfigSystem {
             dad.setRememberedSettings(new HashMap<>());
         }
 
-        if (snapshot.hud == null || snapshot.hud.elements == null) return;
+        if (snapshot.hud != null && snapshot.hud.elements != null) {
+            for (HudElementSnapshot hudData : snapshot.hud.elements) {
+                if (hudData == null || hudData.id == null || hudData.id.isBlank()) continue;
 
-        for (HudElementSnapshot hudData : snapshot.hud.elements) {
-            if (hudData == null || hudData.id == null || hudData.id.isBlank()) continue;
+                HudElement element = dad.addElement(hudData.id, hudData.x, hudData.y);
+                if (element == null) continue;
 
-            HudElement element = dad.addElement(hudData.id, hudData.x, hudData.y);
-            if (element == null) continue;
-
-            element.setX(hudData.x);
-            element.setY(hudData.y);
-            applySettings(element.getSettings(), hudData.settings);
+                element.setX(hudData.x);
+                element.setY(hudData.y);
+                applySettings(element.getSettings(), hudData.settings);
+            }
         }
+
+        HUD hudModule = moduleManager.get(HUD.class);
+        if (hudModule != null) hudModule.syncWatermarkVisibility();
     }
 
     private void applySettings(List<Setting<?>> settings, Map<String, Object> values) {

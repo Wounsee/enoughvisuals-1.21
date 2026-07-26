@@ -214,6 +214,7 @@ public abstract class HudElement {
 
     protected final void drawMenuStyleBackground(DrawContext ctx, float x, float y, float w, float h,
                                                  float radius, float alpha) {
+        radius *= CustomTheme.hudRadiusScale();
         RenderUtil.drawShadow(ctx, x, y, w, h, radius, 8.5f,
                 RenderUtil.withAlpha(0x000000, alpha * 0.22f));
         GlassUtil.drawGlassPanel(ctx, x, y, w, h, radius,

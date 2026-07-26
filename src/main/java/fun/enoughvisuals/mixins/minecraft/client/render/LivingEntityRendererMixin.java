@@ -101,4 +101,51 @@ public class LivingEntityRendererMixin {
             cir.setReturnValue(false);
         }
     }
+
+    @Inject(
+            method = "render(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V",
+            at = @At("TAIL")
+    )
+    private void enough$drawHitRange(
+            net.minecraft.client.render.entity.state.LivingEntityRenderState state,
+            MatrixStack matrices,
+            VertexConsumerProvider vertexConsumers,
+            int light,
+            CallbackInfo ci
+    ) {
+        fun.enoughvisuals.systems.modules.modules.visual.HitRange config = fun.enoughvisuals.systems.modules.modules.visual.HitRange.getInstance();
+        if (config == null || !config.isEnabled()) {
+            return;
+        }
+
+        if (!(state instanceof PlayerEntityRenderState playerState)) {
+            return;
+        }
+
+        net.minecraft.client.network.ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        if (player == null) {
+            return;
+        }
+
+        if (player.getId() == playerState.id) {
+            return;
+        }
+
+        net.minecraft.util.math.Vec3d pos = new net.minecraft.util.math.Vec3d(state.x, state.y, state.z);
+        if (!pos.isInRange(player.getPos(), config.maxDistance.get())) {
+            return;
+        }
+
+        if (config.nearestOnly.get()) {
+            if (config.getNearest() == null || config.getNearest().getId() != playerState.id) {
+                return;
+            }
+        }
+
+        if (playerState.deathTime > 0.0f || playerState.invisibleToPlayer || playerState.sleepingDirection != null) {
+            return;
+        }
+
+        fun.enoughvisuals.utils.render.HitRangeCircleRenderer.drawCircle(matrices, vertexConsumers, playerState);
+    }
 }

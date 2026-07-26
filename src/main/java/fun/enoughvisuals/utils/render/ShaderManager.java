@@ -46,7 +46,10 @@ public class ShaderManager {
     public static final String ROUNDED_RECT_GRADIENT = "rounded_rect_gradient";
     public static final String CIRCLE = "circle";
     public static final String SHADOW = "shadow";
+    public static final String COLOR_PICKER = "color_picker";
+    public static final String ROUNDED_CHECKERBOARD = "rounded_checkerboard";
     public static final String ROUNDED_TEXTURE = "rounded_texture";
+    public static final String MENU_PREVIEW = "menu_preview";
 
 
 
@@ -66,12 +69,15 @@ public class ShaderManager {
             linkProgram(ROUNDED_RECT_GRADIENT, vertShader, "rounded_rect_gradient.fsh");
             linkProgram(CIRCLE, vertShader, "circle.fsh");
             linkProgram(SHADOW, vertShader, "shadow.fsh");
+            linkProgram(COLOR_PICKER, vertShader, "color_picker.fsh");
+            linkProgram(ROUNDED_CHECKERBOARD, vertShader, "rounded_checkerboard.fsh");
             GL20.glDeleteShader(vertShader);
 
             // --- ДОБАВЛЕНО ДЛЯ АВАТАРКИ ---
             String texVertSrc = readShader("rounded_texture.vsh");
             int texVertShader = compileShader(GL20.GL_VERTEX_SHADER, texVertSrc, "rounded_texture.vsh");
             linkProgram(ROUNDED_TEXTURE, texVertShader, "rounded_texture.fsh");
+            linkProgram(MENU_PREVIEW, texVertShader, "menu_preview.fsh");
             GL20.glDeleteShader(texVertShader);
 
             initQuad();
@@ -186,7 +192,7 @@ public class ShaderManager {
         int program = GL20.glCreateProgram();
 
         GL20.glBindAttribLocation(program, 0, "Position");
-        if (ROUNDED_TEXTURE.equals(name)) {
+        if (ROUNDED_TEXTURE.equals(name) || MENU_PREVIEW.equals(name)) {
             GL20.glBindAttribLocation(program, 1, "UV");
             GL20.glBindAttribLocation(program, 2, "LocalPos");
         }
@@ -382,6 +388,10 @@ public class ShaderManager {
             }
         }
         return initialized;
+    }
+
+    public static boolean hasProgram(String name) {
+        return isAvailable() && programs.containsKey(name);
     }
 
     public static void cleanup() {

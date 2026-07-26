@@ -37,7 +37,11 @@ public class CustomWorld extends Module {
     public final BooleanSetting customFog = add(new BooleanSetting("Туман", "custom_fog", "Меняет цвет и дальность тумана", true));
     public final ColorSetting fogColor = (ColorSetting) add(new ColorSetting("Цвет тумана", "fog_color", "Цвет тумана мира", 0xFF521057))
             .visibleWhen(customFog::get);
-    public final SliderSetting fogDistance = (SliderSetting) add(new SliderSetting("Дальность тумана", "fog_distance", "Конечная дистанция тумана, как в World Customizer", 75, 10, 250, 5))
+    public final SliderSetting fogDistance = (SliderSetting) add(new SliderSetting("Дальность тумана", "fog_distance", "Конечная дистанция тумана", 75, 10, 250, 5))
+            .visibleWhen(customFog::get);
+    public final SliderSetting fogDensity = (SliderSetting) add(new SliderSetting("Плотность тумана", "fog_density", "Плотность тумана", 0.5, 0.0, 1.0, 0.01))
+            .visibleWhen(customFog::get);
+    public final BooleanSetting affectSky = (BooleanSetting) add(new BooleanSetting("Туман на небе", "affect_sky", "Применять кастомный туман к небесной сфере", true))
             .visibleWhen(customFog::get);
 
     public final BooleanSetting customSkyColor = add(new BooleanSetting("Цвет неба", "custom_sky_color", "Меняет цвет неба отдельно от тумана", true));
@@ -88,14 +92,31 @@ public class CustomWorld extends Module {
 
         Vector4f color = fogColorVector();
 
-        float start = 0.0f;
         float end = Math.max(1.0f, fogDistance.get().floatValue());
+        float start = end * (1.0f - fogDensity.get().floatValue());
 
-        return new Fog(start, end, vanilla.shape(), color.x, color.y, color.z, color.w);
+        return new Fog(start, end, net.minecraft.client.render.FogShape.CYLINDER, color.x, color.y, color.z, color.w);
     }
 
-    public boolean shouldApplyFog(Camera camera) {
-        return customFog.get() && camera != null && camera.getSubmersionType() == CameraSubmersionType.NONE;
+    public boolean shouldApplyFog(Camera camera, net.minecraft.client.render.BackgroundRenderer.FogType fogType) {
+        if (!customFog.get() || camera == null) return false;
+
+        if (camera.getSubmersionType() != CameraSubmersionType.NONE) {
+            return false;
+        }
+
+        if (fogType == net.minecraft.client.render.BackgroundRenderer.FogType.FOG_SKY && !affectSky.get()) {
+            return false;
+        }
+
+        if (camera.getFocusedEntity() instanceof net.minecraft.entity.LivingEntity living) {
+            if (living.hasStatusEffect(net.minecraft.entity.effect.StatusEffects.BLINDNESS)
+                    || living.hasStatusEffect(net.minecraft.entity.effect.StatusEffects.DARKNESS)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public Vector4f fogColorVector() {

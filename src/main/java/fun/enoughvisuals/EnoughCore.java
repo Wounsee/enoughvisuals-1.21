@@ -31,6 +31,7 @@ import fun.enoughvisuals.ui.hud.InventoryHud;
 import fun.enoughvisuals.ui.hud.TargetHud;
 
 import fun.enoughvisuals.ui.hud.WatermarkHud;
+import fun.enoughvisuals.ui.hud.TrapTimerHud;
 
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 
@@ -152,6 +153,10 @@ public final class EnoughCore {
 
                 new WorldParticles(),
 
+                new FireFlies(),
+
+                new WorldSquares(),
+
                 new MouseParticles(),
 
                 new Fullbright(),
@@ -244,7 +249,20 @@ public final class EnoughCore {
                 new Trails(),
                 new SpecBind(),
 
-                new DeathCords());
+                new DeathCords(),
+
+                new AutoEat(),
+                new AutoNear(),
+                new ElytraUtility(),
+                new HealingHelper(),
+                new TrapTimer(),
+                new HealthIndicator(),
+                new HitRange(),
+                new MaceIndicator(),
+                new NoFluid(),
+                new ShulkerPreview(),
+                new TotemTracker()
+        );
 
 
 
@@ -267,6 +285,10 @@ public final class EnoughCore {
         WorldRenderEvents.LAST.register(CustomHitbox::renderInWorld);
 
         WorldRenderEvents.LAST.register(WorldParticles::renderInWorld);
+
+        WorldRenderEvents.LAST.register(FireFlies::renderInWorld);
+
+        WorldRenderEvents.LAST.register(WorldSquares::renderInWorld);
 
         WorldRenderEvents.LAST.register(JumpCircle::renderInWorld);
 
@@ -339,6 +361,7 @@ public final class EnoughCore {
         DragAndDrop dad = DragAndDrop.getInstance();
 
         dad.register("watermark", "Остров", null, WatermarkHud::new);
+        dad.register("trap_timer", "Таймер Трапки", null, TrapTimerHud::new);
 
         dad.register("targethud", "Таргет Худ", null, TargetHud::new);
 

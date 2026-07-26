@@ -42,12 +42,6 @@ public class FTHelper extends Module {
     private boolean registered = false;
 
     // --- Настройки ---
-    public final BooleanSetting trapEnabled = add(new BooleanSetting("Трапка", "trap_enabled", true));
-    public final ColorSetting trapColor = (ColorSetting) add(new ColorSetting("Цвет трапки", "trap_color", "Цвет контура и заливки трапки", 0xFFFF5555))
-            .visibleWhen(trapEnabled::get);
-    public final BooleanSetting dragonTrapEnabled = add(new BooleanSetting("Драконья трапка", "dragon_trap_enabled", false));
-    public final ColorSetting dragonTrapColor = (ColorSetting) add(new ColorSetting("Цвет драконьей трапки", "dragon_trap_color", "Цвет контура и заливки драконьей трапки", 0xFFFFAA00))
-            .visibleWhen(dragonTrapEnabled::get);
     public final BooleanSetting dustEnabled = add(new BooleanSetting("Явная пыль", "dust_enabled", true));
     public final ColorSetting dustColor = (ColorSetting) add(new ColorSetting("Цвет пыли", "dust_color", "Цвет радиуса явной пыли", 0xFF55FFFF))
             .visibleWhen(dustEnabled::get);
@@ -65,13 +59,7 @@ public class FTHelper extends Module {
             .visibleWhen(freezeEnabled::get);
     public final ColorSetting playerInsideColor = add(new ColorSetting("Игрок в радиусе", "player_inside_color", "Цвет, когда в зоне есть игрок", 0xFFFF3030));
 
-    // --- Логика сканера трапок ---
-    private final List<ActiveTrap> activeTraps = new ArrayList<>();
-    private int tickCounter = 0;
-    private static final long TRAP_DURATION_MS = 15000L;
-    private static final float TRAP_WALL_THRESHOLD = 0.80f;
-    private static final float TRAP_FLOOR_THRESHOLD = 0.60f;
-    private static final float TRAP_INSIDE_MAX_FILL = 0.12f;
+
 
     public FTHelper() {
         INSTANCE = this;
@@ -88,216 +76,17 @@ public class FTHelper extends Module {
 
     @Override
     public void onTick() {
-        if (!isInGame()) {
-            activeTraps.clear();
-            return;
-        }
-
-        long now = System.currentTimeMillis();
-
-        // Проверяем существующие трапки: обновляем таймер или удаляем разрушенные
-        activeTraps.removeIf(trap -> {
-            if (now > trap.endTime) return true;
-            // Структура ещё стоит?
-            float score = getTrapScore(trap.pos);
-            if (score < TRAP_WALL_THRESHOLD) {
-                // Структура разрушена — даём 2 секунды буфера перед удалением
-                if (trap.endTime > now + 2000L) {
-                    trap.endTime = now + 2000L;
-                }
-                return now > trap.endTime;
-            }
-            // Структура на месте — обновляем таймер
-            trap.endTime = now + TRAP_DURATION_MS;
-            return false;
-        });
-
-        // Парсим мир вокруг игроков каждые 5 тиков (~0.25с)
-        tickCounter++;
-        if (tickCounter % 5 == 0) {
-            for (PlayerEntity player : mc.world.getPlayers()) {
-                if (player == mc.player || player.squaredDistanceTo(mc.player) > 48.0 * 48.0) {
-                    continue;
-                }
-                BlockPos trueCenter = findTrapCenter(player.getBlockPos());
-
-                if (trueCenter != null) {
-                    boolean alreadyExists = false;
-                    for (ActiveTrap trap : activeTraps) {
-                        if (trap.pos.getSquaredDistance(trueCenter) < 4.0) {
-                            alreadyExists = true;
-                            trap.endTime = now + TRAP_DURATION_MS;
-                            break;
-                        }
-                    }
-
-                    if (!alreadyExists) {
-                        activeTraps.add(new ActiveTrap(trueCenter, now + TRAP_DURATION_MS));
-                    }
-                }
-            }
-        }
     }
 
     @Override
     protected void onDisable() {
-        activeTraps.clear();
-    }
-
-    // === ПАРСЕР СТРУКТУРЫ (ПОИСК ИСТИННОГО ЦЕНТРА) ===
-    private BlockPos findTrapCenter(BlockPos playerPos) {
-        BlockPos bestCenter = null;
-        float bestScore = TRAP_WALL_THRESHOLD;
-
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dz = -1; dz <= 1; dz++) {
-                for (int dy = -1; dy <= 1; dy++) {
-                    BlockPos checkPos = playerPos.add(dx, dy, dz);
-                    float score = getTrapScore(checkPos);
-
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestCenter = checkPos;
-                    }
-                }
-            }
-        }
-        return bestCenter;
-    }
-
-    private float getTrapScore(BlockPos center) {
-        int solidWalls = 0;
-        int totalWalls = 0;
-        int solidInside = 0;
-        int totalInside = 0;
-        int solidFloor = 0;
-        int totalFloor = 0;
-        int trapMaterialWalls = 0;
-
-        // Коробка 5x5, высота 4 блока
-        for (int y = 0; y <= 3; y++) {
-            for (int x = -2; x <= 2; x++) {
-                for (int z = -2; z <= 2; z++) {
-                    boolean isWall = (Math.abs(x) == 2 || Math.abs(z) == 2);
-                    BlockPos checkPos = center.add(x, y, z);
-                    var state = mc.world.getBlockState(checkPos);
-                    boolean isSolid = !state.isReplaceable();
-                    boolean isTrapBlock = isTrapMaterial(state);
-
-                    if (isWall) {
-                        totalWalls++;
-                        if (isSolid) solidWalls++;
-                        if (isTrapBlock) trapMaterialWalls++;
-                    } else {
-                        totalInside++;
-                        if (isSolid) solidInside++;
-                    }
-
-                    if (y == 0 && !isWall) {
-                        totalFloor++;
-                        if (isSolid) solidFloor++;
-                    }
-                }
-            }
-        }
-
-        float wallRatio = (float) solidWalls / totalWalls;
-        float insideRatio = (float) solidInside / totalInside;
-        float floorRatio = totalFloor > 0 ? (float) solidFloor / totalFloor : 1f;
-        float trapMaterialRatio = totalWalls > 0 ? (float) trapMaterialWalls / totalWalls : 0f;
-
-        // Если внутри больше 12% застроено — это пещера или дом, а не пустая трапка
-        if (insideRatio > TRAP_INSIDE_MAX_FILL) return 0f;
-
-        // Нужен пол (иначе это просто стена в воздухе)
-        if (floorRatio < TRAP_FLOOR_THRESHOLD) return 0f;
-
-        // Бонус за материалы трапки (обсидиан и т.п.)
-        // Если 50%+ стен из trap-материалов — это точно трапка
-        if (trapMaterialRatio >= 0.5f) {
-            return Math.max(wallRatio, TRAP_WALL_THRESHOLD);
-        }
-
-        return wallRatio;
-    }
-
-    private static boolean isTrapMaterial(net.minecraft.block.BlockState state) {
-        var block = state.getBlock();
-        return block == net.minecraft.block.Blocks.OBSIDIAN
-                || block == net.minecraft.block.Blocks.CRYING_OBSIDIAN
-                || block == net.minecraft.block.Blocks.NETHERRACK
-                || block == net.minecraft.block.Blocks.BEDROCK
-                || block == net.minecraft.block.Blocks.REINFORCED_DEEPSLATE
-                || block == net.minecraft.block.Blocks.BLACKSTONE
-                || block == net.minecraft.block.Blocks.BASALT
-                || block == net.minecraft.block.Blocks.NETHER_BRICKS
-                || block == net.minecraft.block.Blocks.END_STONE
-                || block == net.minecraft.block.Blocks.END_STONE_BRICKS;
     }
 
 
-    // === 2D РЕНДЕР (ИДЕАЛЬНАЯ ПАНЕЛЬКА С ИКОНКОЙ) ===
+
+
+    // === 2D РЕНДЕР ===
     private void onRender2D(DrawContext ctx, net.minecraft.client.render.RenderTickCounter tickCounter) {
-        if (!isEnabled() || !isInGame()) return;
-
-        Camera camera = mc.gameRenderer.getCamera();
-        float tickDelta = tickCounter.getTickDelta(true);
-        long now = System.currentTimeMillis();
-
-        for (ActiveTrap trap : activeTraps) {
-            long timeLeft = trap.endTime - now;
-            if (timeLeft <= 0) continue;
-
-            // Теперь pos.x/z + 0.5 - это 100% идеальный центр коробки!
-            Vec3d pos2d = projectToScreen(trap.pos.getX() + 0.5, trap.pos.getY() + 2.0, trap.pos.getZ() + 0.5, camera, tickDelta);
-
-            if (pos2d != null) {
-                String text = String.format(ClientLanguage.text("ft_helper.trap.timer", "Трапка: %.1fс"), timeLeft / 1000.0f);
-                drawTrapLabel(ctx, text, (float) pos2d.x, (float) pos2d.y);
-            }
-        }
-    }
-
-    private void drawTrapLabel(DrawContext ctx, String text, float x, float y) {
-        float textSize = 5.8f;
-        float iconSize = 9.5f;
-        float gap = 2.5f;
-        float height = 13f;
-        float paddingX = 5.5f;
-
-        float textWidth = CustomFontRenderer.getTextWidth(text, textSize, FontWeight.SEMIBOLD);
-        float totalWidth = iconSize + gap + textWidth;
-
-        float absStartX = x - (totalWidth / 2f);
-        float absStartY = y - (height / 2f);
-
-        // 1. Фон (GlassPanel)
-        GlassUtil.drawGlassPanel(ctx, absStartX - paddingX, absStartY, totalWidth + (paddingX * 2), height, 3.5f, 0x000000, 0.6f, 1.0f);
-
-        float startX = -(totalWidth / 2f);
-        float startY = -(height / 2f);
-
-        ctx.getMatrices().push();
-        // Поднимаем Z-index (400), чтобы иконка лома и текст гарантированно рисовались ПОВЕРХ стекла и блоков
-        ctx.getMatrices().translate(x, y, 400);
-
-        float textOffsetY = -0.5f;
-
-        // 2. Иконка незеритового лома (как в ItemLight)
-        float iconY = startY + (height - iconSize) / 2f - 0.5f;
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(startX, iconY, 0);
-        ctx.getMatrices().scale(iconSize / 16f, iconSize / 16f, 1f);
-        ctx.drawItem(new ItemStack(Items.NETHERITE_SCRAP), 0, 0);
-        ctx.getMatrices().pop();
-
-        // 3. Текст
-        int color = text.contains(" 3.") || text.contains(" 2.") || text.contains(" 1.") || text.contains(" 0.") ? 0xFF5555 : 0xFFFFFFFF;
-        float textY = startY + (height - textSize) / 2f + textOffsetY;
-        float textX = startX + iconSize + gap;
-        CustomFontRenderer.drawText(ctx, text, textX, textY, textSize, color, FontWeight.SEMIBOLD);
-
-        ctx.getMatrices().pop();
     }
 
     // === 3D РЕНДЕР (ФОРМЫ И СНЕЖОК) ===
@@ -326,17 +115,7 @@ public class FTHelper extends Module {
         stack.push();
         stack.translate(-camPos.x, -camPos.y, -camPos.z);
 
-        // 1. Превью Трапки (в руках)
-        if (trapEnabled.get() && heldItem == Items.NETHERITE_SCRAP) {
-            BlockPos min = playerPos.add(-2, 0, -2);
-            BlockPos max = playerPos.add(3, 4, 3);
-            drawBox(stack, min, max, chooseAreaColor(trapColor.get(), hasPlayerInBox(min, max)));
-            if (dragonTrapEnabled.get()) {
-                BlockPos dragonMin = playerPos.add(-4, 0, -4);
-                BlockPos dragonMax = playerPos.add(4, 4, 4);
-                drawBox(stack, dragonMin, dragonMax, chooseAreaColor(dragonTrapColor.get(), hasPlayerInBox(dragonMin, dragonMax)));
-            }
-        }
+
 
         // 2. Превью Пласта
         if (plastEnabled.get() && heldItem == Items.DRIED_KELP) {
@@ -735,13 +514,5 @@ public class FTHelper extends Module {
         return new Vec3d(screenX, screenY, 0);
     }
 
-    private static class ActiveTrap {
-        public final BlockPos pos;
-        public long endTime;
 
-        public ActiveTrap(BlockPos pos, long endTime) {
-            this.pos = pos;
-            this.endTime = endTime;
-        }
-    }
 }

@@ -1,5 +1,7 @@
 package fun.enoughvisuals.ui.hud;
 
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
+
 import fun.enoughvisuals.systems.hud.HudElement;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
@@ -106,7 +108,7 @@ public class EffectsHud extends HudElement {
                 RenderUtil.withAlpha(0x000000, headerAlpha * 0.18f));
 
         // Заголовок
-        CustomFontRenderer.drawText(ctx, "\uF002", x + 5f * s, y + 3.8f * s, 9.5f * s, RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.POTIONS);
+        CustomFontRenderer.drawText(ctx, "\uF002", x + 5f * s, y + 3.8f * s, 9.5f * s, RenderUtil.withAlpha(CustomTheme.hudAccentLight(), headerAlpha), FontWeight.POTIONS);
         CustomFontRenderer.drawText(ctx, "Эффекты", x + 18f * s, y + 4.8f * s, 6.5f * s, RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.SEMIBOLD);
 
         // Иконка зелья (сделана меньше - 9f, выровнена по Y)

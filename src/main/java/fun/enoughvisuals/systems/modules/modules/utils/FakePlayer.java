@@ -91,8 +91,9 @@ public class FakePlayer extends Module {
 
     @Override
     protected void onDisable() {
+        boolean died = fakeDead;
         fakeDead = false;
-        removeFakePlayer(true);
+        removeFakePlayer(!died);
     }
 
     @Override
@@ -301,7 +302,7 @@ public class FakePlayer extends Module {
                 SoundEvents.ENTITY_PLAYER_DEATH, SoundCategory.PLAYERS, 1.0f, 1.0f);
         removeFakePlayer(false, Entity.RemovalReason.KILLED);
         fakeDead = true;
-        ClientActionUtil.clientMessage("FakePlayer умер");
+        disableSilent();
     }
 
     private static boolean isCriticalHit(PlayerEntity player, float cooldown) {

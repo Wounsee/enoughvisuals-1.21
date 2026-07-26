@@ -27,9 +27,7 @@ loom {
             client()
             ideConfigGenerated = true
             runDir "run"
-            vmArg "-Denough.dev=true"
             vmArg "-Dfile.encoding=UTF-8"
-            environmentVariable "ENOUGH_DEV_MODE", "1"
         }
     }
 }
@@ -93,6 +91,57 @@ jar {
     from("LICENSE") {
         rename { "${it}_${project.archives_base_name}" }
     }
+}
+
+def enoughGuardRoot = file("C:/Users/<user>/Desktop/EnoughGuard/obfuscator")
+def enoughGuardCli = new File(
+        enoughGuardRoot,
+        "guard-cli/build/libs/guard-cli-0.1.0-all.jar")
+def enoughGuardProfile = new File(enoughGuardRoot, "profiles/enoughvisuals.yml")
+def remappedReleaseJar =
+        layout.buildDirectory.file("libs/${project.archives_base_name}-${project.version}.jar")
+def protectedReleaseJar =
+        layout.buildDirectory.file(
+                "libs/${project.archives_base_name}-${project.version}-protected.jar")
+def protectionReport =
+        layout.buildDirectory.file(
+                "reports/enoughguard/${project.archives_base_name}-${project.version}.json")
+
+tasks.register("protectRelease", Exec) {
+    group = "build"
+    description = "Builds the launcher-only EnoughGuard production artifact"
+    dependsOn tasks.named("remapJar")
+    inputs.file(remappedReleaseJar)
+    inputs.file(enoughGuardCli)
+    inputs.file(enoughGuardProfile)
+    outputs.file(protectedReleaseJar)
+    outputs.file(protectionReport)
+
+    doFirst {
+        if (!enoughGuardCli.isFile() || !enoughGuardProfile.isFile()) {
+            throw new GradleException(
+                    "EnoughGuard is not built. Run " +
+                            "C:/Users/<user>/Desktop/EnoughGuard/obfuscator/gradlew.bat release")
+        }
+        protectionReport.get().asFile.parentFile.mkdirs()
+        commandLine(
+                new File(System.getProperty("java.home"), "bin/java.exe"),
+                "-jar",
+                enoughGuardCli,
+                "protect",
+                "--input",
+                remappedReleaseJar.get().asFile,
+                "--output",
+                protectedReleaseJar.get().asFile,
+                "--config",
+                enoughGuardProfile,
+                "--report",
+                protectionReport.get().asFile)
+    }
+}
+
+tasks.named("build") {
+    dependsOn tasks.named("protectRelease")
 }
 
 publishing {

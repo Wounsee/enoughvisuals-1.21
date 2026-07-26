@@ -1,5 +1,7 @@
 package fun.enoughvisuals.ui.hud;
 
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
+
 import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.mixins.accessors.ItemCooldownEntryAccessor;
 import fun.enoughvisuals.mixins.accessors.ItemCooldownManagerAccessor;
@@ -95,8 +97,8 @@ public class CooldownsHud extends HudElement {
         RenderUtil.drawRoundedRect(ctx, x, y, w, Math.min(h, headerH), 6f * s, 6f * s, 0f, 0f,
                 RenderUtil.withAlpha(0x000000, headerAlpha * 0.18f));
         CustomFontRenderer.drawText(ctx, "\uF000", x + PAD * s, y + 3.8f * s, 8.2f * s,
-                RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.TIME);
-        CustomFontRenderer.drawText(ctx, "Кулдауны", x + 18f * s, y + 4.8f * s, 6.5f * s,
+                RenderUtil.withAlpha(CustomTheme.hudAccentLight(), headerAlpha), FontWeight.TIME);
+        CustomFontRenderer.drawText(ctx, "Кулдауны", x + 18f * s, y + 3.8f * s, 6.5f * s,
                 RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.SEMIBOLD);
 
         if (h <= headerH + 2f) {

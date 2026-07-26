@@ -46,7 +46,7 @@ public class WatermarkHud extends HudElement {
     private static final float SECOND_GAP = 3f;
     private static final float LEFT_PAD = 6f;
     private static final float RIGHT_PAD = 6f;
-    private static final float TRACK_MAX_W = 110f;
+    private static final float TRACK_MAX_W = 70f;
     private static final int BAR_COUNT = 6;
     private static final float BAR_W = 0.9f; // Более тонкие палочки
     private static final float BAR_GAP = 2.0f; // Слегка уменьшено расстояние

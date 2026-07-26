@@ -495,6 +495,57 @@ public class RenderUtil {
         drawShadow(ctx, x + offsetX, y + offsetY, width, height, radius, shadowSize, shadowColor);
     }
 
+    public static void drawColorPickerSquare(DrawContext ctx, float x, float y, float width, float height,
+                                             float radius, int hueColor, float opacity) {
+        if (width <= 0f || height <= 0f || opacity <= 0.003f) return;
+        if (!ShaderManager.isAvailable()) {
+            drawRoundedGradientH(ctx, x, y, width, height, radius,
+                    withAlpha(0xFFFFFF, opacity), withAlpha(hueColor, opacity));
+            drawRoundedGradientV(ctx, x, y, width, height, radius,
+                    withAlpha(0x000000, 0f), withAlpha(0x000000, opacity));
+            return;
+        }
+        beginShaderDraw();
+        ShaderRect rect = toShaderRect(ctx, x, y, width, height);
+        float pxScale = Math.max(Math.min(rect.scaleXPx, rect.scaleYPx), 0.0001f);
+        String name = ShaderManager.COLOR_PICKER;
+        ShaderManager.useProgram(name);
+        ShaderManager.setUniform4f(name, "uRect", rect.xPx, rect.yPx, rect.wPx, rect.hPx);
+        ShaderManager.setUniform4f(name, "uHueColor",
+                ((hueColor >>> 16) & 0xFF) / 255f,
+                ((hueColor >>> 8) & 0xFF) / 255f,
+                (hueColor & 0xFF) / 255f, 1f);
+        ShaderManager.setUniform1f(name, "uRadius", radius * pxScale);
+        ShaderManager.setUniform1f(name, "uOpacity", Math.max(0f, Math.min(1f, opacity)));
+        ShaderManager.setUniform1f(name, "uSmoothing", EDGE_SMOOTHING * pxScale);
+        ShaderManager.drawQuad(name, ctx, x, y, width, height, EDGE_SMOOTHING + 1f);
+        ShaderManager.stopProgram();
+        endShaderDraw();
+    }
+
+    public static void drawRoundedCheckerboard(DrawContext ctx, float x, float y, float width, float height,
+                                               float radius, float cellSize, float opacity) {
+        if (width <= 0f || height <= 0f || opacity <= 0.003f) return;
+        if (!ShaderManager.isAvailable()) {
+            drawRoundedRect(ctx, x, y, width, height, radius, withAlpha(0x807B8B, opacity));
+            return;
+        }
+        beginShaderDraw();
+        ShaderRect rect = toShaderRect(ctx, x, y, width, height);
+        float pxScale = Math.max(Math.min(rect.scaleXPx, rect.scaleYPx), 0.0001f);
+        String shader = ShaderManager.ROUNDED_CHECKERBOARD;
+        ShaderManager.useProgram(shader);
+        ShaderManager.setUniform4f(shader, "uRect", rect.xPx, rect.yPx, rect.wPx, rect.hPx);
+        ShaderManager.setUniform1f(shader, "uRadius", radius * pxScale);
+        ShaderManager.setUniform1f(shader, "uCellSize", cellSize * pxScale);
+        ShaderManager.setUniform1f(shader, "uOpacity", Math.max(0f, Math.min(1f, opacity)));
+        ShaderManager.setUniform1f(shader, "uSmoothing", EDGE_SMOOTHING * pxScale);
+        ShaderManager.drawQuad(shader, ctx, x, y, width, height, EDGE_SMOOTHING + 1f);
+        ShaderManager.stopProgram();
+        endShaderDraw();
+    }
+
+
     
     
     
@@ -603,13 +654,11 @@ public class RenderUtil {
         long cycleMs = Math.max(1L, (long) ((cycleW / speed) * 1000.0f));
         float offset = (System.currentTimeMillis() % cycleMs) / (float) cycleMs * cycleW;
 
-        ctx.draw();
-        StencilUtil.enableScissor(x, y - 1f, maxWidth, clipHeight);
         float fadeW = Math.min(16f, Math.max(8f, maxWidth * 0.32f));
-        drawTextWithEdgeFade(ctx, text, x - offset, y, x, maxWidth, fadeW, size, color, weight);
-        drawTextWithEdgeFade(ctx, text, x - offset + cycleW, y, x, maxWidth, fadeW, size, color, weight);
-        ctx.draw();
-        StencilUtil.disableScissor();
+        CustomFontRenderer.drawTextWithFade(ctx, text, x - offset, y, size, color, weight,
+                x, maxWidth, fadeW, fadeW);
+        CustomFontRenderer.drawTextWithFade(ctx, text, x - offset + cycleW, y, size, color, weight,
+                x, maxWidth, fadeW, fadeW);
     }
 
     public static void drawTextWithEdgeFade(DrawContext ctx, String text, float drawX, float y,
@@ -1265,6 +1314,38 @@ public class RenderUtil {
         ShaderManager.drawTexturedQuad(shader, ctx, x, y, w, h, pad, u, v, uW, vH, texWidth, texHeight);
 
         ShaderManager.stopProgram();
+        RenderSystem.disableBlend();
+    }
+
+    public static void drawMenuPreviewShader(DrawContext ctx, Identifier texture,
+                                             float x, float y, float w, float h,
+                                             float radius, float alpha, float shadeStrength,
+                                             float u, float v, float uW, float vH,
+                                             float texWidth, float texHeight) {
+        if (alpha <= 0.003f) return;
+        if (!ShaderManager.hasProgram(ShaderManager.MENU_PREVIEW)) {
+            drawRoundedTextureUVCPU(ctx.getMatrices().peek().getPositionMatrix(), texture,
+                    x, y, w, h, radius, radius, radius, radius,
+                    u, v, uW, vH, Math.round(texWidth), Math.round(texHeight), alpha);
+            return;
+        }
+
+        RenderSystem.setShaderTexture(0, texture);
+        mc.getTextureManager().getTexture(texture).bindTexture();
+        String shader = ShaderManager.MENU_PREVIEW;
+        ShaderManager.useProgram(shader);
+        ShaderManager.setUniform2f(shader, "uSize", w, h);
+        ShaderManager.setUniform4f(shader, "uRadii", radius, radius, radius, radius);
+        ShaderManager.setUniform1f(shader, "uSmoothing", 0.62f);
+        ShaderManager.setUniform1f(shader, "uAlpha", Math.max(0f, Math.min(1f, alpha)));
+        ShaderManager.setUniform1f(shader, "uShadeStrength", Math.max(0f, Math.min(1f, shadeStrength)));
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        ShaderManager.drawTexturedQuad(shader, ctx, x, y, w, h, 0f,
+                u, v, uW, vH, texWidth, texHeight);
+        ShaderManager.stopProgram();
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         RenderSystem.disableBlend();
     }
 

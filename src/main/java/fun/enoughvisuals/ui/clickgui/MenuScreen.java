@@ -39,6 +39,8 @@ import java.util.Map;
 import java.util.Set;
 
 public class MenuScreen extends Screen {
+    /** Flip to true to put the experimental Events entry back into the sidebar. */
+    public static boolean SHOW_EVENTS_TAB = false;
     public static final int DEFAULT_ACCENT = 0xFF927BE0;
     public static int ACCENT = DEFAULT_ACCENT;
     public static int ACCENT_LIGHT = 0xFFC0B2F2;
@@ -72,16 +74,17 @@ public class MenuScreen extends Screen {
     public static int VALUE_DIM = 0xFF958DA6;
     public static int STROKE = 0x12FFFFFF;
 
-    private static final float DESIGN_W = 560f;
-    private static final float DESIGN_H = 326f;
-    private static final float SIDEBAR_W = 132f;
-    private static final float HEADER_H = 36f;
-    private static final float PAD = 9f;
-    private static final float GAP = 7f;
-    private static final float WINDOW_RADIUS = 11f;
-    private static final float NAV_CATEGORY_Y = 56f;
-    private static final float NAV_TOOLS_Y = 153f;
-    private static final float NAV_ROW_H = 27f;
+    private static final float DESIGN_W = 520f;
+    private static final float DESIGN_H = 300f;
+    private static final float SIDEBAR_W = 122f;
+    private static final float HEADER_H = 34f;
+    private static final float PAD = 8.5f;
+    private static final float GAP = 6.5f;
+    private static float WINDOW_RADIUS = 10f;
+    private static final float NAV_CATEGORY_Y = 50f;
+    private static final float NAV_TOOLS_Y = 139f;
+    private static final float NAV_ROW_H = 25f;
+    private static final float NAV_TOOL_ROW_H = 21f;
     private static final long OPEN_MS = 470L;
     private static final long CLOSE_MS = 285L;
     private static final long CARD_STAGGER_MS = 34L;
@@ -91,17 +94,19 @@ public class MenuScreen extends Screen {
     private static final String ICON_CONFIG = "\uF001";
     private static final String ICON_UTILS = "\uF002";
     private static final String ICON_FRIENDS = "\uF003";
-    private static final String ICON_PUZZLE = "\uF004";
+    private static final String LOGO_GLYPH = "\uF002";
     private static final String ICON_BIND = "\uF005";
     private static final String ICON_CLIENT = "\uF007";
+    private static final String ICON_PUZZLE = "\uF004";
     private static final String ICON_SEARCH = "\uF008";
-    private static final Set<String> TOOL_MODULES = Set.of("configs", "friends", "gps");
+    private static final Set<String> TOOL_MODULES = Set.of("configs", "friends", "gps", "macros");
 
     private final Category[] categories = Category.values();
     private final Map<Module, ModuleCard> cardCache = new LinkedHashMap<>();
     private final List<ModuleCard> cards = new ArrayList<>();
-    private final float[] navHover = new float[6];
+    private final float[] navHover = new float[9];
     private final IntegratedToolPage toolPage = new IntegratedToolPage();
+    private final IntegratedToolPage.Type initialTool;
 
     private int activeCategory;
     private float navIndicator;
@@ -125,6 +130,7 @@ public class MenuScreen extends Screen {
 
     private String hoverDescription;
     private String shownDescription;
+    private String descriptionCandidate;
     private long descriptionSince;
     private float descriptionAnimation;
 
@@ -139,36 +145,46 @@ public class MenuScreen extends Screen {
     private float windowY;
     private float windowW;
     private float windowH;
+    private boolean initialToolApplied;
+    private int contentTransitionPhase;
+    private long contentTransitionAt;
+    private int contentTransitionDirection = 1;
+    private int pendingCategory = -1;
+    private IntegratedToolPage.Type pendingTool;
 
     public MenuScreen() {
+        this(null);
+    }
+
+    public MenuScreen(IntegratedToolPage.Type initialTool) {
         super(Text.literal("Enough Visuals"));
+        this.initialTool = initialTool;
     }
 
     public static void syncTheme() {
-        CustomTheme theme = ModuleManager.getInstance().get(CustomTheme.class);
-        boolean custom = theme != null && theme.isEnabled() && theme.menu.get();
-        int accent = custom ? theme.guiAccentColor() : DEFAULT_ACCENT;
+        int accent = CustomTheme.guiAccent();
+        WINDOW_RADIUS = CustomTheme.clickGuiRadius();
         ACCENT = accent;
         ACCENT_LIGHT = lighten(accent, 0.34f);
         TOGGLE_ON = accent;
         SLIDER_FILL = accent;
 
-        WINDOW_BG = mix(0xFF111018, accent, 0.055f);
-        SIDEBAR_BG = mix(0xFF181521, accent, 0.055f);
-        CARD_BG = mix(0xFF181620, accent, 0.06f);
-        CARD_HOVER = mix(0xFF1D1A27, accent, 0.08f);
-        INSET_BG = mix(0xFF0F0E15, accent, 0.045f);
-        CHIP_BG = mix(0xFF211E2A, accent, 0.08f);
+        WINDOW_BG = 0xFF08080B;
+        SIDEBAR_BG = 0xFF0B0B0F;
+        CARD_BG = 0xFF101015;
+        CARD_HOVER = 0xFF15151C;
+        INSET_BG = 0xFF09090D;
+        CHIP_BG = 0xFF17171F;
         CHIP_TEXT = mix(0xFFAAA2BC, accent, 0.14f);
         CHIP_TEXT_ON = lighten(accent, 0.78f);
         VALUE_DIM = mix(0xFF958DA6, accent, 0.12f);
-        TOGGLE_OFF = mix(0xFF302D3A, accent, 0.08f);
-        SLIDER_BG = mix(0xFF2B2735, accent, 0.07f);
-        SETTING_BG = mix(0xFF1C1924, accent, 0.06f);
+        TOGGLE_OFF = 0xFF27272F;
+        SLIDER_BG = 0xFF24242C;
+        SETTING_BG = 0xFF111117;
         SETTING_PANEL_OUTER = darken(WINDOW_BG, 0.28f);
         SETTING_PANEL_INNER = INSET_BG;
         SETTING_INPUT_BG = darken(INSET_BG, 0.10f);
-        PANEL_TINT = WINDOW_BG & 0x00FFFFFF;
+        PANEL_TINT = 0x000000;
         PANEL_TINT_ALPHA = CustomTheme.blurDisabled() ? 1f : 0.93f * CustomTheme.clickGuiOpacity();
     }
 
@@ -209,7 +225,15 @@ public class MenuScreen extends Screen {
         expandedCard = null;
         dragCard = null;
         picker = null;
+        descriptionCandidate = null;
+        shownDescription = null;
+        descriptionAnimation = 0f;
         scrollOffset = scrollTarget = 0f;
+        if (!initialToolApplied && initialTool != null) {
+            activeTool = initialTool;
+            toolPage.activate(initialTool);
+            initialToolApplied = true;
+        }
         navIndicator = navTargetBaseY();
         Arrays.fill(navHover, 0f);
 
@@ -223,7 +247,7 @@ public class MenuScreen extends Screen {
                 }
             }
         }
-        rebuildCards(0, openTime + 80L);
+        rebuildCards(0, openTime + 55L);
     }
 
     @Override
@@ -367,52 +391,61 @@ public class MenuScreen extends Screen {
     }
 
     private void renderWindow(DrawContext context, int mx, int my, float alpha, long now) {
-        RenderUtil.drawShadow(context, windowX, windowY, windowW, windowH, WINDOW_RADIUS * scale, 22f * scale,
-                RenderUtil.withAlpha(0x000000, 0.58f * alpha));
+        RenderUtil.drawShadow(context, windowX, windowY, windowW, windowH, WINDOW_RADIUS * scale, 15f * scale,
+                RenderUtil.withAlpha(0x050309, 0.50f * alpha));
         GlassUtil.drawGlassPanel(context, windowX, windowY, windowW, windowH, WINDOW_RADIUS * scale,
                 WINDOW_BG & 0x00FFFFFF, PANEL_TINT_ALPHA * alpha, alpha * alpha);
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        RenderUtil.drawRoundedOutline(context, windowX, windowY, windowW, windowH, WINDOW_RADIUS * scale, 0.7f,
-                RenderUtil.withAlpha(0xFFFFFF, 0.042f * alpha));
         renderSidebar(context, mx, my, alpha, now);
         renderHeader(context, mx, my, alpha, now);
-        renderContent(context, mx, my, alpha, now);
+        updateContentTransition(now);
+        float transitionAlpha = 1f;
+        float transitionOffset = 0f;
+        if (contentTransitionPhase == 1) {
+            float p = clamp((now - contentTransitionAt) / 145f);
+            transitionAlpha = 1f - RenderUtil.easeInCubic(p);
+            transitionOffset = -RenderUtil.easeInCubic(p) * 9f * scale * contentTransitionDirection;
+        } else if (contentTransitionPhase == 2) {
+            float p = clamp((now - contentTransitionAt) / 360f);
+            transitionAlpha = RenderUtil.easeOutCubic(p);
+            transitionOffset = (1f - RenderUtil.easeOutQuart(p)) * 11f * scale * contentTransitionDirection;
+        }
+        context.getMatrices().push();
+        context.getMatrices().translate(transitionOffset, 0f, 0f);
+        renderContent(context, mx, my, alpha * transitionAlpha, now);
+        context.getMatrices().pop();
     }
 
     private void renderSidebar(DrawContext context, int mx, int my, float alpha, long now) {
         float sw = SIDEBAR_W * scale;
+        StencilUtil.enableScissor(windowX, windowY, sw, windowH);
+        GlassUtil.drawGlassPanel(context, windowX, windowY + 0.5f * scale, sw + WINDOW_RADIUS * scale, windowH - scale,
+                WINDOW_RADIUS * scale, 0x030305, 0.82f * alpha, 0.94f * alpha);
+        StencilUtil.disableScissor();
         RenderUtil.drawRoundedRect(context, windowX, windowY, sw, windowH,
                 WINDOW_RADIUS * scale, 0f, 0f, WINDOW_RADIUS * scale,
-                RenderUtil.withAlpha(SIDEBAR_BG, 0.68f * alpha));
+                RenderUtil.withAlpha(SIDEBAR_BG, 0.82f * alpha));
         RenderUtil.drawRect(context, windowX + sw - 0.5f, windowY + 1f, 0.5f, windowH - 2f,
                 RenderUtil.withAlpha(0xFFFFFF, 0.045f * alpha));
 
         float brandIntro = intro(now, openTime + 35L, 260L);
-        float logoX = windowX + 14f * scale;
-        float logoY = windowY + 14f * scale;
-        float logoSize = 17f * scale * (0.68f + 0.32f * RenderUtil.easeOutBack(brandIntro));
-        RenderUtil.drawRoundedGradient(context, logoX, logoY, logoSize, logoSize, 6f * scale,
-                RenderUtil.withAlpha(ACCENT_LIGHT, 0.96f * alpha * brandIntro),
-                RenderUtil.withAlpha(ACCENT, 0.96f * alpha * brandIntro),
-                RenderUtil.withAlpha(darken(ACCENT, 0.18f), 0.96f * alpha * brandIntro),
-                RenderUtil.withAlpha(ACCENT, 0.96f * alpha * brandIntro));
-        CustomFontRenderer.drawCenteredText(context, ICON_PUZZLE, logoX + logoSize * 0.5f,
-                logoY + (logoSize - 9.2f * scale) * 0.5f, 9.2f * scale,
-                RenderUtil.withAlpha(TEXT_WHITE, alpha * brandIntro), FontWeight.CLICK_GUI);
-        CustomFontRenderer.drawText(context, Info.DISPLAY_NAME, windowX + 37f * scale, windowY + 13.9f * scale,
-                7.6f * scale, RenderUtil.withAlpha(TEXT_WHITE, alpha * brandIntro), FontWeight.SEMIBOLD);
-        CustomFontRenderer.drawText(context, Info.VERSION, windowX + 37f * scale, windowY + 25f * scale,
-                5.8f * scale, RenderUtil.withAlpha(TEXT_DIM, 0.92f * alpha * brandIntro), FontWeight.REGULAR);
+        float logoX = windowX + 6f * scale;
+        float logoY = windowY + 4.9f * scale;
+        float logoSize = 36f * scale * (0.82f + 0.18f * RenderUtil.easeOutBack(brandIntro));
+        CustomFontRenderer.drawText(context, LOGO_GLYPH, logoX, logoY, logoSize,
+                RenderUtil.withAlpha(ACCENT_LIGHT, alpha * brandIntro), FontWeight.LOGO);
+        CustomFontRenderer.drawText(context, Info.DISPLAY_NAME, windowX + 43f * scale, windowY + 12.7f * scale,
+                8.5f * scale, RenderUtil.withAlpha(TEXT_WHITE, alpha * brandIntro), FontWeight.SEMIBOLD);
+        CustomFontRenderer.drawText(context, Info.VERSION, windowX + 43f * scale, windowY + 24.9f * scale,
+                6f * scale, RenderUtil.withAlpha(TEXT_DIM, 0.94f * alpha * brandIntro), FontWeight.REGULAR);
 
         float categoryY = windowY + NAV_CATEGORY_Y * scale;
         float rowH = NAV_ROW_H * scale;
+        float indicatorRowH = activeTool == null ? rowH : NAV_TOOL_ROW_H * scale;
         float indicatorY = windowY + navIndicator * scale;
         RenderUtil.drawRoundedRect(context, windowX + 10f * scale, indicatorY + 2f * scale,
-                sw - 20f * scale, rowH - 4f * scale, 7f * scale,
+                sw - 20f * scale, indicatorRowH - 4f * scale, 7f * scale,
                 RenderUtil.withAlpha(ACCENT, 0.13f * alpha));
-        RenderUtil.drawRoundedRect(context, windowX + 10f * scale, indicatorY + 7f * scale,
-                2.2f * scale, rowH - 14f * scale, 1.1f * scale,
-                RenderUtil.withAlpha(ACCENT_LIGHT, 0.9f * alpha));
 
         String[] categoryIcons = {ICON_VISUAL, ICON_UTILS, ICON_CLIENT};
         float frame = RenderUtil.getFrameDelta();
@@ -421,79 +454,83 @@ public class MenuScreen extends Screen {
             boolean hovered = hit(mx, my, windowX + 8f * scale, y, sw - 16f * scale, rowH);
             navHover[i] = RenderUtil.animate(navHover[i], hovered ? 1f : 0f, 0.32f, frame);
             float active = activeTool == null && activeCategory == i ? 1f : 0f;
-            int iconColor = RenderUtil.lerpColor(
-                    RenderUtil.withAlpha(TEXT_DIM, alpha * (0.84f + 0.14f * navHover[i])),
-                    RenderUtil.withAlpha(ACCENT_LIGHT, alpha), active);
-            int textColor = RenderUtil.lerpColor(
-                    RenderUtil.withAlpha(TEXT_GRAY, alpha * (0.84f + 0.14f * navHover[i])),
-                    RenderUtil.withAlpha(TEXT_WHITE, alpha), active);
-            CustomFontRenderer.drawCenteredText(context, categoryIcons[i], windowX + 23f * scale,
-                    y + (rowH - 9.8f * scale) * 0.5f, 9.8f * scale, iconColor, FontWeight.CLICK_GUI);
-            CustomFontRenderer.drawText(context, categories[i].getDisplayName(), windowX + 38f * scale,
-                    y + 9.3f * scale, 6.9f * scale, textColor, FontWeight.REGULAR);
-            int count = categoryCount(categories[i]);
-            CustomFontRenderer.drawRightText(context, String.valueOf(count), windowX + sw - 14f * scale,
-                    y + 9.8f * scale, 5.8f * scale, RenderUtil.withAlpha(TEXT_DIM, alpha * 0.88f), FontWeight.REGULAR);
+            float emphasis = Math.max(navHover[i], active);
+            int iconColor = RenderUtil.lerpColor(RenderUtil.withAlpha(TEXT_DIM, 0.86f * alpha),
+                    RenderUtil.withAlpha(ACCENT_LIGHT, alpha), emphasis);
+            int textColor = RenderUtil.lerpColor(RenderUtil.withAlpha(TEXT_GRAY, 0.85f * alpha),
+                    RenderUtil.withAlpha(TEXT_WHITE, alpha), emphasis);
+            CustomFontRenderer.drawCenteredText(context, categoryIcons[i], windowX + 22f * scale,
+                    y + (rowH - 11f * scale) * 0.5f, 11f * scale, iconColor, FontWeight.CLICK_GUI);
+            CustomFontRenderer.drawText(context, categories[i].getDisplayName(), windowX + 35f * scale,
+                    y + 8.6f * scale, 7.2f * scale, textColor, FontWeight.SEMIBOLD);
         }
 
-        float separatorY = windowY + 144f * scale;
+        float separatorY = windowY + 132f * scale;
         RenderUtil.drawRect(context, windowX + 14f * scale, separatorY, sw - 28f * scale, 0.6f,
                 RenderUtil.withAlpha(0xFFFFFF, 0.065f * alpha));
 
-        String[] toolIcons = {ICON_CONFIG, ICON_FRIENDS, ICON_WAYPOINT};
+        String[] toolIcons = {ICON_CONFIG, ICON_FRIENDS, ICON_WAYPOINT, ICON_BIND, "\uF000", "\uF000"};
         String[] toolNames = {
                 ClientLanguage.text("ui.client_tools.configs.title", "Конфиги"),
                 ClientLanguage.text("ui.client_tools.friends.title", "Друзья"),
-                ClientLanguage.text("ui.client_tools.gps.title", "Метки")
+                ClientLanguage.text("ui.client_tools.gps.title", "Метки"),
+                ClientLanguage.text("ui.macros.title", "Макросы"),
+                "Инвентари",
+                "Ивенты"
         };
+        FontWeight[] toolWeights = {FontWeight.CLICK_GUI, FontWeight.CLICK_GUI, FontWeight.CLICK_GUI,
+                FontWeight.CLICK_GUI, FontWeight.BOOK, FontWeight.EVENT};
         float toolsY = windowY + NAV_TOOLS_Y * scale;
-        for (int i = 0; i < 3; i++) {
-            renderSidebarAction(context, mx, my, i + 3, toolsY + i * rowH, toolIcons[i], toolNames[i],
-                    activeTool != null && activeTool.ordinal() == i, alpha);
+        float toolRowH = NAV_TOOL_ROW_H * scale;
+        int visibleToolCount = SHOW_EVENTS_TAB ? toolIcons.length : toolIcons.length - 1;
+        for (int i = 0; i < visibleToolCount; i++) {
+            renderSidebarAction(context, mx, my, i + 3, toolsY + i * toolRowH, toolIcons[i], toolNames[i],
+                    toolWeights[i], activeTool != null && activeTool.ordinal() == i, alpha);
         }
 
-        float profileH = 27f * scale;
+        float profileH = 25f * scale;
         float profileX = windowX + 10f * scale;
         float profileY = windowY + windowH - profileH - 9f * scale;
         float profileW = sw - 20f * scale;
-        RenderUtil.drawRoundedRect(context, profileX, profileY, profileW, profileH, 8f * scale,
-                RenderUtil.withAlpha(0xFFFFFF, 0.032f * alpha));
-        RenderUtil.drawRoundedOutline(context, profileX, profileY, profileW, profileH, 8f * scale, 0.65f,
-                RenderUtil.withAlpha(0xFFFFFF, 0.045f * alpha));
-        float avatar = 17f * scale;
+        RenderUtil.drawRoundedRect(context, profileX, profileY, profileW, profileH, 7f * scale,
+                RenderUtil.withAlpha(CARD_BG, 0.96f * alpha));
+        float profileRadius = Math.max(0f, 7f * scale - 0.5f * scale);
+        RenderUtil.drawRoundedGradient(context, profileX + 0.5f * scale, profileY + 0.5f * scale,
+                profileW - scale, profileH - scale, profileRadius, profileRadius, 0f, 0f,
+                RenderUtil.withAlpha(0x815FD3, 0.052f * alpha),
+                RenderUtil.withAlpha(0x815FD3, 0.052f * alpha),
+                RenderUtil.withAlpha(0x815FD3, 0f),
+                RenderUtil.withAlpha(0x815FD3, 0f));
+        float avatar = 15f * scale;
         if (client != null && client.player != null) {
             Draw.imagePlayerHeadRounded(context, client.player.getSkinTextures().texture(),
-                    profileX + 5f * scale, profileY + 5f * scale, avatar, 5f * scale, alpha);
+                    profileX + 5f * scale, profileY + 5f * scale, avatar, avatar * 0.5f, alpha);
         } else {
             RenderUtil.drawRoundedRect(context, profileX + 5f * scale, profileY + 5f * scale, avatar, avatar,
                     5f * scale, RenderUtil.withAlpha(ACCENT, 0.35f * alpha));
         }
         String username = client == null ? "player" : client.getSession().getUsername();
         username = CustomFontRenderer.trimToWidth(username, profileW - 43f * scale, 6.5f * scale, FontWeight.SEMIBOLD);
-        CustomFontRenderer.drawText(context, username, profileX + 27f * scale, profileY + 6.5f * scale,
-                6.5f * scale, RenderUtil.withAlpha(TEXT_WHITE, alpha), FontWeight.SEMIBOLD);
-        CustomFontRenderer.drawText(context, "client", profileX + 27f * scale, profileY + 16.5f * scale,
-                5.4f * scale, RenderUtil.withAlpha(TEXT_DIM, 0.85f * alpha), FontWeight.REGULAR);
+        CustomFontRenderer.drawText(context, username, profileX + 25f * scale, profileY + 6.8f * scale,
+                6.8f * scale, RenderUtil.withAlpha(TEXT_WHITE, alpha), FontWeight.SEMIBOLD);
+        CustomFontRenderer.drawText(context, "User", profileX + 25f * scale, profileY + 14.5f * scale,
+                5.7f * scale, RenderUtil.withAlpha(TEXT_DIM, 0.92f * alpha), FontWeight.REGULAR);
     }
 
     private void renderSidebarAction(DrawContext context, int mx, int my, int hoverIndex, float y,
-                                     String icon, String name, boolean active, float alpha) {
-        float rowH = NAV_ROW_H * scale;
+                                     String icon, String name, FontWeight iconWeight, boolean active, float alpha) {
+        float rowH = NAV_TOOL_ROW_H * scale;
         float sw = SIDEBAR_W * scale;
         boolean hovered = hit(mx, my, windowX + 8f * scale, y, sw - 16f * scale, rowH);
         navHover[hoverIndex] = RenderUtil.animate(navHover[hoverIndex], hovered ? 1f : 0f, 0.32f, RenderUtil.getFrameDelta());
-        if (navHover[hoverIndex] > 0.01f) {
-            RenderUtil.drawRoundedRect(context, windowX + 10f * scale, y + 2f * scale, sw - 20f * scale,
-                    rowH - 4f * scale, 7f * scale, RenderUtil.withAlpha(0xFFFFFF, 0.038f * alpha * navHover[hoverIndex]));
-        }
-        CustomFontRenderer.drawCenteredText(context, icon, windowX + 23f * scale,
-                y + (rowH - 9.8f * scale) * 0.5f, 9.8f * scale,
+        CustomFontRenderer.drawCenteredText(context, icon, windowX + 22f * scale,
+                y + (rowH - 11f * scale) * 0.5f, 11f * scale,
                 RenderUtil.lerpColor(RenderUtil.withAlpha(TEXT_DIM, 0.86f * alpha),
-                        RenderUtil.withAlpha(ACCENT_LIGHT, alpha), Math.max(navHover[hoverIndex], active ? 1f : 0f)), FontWeight.CLICK_GUI);
-        CustomFontRenderer.drawText(context, name, windowX + 38f * scale, y + 9.3f * scale,
-                6.9f * scale,
+                        RenderUtil.withAlpha(ACCENT_LIGHT, alpha), Math.max(navHover[hoverIndex], active ? 1f : 0f)), iconWeight);
+        CustomFontRenderer.drawText(context, name, windowX + 35f * scale, y + 6.6f * scale,
+                7.2f * scale,
                 RenderUtil.lerpColor(RenderUtil.withAlpha(TEXT_GRAY, 0.85f * alpha),
-                        RenderUtil.withAlpha(TEXT_WHITE, alpha), Math.max(navHover[hoverIndex], active ? 1f : 0f)), FontWeight.REGULAR);
+                        RenderUtil.withAlpha(TEXT_WHITE, alpha), Math.max(navHover[hoverIndex], active ? 1f : 0f)), FontWeight.SEMIBOLD);
     }
 
     private void renderHeader(DrawContext context, int mx, int my, float alpha, long now) {
@@ -503,46 +540,52 @@ public class MenuScreen extends Screen {
         RenderUtil.drawRect(context, x, windowY + h - 0.5f, w, 0.5f,
                 RenderUtil.withAlpha(0xFFFFFF, 0.055f * alpha));
         float intro = intro(now, openTime + 100L, 280L);
-        CustomFontRenderer.drawCenteredText(context, ICON_PUZZLE, x + 18f * scale,
-                windowY + (h - 9.3f * scale) * 0.5f, 9.3f * scale,
-                RenderUtil.withAlpha(TEXT_DIM, 0.75f * alpha * intro), FontWeight.CLICK_GUI);
-        CustomFontRenderer.drawText(context, "Client", x + 30f * scale, windowY + 15.5f * scale,
-                6.8f * scale, RenderUtil.withAlpha(TEXT_DIM, 0.85f * alpha * intro), FontWeight.REGULAR);
-        CustomFontRenderer.drawText(context, ">", x + 56f * scale, windowY + 15.4f * scale,
-                6.7f * scale, RenderUtil.withAlpha(TEXT_DIM, 0.55f * alpha * intro), FontWeight.REGULAR);
+        CustomFontRenderer.drawCenteredText(context, ICON_PUZZLE, x + 15.5f * scale,
+                windowY + 10.8f * scale, 12f * scale,
+                RenderUtil.withAlpha(ACCENT_LIGHT, 0.94f * alpha * intro), FontWeight.CLICK_GUI);
+        boolean clientRoot = activeTool == null && categories[activeCategory] == Category.CLIENT && searchQuery.isEmpty();
+        float rootX = x + 27f * scale;
+        String rootName = "Клиент";
+        CustomFontRenderer.drawText(context, rootName, rootX, windowY + 13.2f * scale,
+                7.4f * scale, RenderUtil.withAlpha(clientRoot ? TEXT_WHITE : TEXT_DIM,
+                        (clientRoot ? 1f : 0.90f) * alpha * intro), clientRoot ? FontWeight.SEMIBOLD : FontWeight.REGULAR);
         String current = !searchQuery.isEmpty() ? ClientLanguage.text("ui.search", "Поиск")
                 : activeTool != null ? activeTool.title() : categories[activeCategory].getDisplayName();
-        CustomFontRenderer.drawText(context, current, x + 66f * scale, windowY + 15.3f * scale,
-                7.2f * scale, RenderUtil.withAlpha(TEXT_WHITE, alpha * intro), FontWeight.SEMIBOLD);
+        if (!clientRoot) {
+            float separatorX = rootX + CustomFontRenderer.getTextWidth(rootName, 7.4f * scale,
+                    clientRoot ? FontWeight.SEMIBOLD : FontWeight.REGULAR) + 9f * scale;
+            CustomFontRenderer.drawText(context, ">", separatorX, windowY + 13.5f * scale,
+                    7.1f * scale, RenderUtil.withAlpha(TEXT_DIM, 0.62f * alpha * intro), FontWeight.REGULAR);
+            CustomFontRenderer.drawText(context, current, separatorX + 10f * scale, windowY + 13.2f * scale,
+                    7.7f * scale, RenderUtil.withAlpha(TEXT_WHITE, alpha * intro), FontWeight.SEMIBOLD);
+        }
 
-        float fieldW = 127f * scale;
-        float fieldH = 20f * scale;
+        float fieldW = 118f * scale;
+        float fieldH = 19f * scale;
         float fieldX = windowX + windowW - fieldW - 12f * scale;
         float fieldY = windowY + (h - fieldH) * 0.5f;
         boolean hovered = hit(mx, my, fieldX, fieldY, fieldW, fieldH);
         float focus = Math.max(searchFocus, hovered ? 0.35f : 0f);
         RenderUtil.drawRoundedRect(context, fieldX, fieldY, fieldW, fieldH, fieldH * 0.5f,
                 RenderUtil.withAlpha(INSET_BG, (0.82f + 0.10f * focus) * alpha));
-        RenderUtil.drawRoundedOutline(context, fieldX, fieldY, fieldW, fieldH, fieldH * 0.5f, 0.7f,
-                RenderUtil.withAlpha(focus > 0.2f ? ACCENT : 0xFFFFFF, (0.06f + 0.20f * focus) * alpha));
         CustomFontRenderer.drawCenteredText(context, ICON_SEARCH, fieldX + 13f * scale,
-                fieldY + (fieldH - 8.1f * scale) * 0.5f, 8.1f * scale,
+                fieldY + (fieldH - 9f * scale) * 0.5f, 9f * scale,
                 RenderUtil.withAlpha(searchActive ? ACCENT_LIGHT : TEXT_DIM, 0.88f * alpha), FontWeight.CLICK_GUI);
         float textX = fieldX + 25f * scale;
-        float textY = fieldY + (fieldH - 6.3f * scale) * 0.5f;
+        float textY = fieldY + (fieldH - 6.7f * scale) * 0.5f;
         if (searchQuery.isEmpty()) {
             String placeholder = activeTool == null
                     ? ClientLanguage.text("ui.search_modules", "Поиск модулей")
                     : ClientLanguage.text("ui.search", "Поиск...");
             CustomFontRenderer.drawText(context, placeholder, textX, textY,
-                    6.3f * scale, RenderUtil.withAlpha(TEXT_DIM, 0.78f * alpha), FontWeight.REGULAR);
+                    6.7f * scale, RenderUtil.withAlpha(TEXT_DIM, 0.86f * alpha), FontWeight.SEMIBOLD);
         } else {
-            String visible = CustomFontRenderer.trimToWidth(searchQuery, fieldW - 37f * scale, 6.3f * scale, FontWeight.REGULAR);
-            RenderUtil.drawAnimatedInputText(context, visible, textX, textY, 6.3f * scale,
-                    RenderUtil.withAlpha(TEXT_WHITE, alpha), FontWeight.REGULAR, typedCharIndex, typedCharStartMs);
+            String visible = CustomFontRenderer.trimToWidth(searchQuery, fieldW - 37f * scale, 6.7f * scale, FontWeight.SEMIBOLD);
+            RenderUtil.drawAnimatedInputText(context, visible, textX, textY, 6.7f * scale,
+                    RenderUtil.withAlpha(TEXT_WHITE, alpha), FontWeight.SEMIBOLD, typedCharIndex, typedCharStartMs);
         }
         if (searchActive && (now / 500L) % 2L == 0L) {
-            float caret = textX + CustomFontRenderer.getTextWidth(searchQuery, 6.3f * scale, FontWeight.REGULAR) + 1f;
+            float caret = textX + CustomFontRenderer.getTextWidth(searchQuery, 6.7f * scale, FontWeight.SEMIBOLD) + 1f;
             caret = Math.min(caret, fieldX + fieldW - 9f * scale);
             RenderUtil.drawRect(context, caret, fieldY + 5.5f * scale, 0.7f, fieldH - 11f * scale,
                     RenderUtil.withAlpha(TEXT_WHITE, 0.9f * alpha));
@@ -599,34 +642,35 @@ public class MenuScreen extends Screen {
     }
 
     private void renderHint(DrawContext context, float alpha, long now) {
-        String text = null;
+        String desired = null;
         boolean binding = bindingModule != null || bindingSetting != null;
         if (binding) {
             String target = bindingModule != null ? bindingModule.getName() : bindingSetting.getName();
-            text = ClientLanguage.text("ui.bind", "Бинд") + ": " + target;
-        } else if (hoverDescription != null && !hoverDescription.isBlank()) {
-            if (!hoverDescription.equals(shownDescription)) {
-                shownDescription = hoverDescription;
-                descriptionSince = now;
-            }
-            if (now - descriptionSince > 230L) text = shownDescription;
+            desired = ClientLanguage.text("ui.bind", "Бинд") + ": " + target;
         } else {
-            shownDescription = null;
+            descriptionCandidate = null;
         }
-        descriptionAnimation = RenderUtil.animate(descriptionAnimation, text == null ? 0f : 1f, 0.22f, RenderUtil.getFrameDelta());
-        String draw = text != null ? text : shownDescription;
-        if (draw == null || descriptionAnimation < 0.02f) return;
-        float size = 6.2f * scale;
+        if (desired != null && !desired.equals(shownDescription)) {
+            shownDescription = desired;
+            descriptionAnimation = Math.min(descriptionAnimation, 0.10f);
+        }
+        descriptionAnimation = RenderUtil.animate(descriptionAnimation, desired == null ? 0f : 1f,
+                desired == null ? 0.16f : 0.25f, RenderUtil.getFrameDelta());
+        if (shownDescription == null || descriptionAnimation < 0.02f) {
+            if (desired == null) shownDescription = null;
+            return;
+        }
+        String draw = shownDescription;
+        float size = 6.7f * scale;
         float tw = CustomFontRenderer.getTextWidth(draw, size, FontWeight.REGULAR);
         float pw = Math.min(windowW - 40f * scale, tw + 20f * scale);
-        float ph = 15f * scale;
+        float ph = 16f * scale;
         float px = windowX + (windowW - pw) * 0.5f;
-        float py = windowY + windowH + 8f * scale + (1f - RenderUtil.easeOutCubic(descriptionAnimation)) * 5f * scale;
-        float a = alpha * RenderUtil.easeOutQuad(descriptionAnimation);
+        float eased = RenderUtil.easeOutCubic(descriptionAnimation);
+        float py = windowY + windowH + 7f * scale + (1f - eased) * 8f * scale;
+        float a = alpha * eased;
         GlassUtil.drawGlassPanel(context, px, py, pw, ph, ph * 0.5f, WINDOW_BG & 0xFFFFFF, 0.88f * a, a * a);
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        RenderUtil.drawRoundedOutline(context, px, py, pw, ph, ph * 0.5f, 0.7f,
-                RenderUtil.withAlpha(binding ? ACCENT : 0xFFFFFF, (binding ? 0.32f : 0.055f) * a));
         draw = CustomFontRenderer.trimToWidth(draw, pw - 12f * scale, size, FontWeight.REGULAR);
         CustomFontRenderer.drawCenteredText(context, draw, px + pw * 0.5f, py + (ph - size) * 0.5f,
                 size, RenderUtil.withAlpha(TEXT_WHITE, a), FontWeight.REGULAR);
@@ -682,26 +726,51 @@ public class MenuScreen extends Screen {
 
     private void selectCategory(int index) {
         if (index < 0 || index >= categories.length
+                || contentTransitionPhase != 0
                 || activeTool == null && index == activeCategory && searchQuery.isEmpty()) return;
-        int direction = Integer.compare(index, activeCategory);
-        activeTool = null;
-        activeCategory = index;
+        contentTransitionDirection = activeTool != null ? -1 : (Integer.compare(index, activeCategory) == 0 ? 1 : Integer.compare(index, activeCategory));
+        pendingCategory = index;
+        pendingTool = null;
         searchQuery = "";
         searchActive = false;
-        closeCards();
-        rebuildCards(direction, System.currentTimeMillis() - 120L);
+        contentTransitionPhase = 1;
+        contentTransitionAt = System.currentTimeMillis();
         EnoughSoundPlayer.playScroll();
     }
 
     private void selectTool(IntegratedToolPage.Type type) {
-        if (type == null) return;
-        closeCards();
-        activeTool = type;
+        if (type == null || contentTransitionPhase != 0 || activeTool == type) return;
+        contentTransitionDirection = 1;
+        pendingTool = type;
+        pendingCategory = -1;
         searchQuery = "";
         searchActive = false;
-        scrollOffset = scrollTarget = 0f;
-        toolPage.activate(type);
+        contentTransitionPhase = 1;
+        contentTransitionAt = System.currentTimeMillis();
         EnoughSoundPlayer.playScroll();
+    }
+
+    private void updateContentTransition(long now) {
+        if (contentTransitionPhase == 1 && now - contentTransitionAt >= 145L) {
+            closeCards();
+            if (pendingTool != null) {
+                activeTool = pendingTool;
+                toolPage.activate(pendingTool);
+            } else if (pendingCategory >= 0) {
+                activeTool = null;
+                activeCategory = pendingCategory;
+                // The content transition already supplies the horizontal entrance. Keeping
+                // card intros completed avoids a second, unrelated vertical reveal.
+                rebuildCards(contentTransitionDirection, now - 5000L);
+            }
+            scrollOffset = scrollTarget = 0f;
+            pendingTool = null;
+            pendingCategory = -1;
+            contentTransitionPhase = 2;
+            contentTransitionAt = now;
+        } else if (contentTransitionPhase == 2 && now - contentTransitionAt >= 365L) {
+            contentTransitionPhase = 0;
+        }
     }
 
     private void closeCards() {
@@ -714,7 +783,7 @@ public class MenuScreen extends Screen {
     private float navTargetBaseY() {
         return activeTool == null
                 ? NAV_CATEGORY_Y + activeCategory * NAV_ROW_H
-                : NAV_TOOLS_Y + activeTool.ordinal() * NAV_ROW_H;
+                : NAV_TOOLS_Y + activeTool.ordinal() * NAV_TOOL_ROW_H;
     }
 
     private int indexOf(Category category) {
@@ -742,7 +811,7 @@ public class MenuScreen extends Screen {
         searchQuery = "";
         searchActive = false;
         closeCards();
-        rebuildCards(0, System.currentTimeMillis() - 110L);
+        rebuildCards(0, System.currentTimeMillis() + 20L);
         target = cardCache.get(module);
         expandedCard = target;
         target.setExpanded(true);
@@ -854,8 +923,13 @@ public class MenuScreen extends Screen {
         }
         if (!canInteract()) return true;
         if (picker != null && !picker.isClosing()) {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+                picker.close();
+                return true;
+            }
             if (picker.mouseClicked(mx, my, button)) return true;
             picker.close();
+            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) return true;
         }
 
         float sw = SIDEBAR_W * scale;
@@ -869,18 +943,20 @@ public class MenuScreen extends Screen {
                 }
             }
             float toolsY = windowY + NAV_TOOLS_Y * scale;
+            float toolRowH = NAV_TOOL_ROW_H * scale;
             IntegratedToolPage.Type[] types = IntegratedToolPage.Type.values();
-            for (int i = 0; i < 3; i++) {
-                if (hit(mx, my, windowX + 8f * scale, toolsY + i * rowH, sw - 16f * scale, rowH)) {
-                    selectTool(types[i]);
+            int visibleToolCount = SHOW_EVENTS_TAB ? types.length + 1 : types.length;
+            for (int i = 0; i < visibleToolCount; i++) {
+                if (hit(mx, my, windowX + 8f * scale, toolsY + i * toolRowH, sw - 16f * scale, toolRowH)) {
+                    if (i < types.length) selectTool(types[i]);
                     return true;
                 }
             }
             return true;
         }
 
-        float fieldW = 127f * scale;
-        float fieldH = 20f * scale;
+        float fieldW = 118f * scale;
+        float fieldH = 19f * scale;
         float fieldX = windowX + windowW - fieldW - 12f * scale;
         float fieldY = windowY + (HEADER_H * scale - fieldH) * 0.5f;
         if (hit(mx, my, fieldX, fieldY, fieldW, fieldH)) {
@@ -948,7 +1024,6 @@ public class MenuScreen extends Screen {
             }
             scrollTarget += (float) verticalAmount * 22f * scale;
             scrollTarget = Math.max(-maxScroll, Math.min(0f, scrollTarget));
-            EnoughSoundPlayer.playScroll();
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);

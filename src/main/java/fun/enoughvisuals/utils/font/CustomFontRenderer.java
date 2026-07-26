@@ -21,6 +21,7 @@ import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.util.Identifier;
 import org.joml.Matrix4f;
+import org.joml.Vector4f;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -48,6 +49,7 @@ public class CustomFontRenderer {
         LOGO("logo"),
         MENU("menu"),
         CLICK_GUI("click_gui"),
+        BOOK("book"),
         TIME("time");
 
 
@@ -102,20 +104,22 @@ public class CustomFontRenderer {
     private static final class MsdfAtlas {
         final Identifier textureId;
         final float distanceRange;
+        final boolean mtsdf;
         final float ascender;
         final float lineHeight;
         final Map<Integer, Glyph> glyphs;
         final Map<Long, Float> kerningPairs;
-        boolean textureConfigured = false;
 
         private MsdfAtlas(Identifier textureId,
                           float distanceRange,
+                          boolean mtsdf,
                           float ascender,
                           float lineHeight,
                           Map<Integer, Glyph> glyphs,
                           Map<Long, Float> kerningPairs) {
             this.textureId = textureId;
             this.distanceRange = distanceRange;
+            this.mtsdf = mtsdf;
             this.ascender = ascender;
             this.lineHeight = lineHeight;
             this.glyphs = glyphs;
@@ -178,6 +182,7 @@ public class CustomFontRenderer {
             if (atlasObj == null || metricsObj == null) return null;
 
             float distanceRange = getFloat(atlasObj, "distanceRange", 4f);
+            boolean mtsdf = "mtsdf".equalsIgnoreCase(getString(atlasObj, "type", "msdf"));
             float atlasWidth = getFloat(atlasObj, "width", 1f);
             float atlasHeight = getFloat(atlasObj, "height", 1f);
             float ascender = getFloat(metricsObj, "ascender", 0.8f);
@@ -250,7 +255,7 @@ public class CustomFontRenderer {
             }
 
             Identifier textureId = Identifier.of("enough", "fonts/msdf/" + weight.atlasName + ".png");
-            return new MsdfAtlas(textureId, distanceRange, ascender, lineHeight, glyphs, kerningPairs);
+            return new MsdfAtlas(textureId, distanceRange, mtsdf, ascender, lineHeight, glyphs, kerningPairs);
         } catch (Exception e) {
             e.printStackTrace();
             return null;
@@ -261,6 +266,15 @@ public class CustomFontRenderer {
         if (object == null || !object.has(name)) return fallback;
         try {
             return object.get(name).getAsFloat();
+        } catch (Exception ignored) {
+            return fallback;
+        }
+    }
+
+    private static String getString(JsonObject object, String name, String fallback) {
+        if (object == null || !object.has(name)) return fallback;
+        try {
+            return object.get(name).getAsString();
         } catch (Exception ignored) {
             return fallback;
         }
@@ -278,6 +292,20 @@ public class CustomFontRenderer {
 
     public static void drawText(DrawContext ctx, String text, float x, float y,
                                 float size, int color, FontWeight weight) {
+        drawTextInternal(ctx, text, x, y, size, color, weight, false, 0f, 0f, 0f, 0f);
+    }
+
+    public static void drawTextWithFade(DrawContext ctx, String text, float x, float y,
+                                        float size, int color, FontWeight weight,
+                                        float clipX, float clipWidth, float leftFade, float rightFade) {
+        drawTextInternal(ctx, text, x, y, size, color, weight, true,
+                clipX, clipWidth, leftFade, rightFade);
+    }
+
+    private static void drawTextInternal(DrawContext ctx, String text, float x, float y,
+                                         float size, int color, FontWeight weight,
+                                         boolean clipped, float clipX, float clipWidth,
+                                         float leftFade, float rightFade) {
         text = NameProtect.protect(text);
         if (text == null || text.isEmpty()) return;
 
@@ -320,8 +348,22 @@ public class CustomFontRenderer {
 
         setUniform(shader, "uColor", r, g, b, a);
         setUniform(shader, "uPxRange", atlas.distanceRange);
+        setUniform(shader, "uMtsdf", atlas.mtsdf ? 1f : 0f);
 
         Matrix4f matrix = ctx.getMatrices().peek().getPositionMatrix();
+        if (clipped && clipWidth > 0f) {
+            Vector4f p0 = matrix.transform(new Vector4f(clipX, y, 0f, 1f));
+            Vector4f p1 = matrix.transform(new Vector4f(clipX + clipWidth, y, 0f, 1f));
+            float framebufferScale = (float) MinecraftClient.getInstance().getWindow().getScaleFactor();
+            float leftPx = Math.min(p0.x, p1.x) * framebufferScale;
+            float rightPx = Math.max(p0.x, p1.x) * framebufferScale;
+            float transformedScale = Math.abs(rightPx - leftPx) / Math.max(clipWidth, 0.001f);
+            setUniform(shader, "uClipFade", leftPx, rightPx,
+                    Math.max(0f, leftFade) * transformedScale,
+                    Math.max(0f, rightFade) * transformedScale);
+        } else {
+            setUniform(shader, "uClipFade", -1f, -1f, 0f, 0f);
+        }
         BufferBuilder buffer = Tessellator.getInstance()
                 .begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
 
@@ -344,8 +386,14 @@ public class CustomFontRenderer {
             }
 
             Glyph glyph = atlas.glyphs.get(codePoint);
-            if (glyph == null) glyph = atlas.glyphs.get((int) '?');
-            if (glyph == null) continue;
+            if (glyph == null && !Character.isWhitespace(codePoint)) {
+                glyph = atlas.glyphs.get((int) '?');
+            }
+            if (glyph == null) {
+                penX += missingGlyphAdvance(atlas, codePoint) * size;
+                previousCodePoint = -1;
+                continue;
+            }
 
             if (previousCodePoint >= 0) {
                 Float kern = atlas.kerningPairs.get(packPair(previousCodePoint, codePoint));
@@ -448,8 +496,14 @@ public class CustomFontRenderer {
             }
 
             Glyph glyph = atlas.glyphs.get(codePoint);
-            if (glyph == null) glyph = atlas.glyphs.get((int) '?');
-            if (glyph == null) continue;
+            if (glyph == null && !Character.isWhitespace(codePoint)) {
+                glyph = atlas.glyphs.get((int) '?');
+            }
+            if (glyph == null) {
+                lineWidth += missingGlyphAdvance(atlas, codePoint) * size;
+                previousCodePoint = -1;
+                continue;
+            }
 
             if (previousCodePoint >= 0) {
                 Float kern = atlas.kerningPairs.get(packPair(previousCodePoint, codePoint));
@@ -513,16 +567,28 @@ public class CustomFontRenderer {
     }
 
     private static void ensureTextureFiltering(MsdfAtlas atlas) {
-        if (atlas.textureConfigured) return;
         try {
             MinecraftClient mc = MinecraftClient.getInstance();
             AbstractTexture texture = mc.getTextureManager().getTexture(atlas.textureId);
             if (texture != null) {
                 texture.setFilter(true, false);
             }
-            atlas.textureConfigured = true;
         } catch (Exception ignored) {
         }
+    }
+
+    private static float missingGlyphAdvance(MsdfAtlas atlas, int codePoint) {
+        int fallbackCodePoint = Character.isWhitespace(codePoint) ? ' ' : '?';
+        Glyph fallback = atlas.glyphs.get(fallbackCodePoint);
+        if (fallback == null) {
+            MsdfAtlas regular = ATLASES.get(FontWeight.REGULAR);
+            if (regular != null) fallback = regular.glyphs.get(fallbackCodePoint);
+        }
+
+        float advance = fallback != null && fallback.advance > 0f
+                ? fallback.advance
+                : (Character.isWhitespace(codePoint) ? 0.25f : 0.5f);
+        return codePoint == '\t' ? advance * 4f : advance;
     }
 
     private static void setUniform(ShaderProgram program, String name, float... values) {
