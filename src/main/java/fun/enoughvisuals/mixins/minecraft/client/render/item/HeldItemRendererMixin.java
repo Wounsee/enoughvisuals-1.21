@@ -125,8 +125,7 @@ public abstract class HeldItemRendererMixin {
         SwingAnimation swing = SwingAnimation.INSTANCE;
         boolean useCustomSwing = swing != null
                 && swing.isEnabled()
-                && swing.shouldApplyAnimation(item)
-                && arm == Arm.RIGHT;
+                && swing.shouldApplyAnimation(item);
 
         ViewModel viewModel = ViewModel.INSTANCE;
         boolean useViewModel = viewModel != null && viewModel.isEnabled();
@@ -140,19 +139,10 @@ public abstract class HeldItemRendererMixin {
                     viewModel.applyTransform(matrices, arm);
                 }
 
-                SwingAnimation.SwingTransformations t = swing.getTransform(swingProgress);
-
-                matrices.translate(t.anchorX(), t.anchorY(), t.anchorZ());
-                matrices.translate(t.moveX(), t.moveY(), t.moveZ());
-                matrices.multiply(new Quaternionf().rotationXYZ(
-                        (float) Math.toRadians(t.rotateX()),
-                        (float) Math.toRadians(t.rotateY()),
-                        (float) Math.toRadians(t.rotateZ())
-                ));
-                matrices.translate(-t.anchorX(), -t.anchorY(), -t.anchorZ());
-
-                int side = arm == Arm.RIGHT ? 1 : -1;
-                matrices.translate(side * 0.56f, -0.52f, -0.72f);
+                swing.applyTransform(matrices, swingProgress, arm);
+                swing.applyHandOffset(matrices, arm);
+                float enough$swingScale = swing.itemScale(arm);
+                matrices.scale(enough$swingScale, enough$swingScale, enough$swingScale);
 
                 if (!item.isEmpty()) {
                     boolean isRightArm = arm == Arm.RIGHT;

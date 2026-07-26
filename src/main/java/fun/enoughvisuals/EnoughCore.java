@@ -146,16 +146,15 @@ public final class EnoughCore {
 
                 new JumpCircle(),
 
-                new TrailParticles(),
-
                 new ChinaHat(),
 
                 new KillEffect(),
 
-                new WorldParticles(),
-
-                new FireFlies(),
-
+                new Particles(),
+                new AtmoDawnFog(),
+                new AttackEffect(),
+                new ColorPlus(),
+                new MotionBlur(),
                 new WorldSquares(),
 
                 new MouseParticles(),
@@ -176,7 +175,9 @@ public final class EnoughCore {
 
                 new ShaderHands(),
 
-                new Glow(),
+                new GlowESP(),
+
+                new FreeLook(),
 
                 new Pet(),
 
@@ -272,6 +273,7 @@ public final class EnoughCore {
 
         WorldRenderEvents.BEFORE_ENTITIES.register(ShaderEspRenderer::beginWorldFrame);
 
+        WorldRenderEvents.LAST.register(AtmoDawnFog::renderInWorld);
         WorldRenderEvents.LAST.register(ShaderEspRenderer::renderInWorld);
 
         WorldRenderEvents.LAST.register(BlockOverlay::renderInWorld);
@@ -286,21 +288,16 @@ public final class EnoughCore {
 
         WorldRenderEvents.LAST.register(CustomHitbox::renderInWorld);
 
-        WorldRenderEvents.LAST.register(WorldParticles::renderInWorld);
-
-        WorldRenderEvents.LAST.register(FireFlies::renderInWorld);
+        WorldRenderEvents.LAST.register(Particles::renderInWorld);
 
         WorldRenderEvents.LAST.register(WorldSquares::renderInWorld);
 
         WorldRenderEvents.LAST.register(JumpCircle::renderInWorld);
 
-        WorldRenderEvents.LAST.register(TrailParticles::renderInWorld);
-
-        WorldRenderEvents.LAST.register(ChinaHat::renderInWorld);
-
         WorldRenderEvents.LAST.register(JumpEffect::renderInWorld);
 
         WorldRenderEvents.LAST.register(Trails::renderInWorld);
+        WorldRenderEvents.LAST.register(AttackEffect::renderInWorld);
 
         HudRenderCallback.EVENT.register((drawContext, tickCounter) ->
 

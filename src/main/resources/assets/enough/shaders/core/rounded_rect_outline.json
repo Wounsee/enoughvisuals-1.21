@@ -6,8 +6,8 @@
     "srcalpha": "one",
     "dstalpha": "1-srcalpha"
   },
-  "vertex": "enoughvisuals:rounded_rect",
-  "fragment": "enoughvisuals:rounded_rect_outline",
+  "vertex": "enough:core/rounded_rect",
+  "fragment": "enough:core/rounded_rect_outline",
   "attributes": ["Position", "Color", "UV0"],
   "samplers": [],
   "uniforms": [

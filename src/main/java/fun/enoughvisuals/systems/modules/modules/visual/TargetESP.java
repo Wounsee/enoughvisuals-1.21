@@ -6,10 +6,12 @@ import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.ColorSetting;
+import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.ModeSetting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.utils.render.CrystalRenderer;
 import fun.enoughvisuals.utils.render.RenderUtil;
+import fun.enoughvisuals.utils.render.TargetSoulRenderer;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
@@ -28,6 +30,7 @@ import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.hit.EntityHitResult;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 
@@ -48,6 +51,7 @@ public class TargetESP extends Module {
     private static final String MODE_SQUARE_1 = "square_1";
     private static final String MODE_SQUARE_2 = "square_2";
     private static final String MODE_CUBE = "cube";
+    private static final String MODE_SOULS = "souls";
     private static final Identifier SQUARE_1 = Identifier.of("enough", "textures/targetesp/target.png");
     private static final Identifier SQUARE_2 = Identifier.of("enough", "textures/targetesp/target2.png");
     private static final Identifier BLOOM_TEXTURE = Identifier.of("enough", "textures/bloom.png");
@@ -59,7 +63,7 @@ public class TargetESP extends Module {
     public static LivingEntity globalTarget = null;
 
     public final ModeSetting style = add(new ModeSetting(
-            "Style", "style", "Target ESP style", MODE_CRYSTALS, MODE_CRYSTALS, MODE_SQUARE_1, MODE_SQUARE_2, MODE_CUBE
+            "Style", "style", "Target ESP style", MODE_CRYSTALS, MODE_CRYSTALS, MODE_SQUARE_1, MODE_SQUARE_2, MODE_CUBE, MODE_SOULS
     ));
     public final ColorSetting colorA = add(new ColorSetting(
             "Color 1", "color_a", "First crystal color", 0xFF8A5CFF
@@ -75,6 +79,9 @@ public class TargetESP extends Module {
     ));
     public final SliderSetting attackRange = add(new SliderSetting(
             "Attack Range", "attack_range", "Real target highlight distance", 3.0, 2.0, 6.0, 0.05, "b"
+    ));
+    public final BooleanSetting throughWalls = add(new BooleanSetting(
+            "Сквозь стены", "through_walls", "Показывать Target ESP за блоками", false
     ));
 
     private LivingEntity displayTarget = null;
@@ -109,12 +116,14 @@ public class TargetESP extends Module {
     private float lastCubeRenderRotationZ = 0f;
     private final Random random = new Random();
     private final List<CubeShard> cubeShards = new ArrayList<>();
+    private final TargetSoulRenderer soulRenderer = new TargetSoulRenderer();
+    private final TargetSoulRenderer previousSoulRenderer = new TargetSoulRenderer();
 
     public TargetESP() {
         INSTANCE = this;
         colorA.visibleWhen(() -> style.is(MODE_CRYSTALS));
         colorB.visibleWhen(() -> style.is(MODE_CRYSTALS));
-        squareColor.visibleWhen(() -> !style.is(MODE_CRYSTALS));
+        squareColor.visibleWhen(() -> !style.is(MODE_CRYSTALS) && !style.is(MODE_SOULS));
         squareSize.visibleWhen(() -> style.is(MODE_SQUARE_1) || style.is(MODE_SQUARE_2));
     }
 
@@ -143,13 +152,16 @@ public class TargetESP extends Module {
         lastCubeRenderRotationY = 0f;
         lastCubeRenderRotationZ = 0f;
         cubeShards.clear();
+        soulRenderer.reset();
+        previousSoulRenderer.reset();
     }
 
     @Override
     public void onTick() {
         confirmPendingHit();
 
-        if (logicTarget != null && (!logicTarget.isAlive() || logicTarget.isRemoved())) {
+        if (logicTarget != null && (!logicTarget.isAlive() || logicTarget.isRemoved() || logicTarget.isInvisible()
+                || mc.player == null || (!throughWalls.get() && !mc.player.canSee(logicTarget)))) {
             if (style.is(MODE_CUBE)) {
                 spawnCubeShatter(logicTarget);
             }
@@ -248,7 +260,8 @@ public class TargetESP extends Module {
     }
 
     private void markAttackVisual(LivingEntity living) {
-        if (living == null || living.isRemoved() || !living.isAlive()) return;
+        if (living == null || living.isRemoved() || !living.isAlive() || living.isInvisible()
+                || mc.player == null || (!throughWalls.get() && !mc.player.canSee(living))) return;
         if (living != logicTarget && living != displayTarget) {
             if (displayTarget != null && displayAlpha > 0.01f) {
                 prevTarget = displayTarget;
@@ -290,14 +303,21 @@ public class TargetESP extends Module {
             updateCubeShards(frameDelta);
         }
 
-        if (style.is(MODE_CRYSTALS)) {
+        if (style.is(MODE_SOULS)) {
+            if (isRenderable(prevTarget, prevAlpha)) {
+                previousSoulRenderer.render(ctx, prevTarget, prevAlpha, tickDelta, throughWalls.get());
+            }
+            if (isRenderable(displayTarget, displayAlpha)) {
+                soulRenderer.render(ctx, displayTarget, displayAlpha, tickDelta, throughWalls.get());
+            }
+        } else if (style.is(MODE_CRYSTALS)) {
             int cA = colorA.get() & 0x00FFFFFF;
             int cB = colorB.get() & 0x00FFFFFF;
             if (isRenderable(prevTarget, prevAlpha)) {
-                CrystalRenderer.render(ms, prevTarget, prevAlpha, tickDelta, cA, cB, 0.85f, 4);
+                CrystalRenderer.render(ms, prevTarget, prevAlpha, tickDelta, cA, cB, 0.85f, 4, throughWalls.get());
             }
             if (isRenderable(displayTarget, displayAlpha)) {
-                CrystalRenderer.render(ms, displayTarget, displayAlpha, tickDelta, cA, cB, 0.85f, 4);
+                CrystalRenderer.render(ms, displayTarget, displayAlpha, tickDelta, cA, cB, 0.85f, 4, throughWalls.get());
             }
         } else if (style.is(MODE_CUBE)) {
             int cubeColor = squareColor.get();
@@ -320,7 +340,8 @@ public class TargetESP extends Module {
     }
 
     private boolean isRenderable(LivingEntity entity, float alpha) {
-        return entity != null && alpha > 0.01f && entity.isAlive() && !entity.isRemoved();
+        return entity != null && alpha > 0.01f && entity.isAlive() && !entity.isRemoved()
+                && !entity.isInvisible() && mc.player != null && (throughWalls.get() || mc.player.canSee(entity));
     }
 
     private void renderSquare(WorldRenderContext ctx, LivingEntity entity, Identifier texture,
@@ -362,7 +383,7 @@ public class TargetESP extends Module {
         RenderSystem.enableBlend();
         RenderSystem.blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
         RenderSystem.disableCull();
-        RenderSystem.disableDepthTest();
+        applyTargetDepth();
         RenderSystem.depthMask(false);
         RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
         RenderSystem.setShaderTexture(0, texture);
@@ -386,6 +407,15 @@ public class TargetESP extends Module {
         RenderSystem.enableCull();
         RenderSystem.disableBlend();
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+    }
+
+    private void applyTargetDepth() {
+        if (throughWalls.get()) {
+            RenderSystem.disableDepthTest();
+        } else {
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        }
     }
 
     private void kickCubeSpin() {
@@ -536,7 +566,7 @@ public class TargetESP extends Module {
 
         RenderSystem.enableBlend();
         RenderSystem.disableCull();
-        RenderSystem.disableDepthTest();
+        applyTargetDepth();
         RenderSystem.depthMask(false);
 
         matrices.push();
@@ -795,7 +825,7 @@ public class TargetESP extends Module {
 
         RenderSystem.enableBlend();
         RenderSystem.disableCull();
-        RenderSystem.enableDepthTest();
+        applyTargetDepth();
         RenderSystem.depthMask(false);
 
         RenderSystem.blendFunc(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE);
@@ -963,44 +993,14 @@ public class TargetESP extends Module {
     private LivingEntity raycastTarget(double maxDist) {
         if (mc.player == null || mc.world == null) return null;
 
-        Vec3d eyes = mc.player.getCameraPosVec(1.0f);
-        Vec3d look = mc.player.getRotationVec(1.0f);
-        Vec3d end = eyes.add(look.multiply(maxDist));
-
-        LivingEntity best = null;
-        double bestDist = maxDist * maxDist;
-
-        Box searchBox = mc.player.getBoundingBox().stretch(look.multiply(maxDist)).expand(1.2);
-        for (Entity entity : mc.world.getOtherEntities(mc.player, searchBox, e -> e instanceof LivingEntity)) {
-            LivingEntity targetEntity = (LivingEntity) entity;
-            if (!targetEntity.isAlive() || targetEntity.isRemoved()) continue;
-            if (targetEntity.isInvisible() && !isWearingFullHighTierArmor(targetEntity)) continue;
-
-            Optional<Vec3d> hit = targetEntity.getBoundingBox().expand(0.05).raycast(eyes, end);
-            if (hit.isPresent()) {
-                double distance = eyes.squaredDistanceTo(hit.get());
-                if (distance < bestDist) {
-                    bestDist = distance;
-                    best = targetEntity;
-                }
-            }
+        if (mc.crosshairTarget instanceof EntityHitResult hit
+                && hit.getEntity() instanceof LivingEntity living
+                && living.isAlive() && !living.isRemoved() && !living.isInvisible()
+                && mc.player.canSee(living)
+                && mc.player.getCameraPosVec(1.0F).squaredDistanceTo(hit.getPos()) <= maxDist * maxDist) {
+            return living;
         }
-
-        return best;
-    }
-
-    private boolean isWearingFullHighTierArmor(LivingEntity entity) {
-        int count = 0;
-        for (ItemStack stack : entity.getArmorItems()) {
-            if (stack == null || stack.isEmpty()) return false;
-
-            String name = stack.getItem().getTranslationKey().toLowerCase();
-            if (!name.contains("diamond") && !name.contains("netherite")) {
-                return false;
-            }
-            count++;
-        }
-        return count == 4;
+        return null;
     }
 
     private static final class CubeShard {

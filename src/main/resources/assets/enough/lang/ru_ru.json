@@ -486,6 +486,7 @@
   "settings.target_esp.style.values.crystals": "Кристаллы",
   "settings.target_esp.style.values.square_1": "Квадрат 1",
   "settings.target_esp.style.values.square_2": "Квадрат 2",
+  "settings.target_esp.style.values.souls": "Обычные души",
   "settings.target_esp.square_color.name": "Цвет квадрата",
   "settings.target_esp.square_color.description": "Цвет квадратного Target ESP",
   "settings.target_esp.square_size.name": "Размер квадрата",

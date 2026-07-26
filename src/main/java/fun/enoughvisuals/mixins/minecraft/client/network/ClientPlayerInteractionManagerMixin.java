@@ -6,6 +6,7 @@ import fun.enoughvisuals.systems.modules.modules.utils.FakePlayer;
 import fun.enoughvisuals.systems.modules.modules.utils.ShiftTap;
 import fun.enoughvisuals.systems.modules.modules.utils.TrapTimer;
 import fun.enoughvisuals.systems.modules.modules.visual.HealthIndicator;
+import fun.enoughvisuals.systems.modules.modules.visual.AttackEffect;
 import fun.enoughvisuals.systems.modules.modules.visual.TargetESP;
 import fun.enoughvisuals.utils.sound.CombatSoundService;
 import net.minecraft.client.network.ClientPlayerInteractionManager;
@@ -26,6 +27,7 @@ public class ClientPlayerInteractionManagerMixin {
 
     @Inject(method = "attackEntity", at = @At("HEAD"), cancellable = true)
     private void enough$recordPlayerAttack(PlayerEntity player, Entity target, CallbackInfo ci) {
+        AttackEffect.onAttack(target);
         if (FakePlayer.handleLocalAttack(target)) {
             ci.cancel();
             return;

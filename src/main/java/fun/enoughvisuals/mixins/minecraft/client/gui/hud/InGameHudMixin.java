@@ -6,6 +6,8 @@ import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.modules.utils.LockSlot;
 import fun.enoughvisuals.systems.modules.modules.visual.Animations;
 import fun.enoughvisuals.systems.modules.modules.visual.Cooldowns;
+import fun.enoughvisuals.systems.modules.modules.visual.ColorPlus;
+import fun.enoughvisuals.systems.modules.modules.visual.MotionBlur;
 import fun.enoughvisuals.systems.modules.modules.visual.Crosshair;
 import fun.enoughvisuals.systems.modules.modules.visual.CustomTab;
 import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
@@ -53,6 +55,8 @@ public abstract class InGameHudMixin {
 
     @Inject(method = "render", at = @At("HEAD"))
     private void enough$beginBlur(DrawContext ctx, RenderTickCounter counter, CallbackInfo ci) {
+        MotionBlur.renderExact();
+        ColorPlus.renderExact();
         RenderUtil.beginFrame();
         // Safety reset: prevents leaked scissor state from clipping vanilla HUD
         // (scoreboard/effect icons) after custom tab/watermark animations.

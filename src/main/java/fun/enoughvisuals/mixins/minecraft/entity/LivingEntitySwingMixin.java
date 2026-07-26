@@ -24,7 +24,7 @@ public abstract class LivingEntitySwingMixin {
         if (!module.shouldApplyAnimation(stack)) return;
 
         int original = cir.getReturnValue();
-        int modified = Math.max(1, (int) (original * module.getSpeedMultiplier()));
+        int modified = Math.max(1, (int) (original / module.getSpeedMultiplier()));
         cir.setReturnValue(modified);
     }
 }

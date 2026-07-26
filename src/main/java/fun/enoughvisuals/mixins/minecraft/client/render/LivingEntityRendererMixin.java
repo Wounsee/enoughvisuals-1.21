@@ -104,6 +104,31 @@ public class LivingEntityRendererMixin {
 
     @Inject(
             method = "render(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/util/math/MatrixStack;pop()V"
+            )
+    )
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void enough$renderChinaHat(
+            net.minecraft.client.render.entity.state.LivingEntityRenderState state,
+            MatrixStack matrices,
+            VertexConsumerProvider vertexConsumers,
+            int light,
+            CallbackInfo ci
+    ) {
+        if (!(state instanceof PlayerEntityRenderState playerState)) {
+            return;
+        }
+        LivingEntityRenderer renderer = (LivingEntityRenderer) (Object) this;
+        if (renderer.getModel() instanceof net.minecraft.client.render.entity.model.PlayerEntityModel playerModel) {
+            fun.enoughvisuals.systems.modules.modules.visual.ChinaHat.renderForPlayer(
+                    playerState, playerModel, matrices, vertexConsumers, light);
+        }
+    }
+
+    @Inject(
+            method = "render(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V",
             at = @At("TAIL")
     )
     private void enough$drawHitRange(

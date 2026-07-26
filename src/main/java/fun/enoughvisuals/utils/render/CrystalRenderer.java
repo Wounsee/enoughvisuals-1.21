@@ -23,7 +23,8 @@ public final class CrystalRenderer {
             int colorA,
             int colorB,
             float glowStrength,
-            int shardCount
+            int shardCount,
+            boolean throughWalls
     ) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.gameRenderer == null) return;
@@ -52,7 +53,7 @@ public final class CrystalRenderer {
         RenderSystem.enableBlend();
         RenderSystem.disableCull();
         RenderSystem.depthMask(false);
-        RenderSystem.enableDepthTest();
+        if (throughWalls) RenderSystem.disableDepthTest(); else RenderSystem.enableDepthTest();
 
                                                                      
                                                                   
@@ -204,6 +205,7 @@ public final class CrystalRenderer {
 
         RenderSystem.enableCull();
         RenderSystem.depthMask(true);
+        RenderSystem.enableDepthTest();
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableBlend();
     }

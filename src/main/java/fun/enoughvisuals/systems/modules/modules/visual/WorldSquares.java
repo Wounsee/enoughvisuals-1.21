@@ -7,17 +7,16 @@ import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.ColorSetting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
-import fun.enoughvisuals.utils.render.WorldEffectShaders;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.Camera;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
@@ -288,7 +287,6 @@ public class WorldSquares extends Module {
         }
 
         renderLinks(matrices, cam, renderNodes, tickDelta, seconds);
-        renderNodes(matrices, camera, cam, renderNodes, seconds);
 
         RenderSystem.depthFunc(oldDepthFunc);
         RenderSystem.depthMask(oldDepthMask);
@@ -301,7 +299,9 @@ public class WorldSquares extends Module {
 
     private void renderLinks(MatrixStack matrices, Vec3d cam, Map<Integer, RenderNode> renderNodes,
                              float tickDelta, float seconds) {
-        if (renderNodes.isEmpty() || WorldEffectShaders.useLink(seconds, glow.get().floatValue()) == null) return;
+        if (renderNodes.isEmpty()) return;
+
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
 
         Matrix4f matrix = matrices.peek().getPositionMatrix();
         BufferBuilder buffer = null;
@@ -317,7 +317,7 @@ public class WorldSquares extends Module {
             if (buffer == null) {
                 buffer = Tessellator.getInstance().begin(
                         VertexFormat.DrawMode.QUADS,
-                        VertexFormats.POSITION_TEXTURE_COLOR
+                        VertexFormats.POSITION_COLOR
                 );
             }
             appendLink(buffer, matrix, cam, first.pos, second.pos, width, rgb, baseAlpha * alpha);
@@ -326,29 +326,6 @@ public class WorldSquares extends Module {
         if (buffer != null) {
             BufferRenderer.drawWithGlobalProgram(buffer.end());
         }
-    }
-
-    private void renderNodes(MatrixStack matrices, Camera camera, Vec3d cam,
-                             Map<Integer, RenderNode> renderNodes, float seconds) {
-        if (renderNodes.isEmpty()
-                || WorldEffectShaders.useSoftParticle(seconds, glow.get().floatValue()) == null) return;
-
-        BufferBuilder buffer = Tessellator.getInstance().begin(
-                VertexFormat.DrawMode.QUADS,
-                VertexFormats.POSITION_TEXTURE_COLOR
-        );
-        int rgb = accentColor.get() & 0x00FFFFFF;
-        float diameter = nodeSize.get().floatValue() * 2.55f;
-        float baseAlpha = opacity.get().floatValue() * accentColor.getAlphaF();
-
-        for (RenderNode renderNode : renderNodes.values()) {
-            NetworkNode node = renderNode.node;
-            float spawn = MathHelper.clamp(node.age * 2.8f, 0.0f, 1.0f);
-            float pulse = 0.92f + MathHelper.sin(seconds * 2.2f + node.seed) * 0.08f;
-            appendBillboard(buffer, matrices, camera, cam, renderNode.pos,
-                    diameter * pulse, rgb, baseAlpha * spawn, node.seed * 17.0f);
-        }
-        BufferRenderer.drawWithGlobalProgram(buffer.end());
     }
 
     private void appendLink(BufferBuilder buffer, Matrix4f matrix, Vec3d cam,
@@ -376,37 +353,10 @@ public class WorldSquares extends Module {
         float red = ((rgb >> 16) & 0xFF) / 255.0f;
         float green = ((rgb >> 8) & 0xFF) / 255.0f;
         float blue = (rgb & 0xFF) / 255.0f;
-        buffer.vertex(matrix, (float) a.x, (float) a.y, (float) a.z)
-                .texture(0.0f, 0.0f).color(red, green, blue, alpha);
-        buffer.vertex(matrix, (float) b.x, (float) b.y, (float) b.z)
-                .texture(0.0f, 1.0f).color(red, green, blue, alpha);
-        buffer.vertex(matrix, (float) c.x, (float) c.y, (float) c.z)
-                .texture(1.0f, 1.0f).color(red, green, blue, alpha);
-        buffer.vertex(matrix, (float) d.x, (float) d.y, (float) d.z)
-                .texture(1.0f, 0.0f).color(red, green, blue, alpha);
-    }
-
-    private void appendBillboard(BufferBuilder buffer, MatrixStack matrices, Camera camera, Vec3d cam,
-                                 Vec3d pos, float size, int rgb, float alpha, float rotation) {
-        if (alpha <= 0.002f) return;
-        float half = size * 0.5f;
-        float red = ((rgb >> 16) & 0xFF) / 255.0f;
-        float green = ((rgb >> 8) & 0xFF) / 255.0f;
-        float blue = (rgb & 0xFF) / 255.0f;
-        matrices.push();
-        matrices.translate(pos.x - cam.x, pos.y - cam.y, pos.z - cam.z);
-        matrices.multiply(camera.getRotation());
-        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(rotation));
-        Matrix4f matrix = matrices.peek().getPositionMatrix();
-        buffer.vertex(matrix, -half, -half, 0.0f)
-                .texture(0.0f, 1.0f).color(red, green, blue, alpha);
-        buffer.vertex(matrix, half, -half, 0.0f)
-                .texture(1.0f, 1.0f).color(red, green, blue, alpha);
-        buffer.vertex(matrix, half, half, 0.0f)
-                .texture(1.0f, 0.0f).color(red, green, blue, alpha);
-        buffer.vertex(matrix, -half, half, 0.0f)
-                .texture(0.0f, 0.0f).color(red, green, blue, alpha);
-        matrices.pop();
+        buffer.vertex(matrix, (float) a.x, (float) a.y, (float) a.z).color(red, green, blue, alpha);
+        buffer.vertex(matrix, (float) b.x, (float) b.y, (float) b.z).color(red, green, blue, alpha);
+        buffer.vertex(matrix, (float) c.x, (float) c.y, (float) c.z).color(red, green, blue, alpha);
+        buffer.vertex(matrix, (float) d.x, (float) d.y, (float) d.z).color(red, green, blue, alpha);
     }
 
     private Vec3d effectCenter() {

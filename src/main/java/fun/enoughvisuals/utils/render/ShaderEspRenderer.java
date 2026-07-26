@@ -5,8 +5,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.mixins.accessors.FramebufferAccessor;
 import fun.enoughvisuals.mixins.accessors.MinecraftClientAccessor;
 import fun.enoughvisuals.mixins.accessors.ShaderProgramAccessor;
-import fun.enoughvisuals.systems.modules.modules.visual.Glow;
-import fun.enoughvisuals.systems.modules.modules.visual.ShaderESP;
+import fun.enoughvisuals.systems.modules.modules.visual.GlowESP;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
@@ -78,6 +77,7 @@ public final class ShaderEspRenderer {
     private static boolean echoDirty;
     private static EspRenderConfig frameConfig;
     private static boolean renderingMask;
+    private static fun.enoughvisuals.port.GlowEspRenderer worldGlowRenderer;
 
     private ShaderEspRenderer() {
     }
@@ -155,6 +155,16 @@ public final class ShaderEspRenderer {
                         OverlayTexture.DEFAULT_UV,
                         0xFFFFFFFF
                 );
+                for (FeatureRenderer feature : features) {
+                    feature.render(
+                            matrices,
+                            consumers,
+                            LightmapTextureManager.MAX_LIGHT_COORDINATE,
+                            state,
+                            state.limbFrequency,
+                            state.limbAmplitudeMultiplier
+                    );
+                }
                 ((MinecraftClientAccessor) client).enough$setFramebuffer(mask);
                 mainFramebufferSwapped = true;
                 mask.beginWrite(false);
@@ -196,32 +206,50 @@ public final class ShaderEspRenderer {
 
         RenderStateSnapshot stateSnapshot = RenderStateSnapshot.capture();
         try {
-            RenderSystem.disableBlend();
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-            renderBlur(config.glowRadius());
-
-            if (config.echoMode()) {
-                updateEcho(config);
-            } else {
-                clearEchoIfDirty();
-                lastRenderNanos = 0L;
-            }
-
-            client.getFramebuffer().beginWrite(true);
-            ShaderProgram shader = RenderSystem.setShader(ESP_SHADER);
-            if (shader == null) {
+            if (!config.glow().worldMode()) {
+                RenderSystem.disableBlend();
+                RenderSystem.disableDepthTest();
+                RenderSystem.depthMask(false);
+                renderBlur(Math.min(config.glowRadius(), 14.0F));
+                client.getFramebuffer().beginWrite(true);
+                ShaderProgram shader = RenderSystem.setShader(ESP_SHADER);
+                if (shader == null) return;
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+                RenderSystem.disableCull();
+                RenderSystem.setShaderTexture(0, mask.getColorAttachment());
+                RenderSystem.setShaderTexture(1, blurVertical.getColorAttachment());
+                RenderSystem.setShaderTexture(2, mask.getColorAttachment());
+                setEspUniforms(shader, config, 1, 1.0F);
+                drawFullscreenQuad();
                 return;
             }
-
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.disableCull();
-            RenderSystem.setShaderTexture(0, mask.getColorAttachment());
-            RenderSystem.setShaderTexture(1, blurVertical.getColorAttachment());
-            RenderSystem.setShaderTexture(2, config.echoMode() && echoTrail != null ? echoTrail.getColorAttachment() : mask.getColorAttachment());
-            setEspUniforms(shader, config, 1, 1.0F);
-            drawFullscreenQuad();
+            client.getFramebuffer().beginWrite(true);
+            if (worldGlowRenderer == null) {
+                worldGlowRenderer = new fun.enoughvisuals.port.GlowEspRenderer();
+            }
+            GlowESP glow = config.glow();
+            int top = glow.primaryColor();
+            int bottom = glow.secondaryColor();
+            fun.enoughvisuals.port.GlowEspRenderer.GlowEspRendererData data =
+                    new fun.enoughvisuals.port.GlowEspRenderer.GlowEspRendererData(
+                            glow.glowSize.get().floatValue() * 2.0F,
+                            glow.outlineWidth.get().floatValue(),
+                            glow.hasGlow() ? glow.glowBrightness.get().floatValue() * 2.0F : 0.0F,
+                            glow.hasOutline() ? 1.35F : 0.0F,
+                            glow.opacity.get().floatValue(),
+                            0,
+                            glow.colorMode.getIndex() == 1 ? 1 : 0,
+                            0,
+                            ((top >> 16) & 255) / 255.0F,
+                            ((top >> 8) & 255) / 255.0F,
+                            (top & 255) / 255.0F,
+                            ((bottom >> 16) & 255) / 255.0F,
+                            ((bottom >> 8) & 255) / 255.0F,
+                            (bottom & 255) / 255.0F
+                    );
+            worldGlowRenderer.check3(
+                    mask.getColorAttachment(), mask.getDepthAttachment(), width, height, data, null, 0, 0, 0);
         } finally {
             client.getFramebuffer().beginWrite(true);
             stateSnapshot.restore();
@@ -366,7 +394,7 @@ public final class ShaderEspRenderer {
         if (!config.accepts(entity)) {
             return false;
         }
-        if (entity.isInvisible() && (!(entity instanceof LivingEntity living) || !isWearingFullHighTierArmor(living))) {
+        if (entity.isInvisible()) {
             return false;
         }
 
@@ -598,56 +626,38 @@ public final class ShaderEspRenderer {
         echoTrail = null;
         echoScratch = null;
         echoDirty = false;
+        if (worldGlowRenderer != null) {
+            worldGlowRenderer.close();
+            worldGlowRenderer = null;
+        }
     }
 
     private static EspRenderConfig activeConfig() {
-        Glow glow = Glow.active();
+        GlowESP glow = GlowESP.active();
         if (glow != null) {
-            int color = glow.color();
-            float strength = glow.strength.get().floatValue();
-            boolean fill = glow.isFillMode();
+            int color = glow.primaryColor();
+            int color2 = glow.secondaryColor();
+            float strength = glow.glowBrightness.get().floatValue();
+            boolean fill = glow.hasGlow();
             return new EspRenderConfig(
+                    color2,
                     color,
-                    color,
-                    fill ? ((color >>> 24) & 0xFF) / 255.0F : 0.0F,
-                    fill ? strength * 0.92F : strength,
-                    fill ? strength * 0.72F : strength * 0.82F,
-                    glow.outlineWidth.get().floatValue(),
-                    glow.radius.get().floatValue(),
+                    0.0F,
+                    glow.hasGlow() ? strength * glow.opacity.get().floatValue() : 0.0F,
+                    glow.hasOutline() ? strength * 0.82F * glow.opacity.get().floatValue() : 0.0F,
+                    glow.hasOutline() ? glow.outlineWidth.get().floatValue() : 0.0F,
+                    glow.glowSize.get().floatValue(),
                     0.0F,
                     fill ? 2 : 0,
                     false,
-                    glow.self.get(),
+                    glow.self(),
                     glow.distanceSquared(),
-                    false,
+                    glow.worldMode(),
                     false,
                     glow
             );
         }
-
-        ShaderESP shader = ShaderESP.active();
-        if (shader == null) {
-            return null;
-        }
-
-        double distance = shader.distance.get();
-        return new EspRenderConfig(
-                shader.fillColor.get(),
-                shader.glowColor.get(),
-                shader.fillOpacity.get().floatValue(),
-                shader.glowStrength.get().floatValue(),
-                shader.outlineStrength.get().floatValue(),
-                shader.outlineWidth.get().floatValue(),
-                shader.glowRadius.get().floatValue(),
-                shader.echoDecay.get().floatValue(),
-                shader.modeIndex(),
-                shader.mode.is("Echo"),
-                shader.self.get(),
-                distance * distance,
-                false,
-                false,
-                null
-        );
+        return null;
     }
 
     private record EspRenderConfig(
@@ -665,7 +675,7 @@ public final class ShaderEspRenderer {
             double distanceSquared,
             boolean manualWorldCapture,
             boolean throughWalls,
-            Glow glow
+            GlowESP glow
     ) {
         private boolean shouldRender(int entityId, double squaredDistance) {
             MinecraftClient client = MinecraftClient.getInstance();
@@ -675,15 +685,14 @@ public final class ShaderEspRenderer {
         }
 
         private boolean accepts(Entity entity) {
-            return glow == null ? entity instanceof LivingEntity : glow.shouldRender(entity);
+            return glow != null && glow.shouldRender(entity);
         }
 
         private boolean acceptsLivingState(boolean player, boolean selfState) {
-            if (glow == null) return !selfState || self;
             if (player) {
-                return glow.entities.isSelected(Glow.ENTITY_PLAYERS) && (!selfState || glow.self.get());
+                return glow.targets.isSelected(GlowESP.PLAYERS) && (!selfState || glow.self());
             }
-            return glow.entities.isSelected(Glow.ENTITY_MOBS);
+            return glow.targets.isSelected(GlowESP.MOBS);
         }
     }
 

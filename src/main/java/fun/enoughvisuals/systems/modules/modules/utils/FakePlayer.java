@@ -8,11 +8,13 @@ import fun.enoughvisuals.systems.modules.modules.visual.HitParticles;
 import fun.enoughvisuals.systems.modules.modules.visual.TargetESP;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.ModeSetting;
+import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.utils.player.ClientActionUtil;
 import net.minecraft.client.network.OtherClientPlayerEntity;
 import net.minecraft.entity.DamageUtil;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.MovementType;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffectInstance;
@@ -26,9 +28,11 @@ import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.Hand;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 
-import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Register(
         name = "FakePlayer",
@@ -46,27 +50,27 @@ public class FakePlayer extends Module {
     private static boolean suppressSwingHitModules;
     private boolean fakeDead;
 
-    private final BooleanSetting immortal = add(new BooleanSetting("Бессмертный", "immortal", "Восстанавливает здоровье и использует тотем", true));
-
-    private final BooleanSetting helmet = add(new BooleanSetting("Шлем", "helmet", "Надеть шлем", true));
-    private final BooleanSetting chestplate = add(new BooleanSetting("Нагрудник", "chestplate", "Надеть нагрудник", true));
-    private final BooleanSetting leggings = add(new BooleanSetting("Поножи", "leggings", "Надеть поножи", true));
-    private final BooleanSetting boots = add(new BooleanSetting("Ботинки", "boots", "Надеть ботинки", true));
+    private final BooleanSetting immortal = add(new BooleanSetting("Снятие тотемов", "remove_totems", "Получает урон и использует тотем при смерти", true));
     private final ModeSetting armorType = add(new ModeSetting(
-            "Тип брони",
+            "Броня",
             "armor_type",
-            "Материал брони",
-            "Netherite",
-            "Leather",
-            "Chainmail",
-            "Iron",
-            "Golden",
-            "Diamond",
-            "Netherite"
+            "Комплект брони фейк-игрока",
+            "Копировать",
+            "Копировать", "Без брони", "Кожаная", "Кольчужная", "Золотая", "Железная", "Алмазная", "Незеритовая"
     ));
+    private final ModeSetting behavior = add(new ModeSetting("Поведение", "behavior", "", "Манекен", "Манекен", "Подвижный"));
+    private final SliderSetting activity = add(new SliderSetting("Активность", "activity", "", 1.0, 0.3, 1.5, 0.05));
+    private final BooleanSetting jumps = add(new BooleanSetting("Прыжки", "jumps", "", true));
+    private final BooleanSetting swings = add(new BooleanSetting("Замахи", "swings", "", true));
+    private double moveX, moveY, moveZ;
+    private double orbitDistance = 3.0;
+    private int orbitDirection = 1, directionTicks, distanceTicks, jumpCooldown, swingCooldown, idleTicks;
 
     public FakePlayer() {
         INSTANCE = this;
+        activity.visibleWhen(() -> behavior.is("Подвижный"));
+        jumps.visibleWhen(() -> behavior.is("Подвижный"));
+        swings.visibleWhen(() -> behavior.is("Подвижный"));
     }
 
     public static boolean handleLocalAttack(Entity target) {
@@ -170,7 +174,8 @@ public class FakePlayer extends Module {
             if (immortal.get()) {
                 popTotem();
             } else {
-                killFakePlayer(source);
+                fakePlayer.setHealth(fakePlayer.getMaxHealth());
+                fakePlayer.setAbsorptionAmount(0.0f);
             }
         } else {
             fakePlayer.setHealth(nextHealth);
@@ -185,40 +190,108 @@ public class FakePlayer extends Module {
 
         removeFakePlayer(false);
 
-        fakePlayer = new OtherClientPlayerEntity(mc.world, new GameProfile(FAKE_UUID, "FakePlayer"));
-        fakePlayer.copyPositionAndRotation(mc.player);
-        fakePlayer.setYaw(mc.player.getYaw());
-        fakePlayer.setHeadYaw(mc.player.getHeadYaw());
-        fakePlayer.setBodyYaw(mc.player.getBodyYaw());
+        GameProfile profile = new GameProfile(FAKE_UUID, "FakePlayer");
+        profile.getProperties().putAll(mc.player.getGameProfile().getProperties());
+        fakePlayer = new OtherClientPlayerEntity(mc.world, profile);
+        Vec3d look = mc.player.getRotationVec(1.0f).multiply(1.0, 0.0, 1.0);
+        look = look.lengthSquared() < 1.0E-6 ? new Vec3d(0.0, 0.0, 1.0) : look.normalize();
+        float yaw = mc.player.getYaw() + 180.0f;
+        fakePlayer.refreshPositionAndAngles(mc.player.getX() + look.x * 2.5, mc.player.getY(), mc.player.getZ() + look.z * 2.5, yaw, 0.0f);
+        fakePlayer.setHeadYaw(yaw);
+        fakePlayer.setBodyYaw(yaw);
         fakePlayer.setHealth(20.0f);
         fakePlayer.setAbsorptionAmount(0.0f);
         syncHands();
         equipArmor();
-        if (immortal.get()) {
-            fakePlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 9999, 5, false, false));
-        }
         mc.world.addEntity(fakePlayer);
+        moveX = moveY = moveZ = 0.0;
+        directionTicks = distanceTicks = jumpCooldown = swingCooldown = idleTicks = 0;
         ClientActionUtil.clientMessage("FakePlayer включён");
     }
 
     private void syncHands() {
         if (fakePlayer == null || mc.player == null) return;
         fakePlayer.setStackInHand(Hand.MAIN_HAND, mc.player.getMainHandStack().copy());
-        fakePlayer.setStackInHand(Hand.OFF_HAND, mc.player.getOffHandStack().copy());
+        fakePlayer.setStackInHand(Hand.OFF_HAND, immortal.get() ? new ItemStack(Items.TOTEM_OF_UNDYING) : ItemStack.EMPTY);
         fakePlayer.setMainArm(mc.player.getMainArm());
     }
 
     private void tickMovement() {
-        fakePlayer.setSprinting(false);
-        fakePlayer.setVelocity(0.0, fakePlayer.getVelocity().y, 0.0);
+        if (!behavior.is("Подвижный")) {
+            moveX = moveZ = 0.0;
+            fakePlayer.setSprinting(false);
+            if (fakePlayer.isOnGround()) {
+                moveY = 0.0;
+                fakePlayer.setVelocity(Vec3d.ZERO);
+            } else {
+                moveY = (moveY - 0.08) * 0.98;
+                fakePlayer.move(MovementType.SELF, new Vec3d(0.0, moveY, 0.0));
+                fakePlayer.setVelocity(0.0, moveY, 0.0);
+            }
+            return;
+        }
+
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        double dx = mc.player.getX() - fakePlayer.getX();
+        double dz = mc.player.getZ() - fakePlayer.getZ();
+        double distance = Math.hypot(dx, dz);
+        if (fakePlayer.getY() < mc.player.getY() - 24.0 || distance > 16.0) {
+            double angle = random.nextDouble(Math.PI * 2.0);
+            fakePlayer.refreshPositionAndAngles(mc.player.getX() + Math.cos(angle) * 3.0, mc.player.getY(), mc.player.getZ() + Math.sin(angle) * 3.0, fakePlayer.getYaw(), 0.0f);
+            moveX = moveY = moveZ = 0.0;
+            return;
+        }
+
+        float active = activity.get().floatValue();
+        if (--directionTicks <= 0) {
+            orbitDirection = random.nextBoolean() ? 1 : -1;
+            directionTicks = random.nextInt(18, 60);
+        }
+        if (--distanceTicks <= 0) {
+            orbitDistance = random.nextDouble(1.6, 4.4);
+            distanceTicks = random.nextInt(40, 110);
+        }
+        if (idleTicks > 0) idleTicks--; else if (random.nextFloat() < 0.005f) idleTicks = random.nextInt(6, 18);
+
+        double inv = distance < 1.0E-4 ? 0.0 : 1.0 / distance;
+        double nx = dx * inv, nz = dz * inv;
+        double radial = MathHelper.clamp((distance - orbitDistance) * 0.45, -1.0, 1.0);
+        double wantedX = nx * radial - nz * orbitDirection * 0.9;
+        double wantedZ = nz * radial + nx * orbitDirection * 0.9;
+        double wantedLength = Math.hypot(wantedX, wantedZ);
+        if (wantedLength > 1.0) { wantedX /= wantedLength; wantedZ /= wantedLength; }
+        double speed = idleTicks > 0 ? 0.0 : 0.26 * active;
+        double easing = fakePlayer.isOnGround() ? 0.3 : 0.1;
+        moveX += (wantedX * speed - moveX) * easing;
+        moveZ += (wantedZ * speed - moveZ) * easing;
+        if (jumpCooldown > 0) jumpCooldown--;
+        if (fakePlayer.isOnGround()) {
+            moveY = -0.0784;
+            if (jumps.get() && jumpCooldown == 0 && (fakePlayer.horizontalCollision || random.nextFloat() < 0.035f * active)) {
+                moveY = 0.42;
+                jumpCooldown = random.nextInt(25, 70);
+            }
+        } else moveY = (moveY - 0.08) * 0.98;
+
+        fakePlayer.setSprinting(Math.hypot(moveX, moveZ) > 0.18);
+        fakePlayer.move(MovementType.SELF, new Vec3d(moveX, moveY, moveZ));
+        fakePlayer.setVelocity(moveX, moveY, moveZ);
+        float targetYaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        double eyeDy = mc.player.getEyeY() - fakePlayer.getEyeY();
+        float targetPitch = (float) MathHelper.clamp(-Math.toDegrees(Math.atan2(eyeDy, Math.max(distance, 1.0E-4))), -60.0, 60.0);
+        fakePlayer.headYaw += MathHelper.clamp(MathHelper.wrapDegrees(targetYaw - fakePlayer.headYaw), -30.0f, 30.0f);
+        fakePlayer.setYaw(fakePlayer.headYaw);
+        fakePlayer.setPitch(fakePlayer.getPitch() + MathHelper.clamp(targetPitch - fakePlayer.getPitch(), -15.0f, 15.0f));
+        if (swingCooldown > 0) swingCooldown--;
+        if (swings.get() && swingCooldown == 0 && distance < 3.2 && random.nextFloat() < 0.3f) {
+            fakePlayer.swingHand(Hand.MAIN_HAND);
+            swingCooldown = random.nextInt(11, 22);
+        }
     }
 
     private void tickRegeneration() {
-        if (!fakePlayer.hasStatusEffect(StatusEffects.REGENERATION)) {
-            fakePlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 9999, 5, false, false));
-        }
-        if (fakePlayer.age % 20 == 0 && fakePlayer.getHealth() < fakePlayer.getMaxHealth()) {
-            fakePlayer.setHealth(Math.min(fakePlayer.getMaxHealth(), fakePlayer.getHealth() + 15.0f));
+        if (fakePlayer.getHealth() < fakePlayer.getMaxHealth()) {
+            fakePlayer.setHealth(Math.min(fakePlayer.getMaxHealth(), fakePlayer.getHealth() + 0.1f));
         }
     }
 
@@ -235,15 +308,21 @@ public class FakePlayer extends Module {
         if (fakePlayer.getAbsorptionAmount() > 0.0f) {
             fakePlayer.setAbsorptionAmount(0.0f);
         }
+        fakePlayer.setHealth(fakePlayer.getMaxHealth());
     }
 
     private void equipArmor() {
         if (fakePlayer == null) return;
-        String type = armorType.get().toLowerCase(Locale.ROOT);
-        fakePlayer.equipStack(EquipmentSlot.HEAD, helmet.get() ? new ItemStack(getArmorItem(type, "helmet")) : ItemStack.EMPTY);
-        fakePlayer.equipStack(EquipmentSlot.CHEST, chestplate.get() ? new ItemStack(getArmorItem(type, "chestplate")) : ItemStack.EMPTY);
-        fakePlayer.equipStack(EquipmentSlot.LEGS, leggings.get() ? new ItemStack(getArmorItem(type, "leggings")) : ItemStack.EMPTY);
-        fakePlayer.equipStack(EquipmentSlot.FEET, boots.get() ? new ItemStack(getArmorItem(type, "boots")) : ItemStack.EMPTY);
+        if (armorType.is("Копировать")) {
+            for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET})
+                fakePlayer.equipStack(slot, mc.player.getEquippedStack(slot).copy());
+            return;
+        }
+        String type = armorType.get();
+        fakePlayer.equipStack(EquipmentSlot.HEAD, armorStack(type, "helmet"));
+        fakePlayer.equipStack(EquipmentSlot.CHEST, armorStack(type, "chestplate"));
+        fakePlayer.equipStack(EquipmentSlot.LEGS, armorStack(type, "leggings"));
+        fakePlayer.equipStack(EquipmentSlot.FEET, armorStack(type, "boots"));
     }
 
     private void playHurtAndAttackFeedback(boolean crit, float cooldown) {
@@ -338,14 +417,15 @@ public class FakePlayer extends Module {
     }
 
     private float computeArmorToughness() {
-        String type = armorType.get().toLowerCase(Locale.ROOT);
-        if (!type.equals("diamond") && !type.equals("netherite")) return 0.0f;
-        float pieces = 0.0f;
-        if (helmet.get()) pieces++;
-        if (chestplate.get()) pieces++;
-        if (leggings.get()) pieces++;
-        if (boots.get()) pieces++;
-        return pieces * (type.equals("netherite") ? 3.0f : 2.0f);
+        float toughness = 0.0f;
+        for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
+            ItemStack stack = fakePlayer.getEquippedStack(slot);
+            if (stack.isOf(Items.NETHERITE_HELMET) || stack.isOf(Items.NETHERITE_CHESTPLATE)
+                    || stack.isOf(Items.NETHERITE_LEGGINGS) || stack.isOf(Items.NETHERITE_BOOTS)) toughness += 3.0f;
+            else if (stack.isOf(Items.DIAMOND_HELMET) || stack.isOf(Items.DIAMOND_CHESTPLATE)
+                    || stack.isOf(Items.DIAMOND_LEGGINGS) || stack.isOf(Items.DIAMOND_BOOTS)) toughness += 2.0f;
+        }
+        return toughness;
     }
 
     private static float armorValue(ItemStack stack) {
@@ -362,44 +442,51 @@ public class FakePlayer extends Module {
         return 0.0f;
     }
 
+    private static ItemStack armorStack(String type, String piece) {
+        if (type.equals("Без брони")) return ItemStack.EMPTY;
+        Item item = getArmorItem(type, piece);
+        return item == null ? ItemStack.EMPTY : new ItemStack(item);
+    }
+
     private static Item getArmorItem(String type, String piece) {
         return switch (type) {
-            case "leather" -> switch (piece) {
+            case "Кожаная" -> switch (piece) {
                 case "helmet" -> Items.LEATHER_HELMET;
                 case "chestplate" -> Items.LEATHER_CHESTPLATE;
                 case "leggings" -> Items.LEATHER_LEGGINGS;
                 default -> Items.LEATHER_BOOTS;
             };
-            case "chainmail" -> switch (piece) {
+            case "Кольчужная" -> switch (piece) {
                 case "helmet" -> Items.CHAINMAIL_HELMET;
                 case "chestplate" -> Items.CHAINMAIL_CHESTPLATE;
                 case "leggings" -> Items.CHAINMAIL_LEGGINGS;
                 default -> Items.CHAINMAIL_BOOTS;
             };
-            case "iron" -> switch (piece) {
+            case "Железная" -> switch (piece) {
                 case "helmet" -> Items.IRON_HELMET;
                 case "chestplate" -> Items.IRON_CHESTPLATE;
                 case "leggings" -> Items.IRON_LEGGINGS;
                 default -> Items.IRON_BOOTS;
             };
-            case "golden" -> switch (piece) {
+            case "Золотая" -> switch (piece) {
                 case "helmet" -> Items.GOLDEN_HELMET;
                 case "chestplate" -> Items.GOLDEN_CHESTPLATE;
                 case "leggings" -> Items.GOLDEN_LEGGINGS;
                 default -> Items.GOLDEN_BOOTS;
             };
-            case "diamond" -> switch (piece) {
+            case "Алмазная" -> switch (piece) {
                 case "helmet" -> Items.DIAMOND_HELMET;
                 case "chestplate" -> Items.DIAMOND_CHESTPLATE;
                 case "leggings" -> Items.DIAMOND_LEGGINGS;
                 default -> Items.DIAMOND_BOOTS;
             };
-            default -> switch (piece) {
+            case "Незеритовая" -> switch (piece) {
                 case "helmet" -> Items.NETHERITE_HELMET;
                 case "chestplate" -> Items.NETHERITE_CHESTPLATE;
                 case "leggings" -> Items.NETHERITE_LEGGINGS;
                 default -> Items.NETHERITE_BOOTS;
             };
+            default -> null;
         };
     }
 

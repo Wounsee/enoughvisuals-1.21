@@ -486,6 +486,7 @@
   "settings.target_esp.style.values.crystals": "Crystals",
   "settings.target_esp.style.values.square_1": "Square 1",
   "settings.target_esp.style.values.square_2": "Square 2",
+  "settings.target_esp.style.values.souls": "Souls",
   "settings.target_esp.square_color.name": "Square Color",
   "settings.target_esp.square_color.description": "Color for square Target ESP",
   "settings.target_esp.square_size.name": "Square Size",
