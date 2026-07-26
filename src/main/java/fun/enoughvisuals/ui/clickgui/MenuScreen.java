@@ -13,6 +13,7 @@ import fun.enoughvisuals.systems.modules.settings.BindSetting;
 import fun.enoughvisuals.systems.modules.settings.ColorSetting;
 import fun.enoughvisuals.ui.clickgui.components.ColorPickerPopup;
 import fun.enoughvisuals.ui.clickgui.components.IntegratedToolPage;
+import fun.enoughvisuals.systems.network.HolyWorldFeatureControl;
 import fun.enoughvisuals.ui.clickgui.components.ModuleCard;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
@@ -101,7 +102,9 @@ public class MenuScreen extends Screen {
     private static final String ICON_SEARCH = "\uF008";
     private static final Set<String> TOOL_MODULES = Set.of("configs", "friends", "gps", "macros");
 
-    private final Category[] categories = Category.values();
+    private final Category[] categories = Arrays.stream(Category.values())
+            .filter(category -> !HolyWorldFeatureControl.getInstance().isCategoryBlocked(category))
+            .toArray(Category[]::new);
     private final Map<Module, ModuleCard> cardCache = new LinkedHashMap<>();
     private final List<ModuleCard> cards = new ArrayList<>();
     private final float[] navHover = new float[9];
@@ -158,7 +161,12 @@ public class MenuScreen extends Screen {
 
     public MenuScreen(IntegratedToolPage.Type initialTool) {
         super(Text.literal("Enough Visuals"));
-        this.initialTool = initialTool;
+        IntegratedToolPage.Type allowedInitial =
+                initialTool != null && isToolVisible(initialTool) ? initialTool : null;
+        if (categories.length == 0 && allowedInitial == null) {
+            allowedInitial = visibleTools().stream().findFirst().orElse(null);
+        }
+        this.initialTool = allowedInitial;
     }
 
     public static void syncTheme() {
@@ -229,7 +237,7 @@ public class MenuScreen extends Screen {
         shownDescription = null;
         descriptionAnimation = 0f;
         scrollOffset = scrollTarget = 0f;
-        if (!initialToolApplied && initialTool != null) {
+        if (!initialToolApplied && initialTool != null && isToolVisible(initialTool)) {
             activeTool = initialTool;
             toolPage.activate(initialTool);
             initialToolApplied = true;
@@ -447,7 +455,6 @@ public class MenuScreen extends Screen {
                 sw - 20f * scale, indicatorRowH - 4f * scale, 7f * scale,
                 RenderUtil.withAlpha(ACCENT, 0.13f * alpha));
 
-        String[] categoryIcons = {ICON_VISUAL, ICON_UTILS, ICON_CLIENT};
         float frame = RenderUtil.getFrameDelta();
         for (int i = 0; i < categories.length; i++) {
             float y = categoryY + i * rowH;
@@ -459,7 +466,12 @@ public class MenuScreen extends Screen {
                     RenderUtil.withAlpha(ACCENT_LIGHT, alpha), emphasis);
             int textColor = RenderUtil.lerpColor(RenderUtil.withAlpha(TEXT_GRAY, 0.85f * alpha),
                     RenderUtil.withAlpha(TEXT_WHITE, alpha), emphasis);
-            CustomFontRenderer.drawCenteredText(context, categoryIcons[i], windowX + 22f * scale,
+            String categoryIcon = switch (categories[i]) {
+                case VISUAL -> ICON_VISUAL;
+                case UTILS -> ICON_UTILS;
+                case CLIENT -> ICON_CLIENT;
+            };
+            CustomFontRenderer.drawCenteredText(context, categoryIcon, windowX + 22f * scale,
                     y + (rowH - 11f * scale) * 0.5f, 11f * scale, iconColor, FontWeight.CLICK_GUI);
             CustomFontRenderer.drawText(context, categories[i].getDisplayName(), windowX + 35f * scale,
                     y + 8.6f * scale, 7.2f * scale, textColor, FontWeight.SEMIBOLD);
@@ -482,10 +494,18 @@ public class MenuScreen extends Screen {
                 FontWeight.CLICK_GUI, FontWeight.BOOK, FontWeight.EVENT};
         float toolsY = windowY + NAV_TOOLS_Y * scale;
         float toolRowH = NAV_TOOL_ROW_H * scale;
-        int visibleToolCount = SHOW_EVENTS_TAB ? toolIcons.length : toolIcons.length - 1;
-        for (int i = 0; i < visibleToolCount; i++) {
-            renderSidebarAction(context, mx, my, i + 3, toolsY + i * toolRowH, toolIcons[i], toolNames[i],
-                    toolWeights[i], activeTool != null && activeTool.ordinal() == i, alpha);
+        List<IntegratedToolPage.Type> visibleTools = visibleTools();
+        for (int i = 0; i < visibleTools.size(); i++) {
+            IntegratedToolPage.Type visibleTool = visibleTools.get(i);
+            int sourceIndex = visibleTool.ordinal();
+            renderSidebarAction(context, mx, my, i + 3, toolsY + i * toolRowH, toolIcons[sourceIndex],
+                    toolNames[sourceIndex], toolWeights[sourceIndex], activeTool == visibleTool, alpha);
+        }
+        if (SHOW_EVENTS_TAB) {
+            int eventIndex = toolIcons.length - 1;
+            renderSidebarAction(context, mx, my, visibleTools.size() + 3,
+                    toolsY + visibleTools.size() * toolRowH, toolIcons[eventIndex], toolNames[eventIndex],
+                    toolWeights[eventIndex], false, alpha);
         }
 
         float profileH = 25f * scale;
@@ -739,7 +759,7 @@ public class MenuScreen extends Screen {
     }
 
     private void selectTool(IntegratedToolPage.Type type) {
-        if (type == null || contentTransitionPhase != 0 || activeTool == type) return;
+        if (type == null || !isToolVisible(type) || contentTransitionPhase != 0 || activeTool == type) return;
         contentTransitionDirection = 1;
         pendingTool = type;
         pendingCategory = -1;
@@ -783,7 +803,17 @@ public class MenuScreen extends Screen {
     private float navTargetBaseY() {
         return activeTool == null
                 ? NAV_CATEGORY_Y + activeCategory * NAV_ROW_H
-                : NAV_TOOLS_Y + activeTool.ordinal() * NAV_TOOL_ROW_H;
+                : NAV_TOOLS_Y + Math.max(0, visibleTools().indexOf(activeTool)) * NAV_TOOL_ROW_H;
+    }
+
+    private static boolean isToolVisible(IntegratedToolPage.Type type) {
+        return !HolyWorldFeatureControl.getInstance().isToolBlocked(type.featureId());
+    }
+
+    private static List<IntegratedToolPage.Type> visibleTools() {
+        return Arrays.stream(IntegratedToolPage.Type.values())
+                .filter(MenuScreen::isToolVisible)
+                .toList();
     }
 
     private int indexOf(Category category) {
@@ -936,7 +966,7 @@ public class MenuScreen extends Screen {
         if (hit(mx, my, windowX, windowY, sw, windowH)) {
             float rowH = NAV_ROW_H * scale;
             float categoryY = windowY + NAV_CATEGORY_Y * scale;
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < categories.length; i++) {
                 if (hit(mx, my, windowX + 8f * scale, categoryY + i * rowH, sw - 16f * scale, rowH)) {
                     selectCategory(i);
                     return true;
@@ -944,11 +974,11 @@ public class MenuScreen extends Screen {
             }
             float toolsY = windowY + NAV_TOOLS_Y * scale;
             float toolRowH = NAV_TOOL_ROW_H * scale;
-            IntegratedToolPage.Type[] types = IntegratedToolPage.Type.values();
-            int visibleToolCount = SHOW_EVENTS_TAB ? types.length + 1 : types.length;
+            List<IntegratedToolPage.Type> types = visibleTools();
+            int visibleToolCount = SHOW_EVENTS_TAB ? types.size() + 1 : types.size();
             for (int i = 0; i < visibleToolCount; i++) {
                 if (hit(mx, my, windowX + 8f * scale, toolsY + i * toolRowH, sw - 16f * scale, toolRowH)) {
-                    if (i < types.length) selectTool(types[i]);
+                    if (i < types.size()) selectTool(types.get(i));
                     return true;
                 }
             }

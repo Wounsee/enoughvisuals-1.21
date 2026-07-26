@@ -6,6 +6,7 @@ import fun.enoughvisuals.systems.friends.FriendRepo;
 import fun.enoughvisuals.systems.gps.GpsSystem;
 import fun.enoughvisuals.systems.gps.GpsSystem.WaypointView;
 import fun.enoughvisuals.systems.inventory.InventoryLayoutManager;
+import fun.enoughvisuals.systems.network.HolyWorldFeatureControl;
 import fun.enoughvisuals.systems.inventory.InventoryLayoutManager.LayoutView;
 import fun.enoughvisuals.systems.modules.modules.utils.Macros;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
@@ -53,6 +54,15 @@ public final class IntegratedToolPage {
         public String icon() { return icon; }
         public String title() { return ClientLanguage.text(languageKey, fallback); }
         public FontWeight iconWeight() { return iconWeight; }
+        public String featureId() {
+            return switch (this) {
+                case CONFIGS -> "tool:configs";
+                case FRIENDS -> "tool:friends";
+                case GPS -> "tool:gps";
+                case MACROS -> "tool:macros";
+                case INVENTORIES -> HolyWorldFeatureControl.INVENTORY_MANAGER;
+            };
+        }
     }
 
     private final EnumMap<Type, PageState> states = new EnumMap<>(Type.class);
@@ -97,7 +107,7 @@ public final class IntegratedToolPage {
     }
 
     public void activate(Type next) {
-        if (next == null) return;
+        if (next == null || HolyWorldFeatureControl.getInstance().isToolBlocked(next.featureId())) return;
         if (type != next) {
             type = next;
             pageChangedAt = System.currentTimeMillis();

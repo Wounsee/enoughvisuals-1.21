@@ -15,6 +15,7 @@ import fun.enoughvisuals.systems.modules.modules.utils.*;
 import fun.enoughvisuals.systems.modules.modules.visual.*;
 
 import fun.enoughvisuals.systems.network.RemoteConfig;
+import fun.enoughvisuals.systems.network.HolyWorldFeatureControl;
 
 import fun.enoughvisuals.ui.gate.GateScreen;
 
@@ -267,6 +268,7 @@ public final class EnoughCore {
 
 
         manager.init();
+        HolyWorldFeatureControl.getInstance().initialize();
 
         WorldRenderEvents.BEFORE_ENTITIES.register(ShaderEspRenderer::beginWorldFrame);
 

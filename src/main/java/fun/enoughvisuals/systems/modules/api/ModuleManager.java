@@ -1,6 +1,7 @@
 package fun.enoughvisuals.systems.modules.api;
 
 import fun.enoughvisuals.systems.modules.Module;
+import fun.enoughvisuals.systems.network.HolyWorldFeatureControl;
 import fun.enoughvisuals.utils.player.ServerScopeUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,7 +92,14 @@ public class ModuleManager {
 
     
     public List<Module> getModules() {
-        return modules.stream().filter(m -> !isHidden(m)).collect(Collectors.toUnmodifiableList());
+        return modules.stream()
+                .filter(m -> !isHidden(m))
+                .filter(m -> !isBlocked(m))
+                .collect(Collectors.toUnmodifiableList());
+    }
+
+    public List<Module> getAllModules() {
+        return List.copyOf(modules);
     }
 
     
@@ -99,6 +107,7 @@ public class ModuleManager {
         return modules.stream()
                 .filter(m -> m.getCategory() == category)
                 .filter(m -> !isHidden(m))
+                .filter(m -> !isBlocked(m))
                 .collect(Collectors.toList());
     }
 
@@ -227,9 +236,22 @@ public class ModuleManager {
     public boolean isBlocked(Module module) {
         if (module == null) return false;
         try {
-            return fun.enoughvisuals.systems.network.RemoteConfig.getInstance().isModuleBlocked(module.getId());
+            return fun.enoughvisuals.systems.network.RemoteConfig.getInstance().isModuleBlocked(module.getId())
+                    || HolyWorldFeatureControl.getInstance().isModuleBlocked(module);
         } catch (Throwable t) {
             return false;
+        }
+    }
+
+    public void applyFeatureRestrictions() {
+        for (Module module : modules) {
+            if (isBlocked(module) && module.isEnabled()) {
+                try {
+                    module.disableSilent();
+                } catch (RuntimeException exception) {
+                    LOGGER.warn("Failed to disable blocked module {}", module.getId(), exception);
+                }
+            }
         }
     }
 }

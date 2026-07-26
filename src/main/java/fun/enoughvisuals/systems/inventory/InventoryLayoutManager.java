@@ -3,6 +3,7 @@ package fun.enoughvisuals.systems.inventory;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
+import fun.enoughvisuals.utils.player.ServerUtil;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -58,12 +59,14 @@ public final class InventoryLayoutManager {
     }
 
     public synchronized void initialize() {
+        if (ServerUtil.isHolyWorldServer()) return;
         if (initialized) return;
         initialized = true;
         loadFile();
     }
 
     public synchronized List<LayoutView> list() {
+        if (ServerUtil.isHolyWorldServer()) return List.of();
         initialize();
         MinecraftClient client = MinecraftClient.getInstance();
         List<LayoutView> result = new ArrayList<>();
@@ -77,12 +80,14 @@ public final class InventoryLayoutManager {
     }
 
     public synchronized LayoutView find(String id) {
+        if (ServerUtil.isHolyWorldServer()) return null;
         if (id == null || id.isBlank()) return null;
         for (LayoutView view : list()) if (view.id().equals(id)) return view;
         return null;
     }
 
     public synchronized Result saveCurrent(String rawName) {
+        if (ServerUtil.isHolyWorldServer()) return fail("Недоступно на HolyWorld");
         initialize();
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
@@ -124,6 +129,7 @@ public final class InventoryLayoutManager {
     }
 
     public synchronized Result delete(String id) {
+        if (ServerUtil.isHolyWorldServer()) return fail("Недоступно на HolyWorld");
         initialize();
         boolean removed = layouts.removeIf(layout -> layout.id.equals(id));
         if (!removed) return fail("Сохранение не найдено");
@@ -133,6 +139,7 @@ public final class InventoryLayoutManager {
     }
 
     public synchronized Result startLoad(String id) {
+        if (ServerUtil.isHolyWorldServer()) return fail("Недоступно на HolyWorld");
         initialize();
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
@@ -180,6 +187,10 @@ public final class InventoryLayoutManager {
     }
 
     public synchronized void tick(MinecraftClient client) {
+        if (ServerUtil.isHolyWorldServer()) {
+            if (!actions.isEmpty()) cancel("Загрузка отменена на HolyWorld");
+            return;
+        }
         if (actions.isEmpty()) return;
         ClientPlayerEntity player = client.player;
         if (!hasPlayerInventory(player) || player.playerScreenHandler.syncId != loadingSyncId
