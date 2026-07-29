@@ -21,7 +21,6 @@ import fun.enoughvisuals.port.api.ModuleRegister;
 )
 public final class ChinaHat extends Module {
    private static final int INT_VALUE = 256;
-   private static final int INT_VALUE_2 = 18;
    private static final float FLOAT_VALUE = 0.0625F;
    private static final float FLOAT_VALUE_2 = (float) (Math.PI * 2);
    private static final float FLOAT_VALUE_3 = 0.296875F;
@@ -38,8 +37,6 @@ public final class ChinaHat extends Module {
    private static final SpringSpec SPRING_SPEC = new SpringSpec(0.066F, 0.68F, 0.001F, 0.001F);
    private static final float[] FLOATS = new float[257];
    private static final float[] FLOATS_2 = new float[257];
-   private static final float[] FLOATS_3 = new float[19];
-   private static final float[] FLOATS_4 = new float[19];
    private static final int[] INTS = new int[]{16747247, 16754396, 8648959, 11141102, 16747247};
    private static final int[] INTS_2 = new int[]{6750183, 6014975, 4688895, 11730932, 6750183};
    private static final int[] INTS_3 = new int[]{16773227, 16751954, 16736157, 9304063, 16773227};
@@ -472,12 +469,8 @@ public final class ChinaHat extends Module {
       int intValue48 = compute4(intValue42);
       float floatValue44 = FLOAT_VALUE_5 * 0.97F;
       float floatValue45 = FLOAT_VALUE_5 * 1.075F;
-      float floatValue46 = FLOAT_VALUE_5 * 1.02F;
-      float floatValue47 = FLOAT_VALUE_5 * 0.44F;
-      float floatValue48 = 0.122F;
       float floatValue49 = -0.500125F;
       float floatValue50 = f * 0.94F;
-      float floatValue51 = f * 0.34F;
 
       for (int intValue49 = 0; intValue49 < 256; intValue49++) {
          int intValue50 = intValue49 + 1;
@@ -541,69 +534,10 @@ public final class ChinaHat extends Module {
             floatValue50
          );
 
-         for (int intValue51 = 0; intValue51 < 18; intValue51++) {
-            float floatValue58 = FLOATS_4[intValue51];
-            float floatValue59 = FLOATS_3[intValue51];
-            float floatValue60 = floatValue46 + floatValue58 * floatValue47;
-            float floatValue61 = floatValue49 + floatValue59 * floatValue48;
-            float floatValue62 = floatValue54 * floatValue58;
-            float floatValue63 = floatValue55 * floatValue58;
-            float floatValue64 = floatValue56 * floatValue58;
-            float floatValue65 = floatValue57 * floatValue58;
-            this.invoke9(
-               vertexConsumer,
-               matrix4f,
-               matrix3f,
-               floatValue54 * floatValue46,
-               floatValue49,
-               floatValue55 * floatValue46,
-               floatValue54,
-               0.0F,
-               floatValue55,
-               floatValue52,
-               2.035F,
-               intValue43,
-               intValue44,
-               intValue45,
-               floatValue51,
-               floatValue56 * floatValue46,
-               floatValue49,
-               floatValue57 * floatValue46,
-               floatValue56,
-               0.0F,
-               floatValue57,
-               floatValue53,
-               2.035F,
-               intValue43,
-               intValue44,
-               intValue45,
-               floatValue51,
-               floatValue56 * floatValue60,
-               floatValue61,
-               floatValue57 * floatValue60,
-               floatValue64,
-               floatValue59,
-               floatValue65,
-               floatValue53,
-               2.995F,
-               intValue46,
-               intValue47,
-               intValue48,
-               floatValue51 * 0.18F,
-               floatValue54 * floatValue60,
-               floatValue61,
-               floatValue55 * floatValue60,
-               floatValue62,
-               floatValue59,
-               floatValue63,
-               floatValue52,
-               2.995F,
-               intValue46,
-               intValue47,
-               intValue48,
-               floatValue51 * 0.18F
-            );
-         }
+         // The original 1.21.8 bloom pass adds eighteen stacked radial fins
+         // around every brim segment. Under 1.21.4 translucent sorting those
+         // fins overlap into a feathered/chicken-comb silhouette. Keep the
+         // smooth conical shell and rim halo above, but omit only that corona.
       }
    }
 
@@ -901,12 +835,6 @@ public final class ChinaHat extends Module {
          float floatValue77 = (float) (Math.PI * 2) * intValue62 / 256.0F;
          FLOATS[intValue62] = (float)Math.sin(floatValue77);
          FLOATS_2[intValue62] = (float)Math.cos(floatValue77);
-      }
-
-      for (int intValue63 = 0; intValue63 <= 18; intValue63++) {
-         float floatValue78 = (float) (Math.PI * 2) * intValue63 / 18.0F;
-         FLOATS_3[intValue63] = (float)Math.sin(floatValue78);
-         FLOATS_4[intValue63] = (float)Math.cos(floatValue78);
       }
    }
 

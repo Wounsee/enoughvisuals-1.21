@@ -1,6 +1,7 @@
 package fun.enoughvisuals.utils.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import fun.enoughvisuals.systems.modules.modules.client.CornerStyle;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import net.minecraft.client.MinecraftClient;
@@ -20,6 +21,10 @@ public class RenderUtil {
     private static final float EDGE_SMOOTHING = 0.65f;
     private static long lastFrameTimeNs = System.nanoTime();
     private static float cachedFrameDelta = 1.0f;
+
+    private static void applyCornerStyle(String shader) {
+        ShaderManager.setUniform1f(shader, "uExponent", CornerStyle.exponent());
+    }
 
 
 
@@ -535,6 +540,7 @@ public class RenderUtil {
         float pxScale = Math.max(Math.min(rect.scaleXPx, rect.scaleYPx), 0.0001f);
         String shader = ShaderManager.ROUNDED_CHECKERBOARD;
         ShaderManager.useProgram(shader);
+        applyCornerStyle(shader);
         ShaderManager.setUniform4f(shader, "uRect", rect.xPx, rect.yPx, rect.wPx, rect.hPx);
         ShaderManager.setUniform1f(shader, "uRadius", radius * pxScale);
         ShaderManager.setUniform1f(shader, "uCellSize", cellSize * pxScale);
@@ -967,6 +973,7 @@ public class RenderUtil {
         String name = ShaderManager.ROUNDED_RECT;
 
         ShaderManager.useProgram(name);
+        applyCornerStyle(name);
         ShaderManager.setUniform4f(name, "uRect", rect.xPx, rect.yPx, rect.wPx, rect.hPx);
         ShaderManager.setUniform4f(name, "uRadii", tl * radiusScale, tr * radiusScale, br * radiusScale, bl * radiusScale);
         ShaderManager.setUniform4f(name, "uColor", r, g, b, a);
@@ -984,6 +991,7 @@ public class RenderUtil {
         String name = ShaderManager.ROUNDED_RECT_OUTLINE;
 
         ShaderManager.useProgram(name);
+        applyCornerStyle(name);
         ShaderManager.setUniform4f(name, "uRect", rect.xPx, rect.yPx, rect.wPx, rect.hPx);
         ShaderManager.setUniform4f(name, "uRadii", tl * radiusScale, tr * radiusScale, br * radiusScale, bl * radiusScale);
         ShaderManager.setUniform4f(name, "uColor", r, g, b, a);
@@ -1001,6 +1009,7 @@ public class RenderUtil {
         String name = ShaderManager.ROUNDED_RECT_GRADIENT;
 
         ShaderManager.useProgram(name);
+        applyCornerStyle(name);
         ShaderManager.setUniform4f(name, "uRect", rect.xPx, rect.yPx, rect.wPx, rect.hPx);
         ShaderManager.setUniform4f(name, "uRadii", tl * radiusScale, tr * radiusScale, br * radiusScale, bl * radiusScale);
         ShaderManager.setUniform1f(name, "uSmoothing", EDGE_SMOOTHING * radiusScale);
@@ -1071,6 +1080,7 @@ public class RenderUtil {
         String name = ShaderManager.SHADOW;
 
         ShaderManager.useProgram(name);
+        applyCornerStyle(name);
         ShaderManager.setUniform4f(name, "uRect", rect.xPx, rect.yPx, rect.wPx, rect.hPx);
         ShaderManager.setUniform4f(name, "uRadii", radius * pxScale, radius * pxScale, radius * pxScale, radius * pxScale);
         ShaderManager.setUniform4f(name, "uShadowColor", r, g, b, a);
@@ -1302,6 +1312,7 @@ public class RenderUtil {
         String shader = ShaderManager.ROUNDED_TEXTURE;
 
         ShaderManager.useProgram(shader);
+        applyCornerStyle(shader);
         ShaderManager.setUniform2f(shader, "uSize", w, h);
         ShaderManager.setUniform4f(shader, "uRadii", radius, radius, radius, radius);
         ShaderManager.setUniform1f(shader, "uSmoothing", 0.543f); // Сглаживание
@@ -1334,6 +1345,7 @@ public class RenderUtil {
         mc.getTextureManager().getTexture(texture).bindTexture();
         String shader = ShaderManager.MENU_PREVIEW;
         ShaderManager.useProgram(shader);
+        applyCornerStyle(shader);
         ShaderManager.setUniform2f(shader, "uSize", w, h);
         ShaderManager.setUniform4f(shader, "uRadii", radius, radius, radius, radius);
         ShaderManager.setUniform1f(shader, "uSmoothing", 0.62f);
@@ -1461,8 +1473,8 @@ public class RenderUtil {
         for (int i = 1; i <= segments; i++) {
             float t = i / (float) segments;
             float a = (float) Math.toRadians(startDeg + (endDeg - startDeg) * t);
-            float x = cx + (float) Math.cos(a) * radius;
-            float y = cy + (float) Math.sin(a) * radius;
+            float x = cx + squircleComponent((float) Math.cos(a)) * radius;
+            float y = cy + squircleComponent((float) Math.sin(a)) * radius;
             addPerimeterPoint(points, x, y);
         }
     }
@@ -1600,8 +1612,8 @@ public class RenderUtil {
 
         for (int i = 0; i <= segments; i++) {
             float angle = (float) Math.toRadians(startDeg + (endDeg - startDeg) * i / (float) segments);
-            buffer.vertex(matrix, cx + (float) Math.cos(angle) * radius,
-                    cy + (float) Math.sin(angle) * radius, 0).color(r, g, b, a);
+            buffer.vertex(matrix, cx + squircleComponent((float) Math.cos(angle)) * radius,
+                    cy + squircleComponent((float) Math.sin(angle)) * radius, 0).color(r, g, b, a);
         }
     }
 
@@ -1619,13 +1631,18 @@ public class RenderUtil {
 
         for (int i = 0; i <= segments; i++) {
             float angle = (float) Math.toRadians(startDeg + (endDeg - startDeg) * i / (float) segments);
-            float cos = (float) Math.cos(angle);
-            float sin = (float) Math.sin(angle);
+            float cos = squircleComponent((float) Math.cos(angle));
+            float sin = squircleComponent((float) Math.sin(angle));
             buffer.vertex(matrix, cx + cos * inner, cy + sin * inner, 0).color(r, g, b, a);
             buffer.vertex(matrix, cx + cos * radius, cy + sin * radius, 0).color(r, g, b, a);
         }
 
         BufferRenderer.drawWithGlobalProgram(buffer.end());
+    }
+
+    private static float squircleComponent(float value) {
+        float exponent = 2f / CornerStyle.exponent();
+        return Math.copySign((float) Math.pow(Math.abs(value), exponent), value);
     }
 
     private static void fillQuad(Matrix4f matrix, float x1, float y1, float x2, float y2,

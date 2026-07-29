@@ -34,7 +34,7 @@ import org.lwjgl.opengl.GL11;
 
 import java.util.Locale;
 
-@Register(name = "Block Overlay", id = "block_overlay", description = "Портальный оверлей на блок под прицелом", category = Category.VISUAL)
+@Register(name = "Block Overlay", id = "block_overlay", description = "Оверлей на блок под прицелом", category = Category.VISUAL)
 public class BlockOverlay extends Module {
     private static final float OFFSET = 0.01f;
     private static final float SHADER_SCALE = 3.15f;

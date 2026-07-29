@@ -12,6 +12,7 @@ import fun.enoughvisuals.systems.modules.settings.BindSetting;
 import fun.enoughvisuals.systems.modules.settings.ClickSetting;
 import fun.enoughvisuals.systems.modules.settings.StringSetting;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
+import fun.enoughvisuals.utils.sound.EnoughSoundPlayer;
 import fun.enoughvisuals.ui.clickgui.components.IntegratedToolPage;
 import fun.enoughvisuals.utils.player.ClientActionUtil;
 
@@ -85,6 +86,7 @@ public class Macros extends Module {
 
     private void openMenu() {
         if (mc != null) {
+            EnoughSoundPlayer.playMenuOpen();
             mc.setScreen(new MenuScreen(IntegratedToolPage.Type.MACROS));
         }
     }

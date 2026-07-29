@@ -7,6 +7,7 @@ uniform vec4 uRect;
 uniform vec4 uRadii;     // tl, tr, br, bl
 uniform vec4 uColor;
 uniform float uSmoothing;
+uniform float uExponent;
 
 float roundedBoxSDF(vec2 p, vec2 b, vec4 r) {
     // p.x > 0 = правая сторона, p.y > 0 = нижняя сторона (после flip Y)
@@ -20,7 +21,10 @@ float roundedBoxSDF(vec2 p, vec2 b, vec4 r) {
     radius = min(radius, min(b.x, b.y)); // clamp чтобы не выходил за bounds
 
     vec2 q = abs(p) - b + vec2(radius);
-    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
+    vec2 outside = max(q, 0.0);
+    float exponent = max(uExponent, 2.0);
+    float corner = pow(pow(outside.x, exponent) + pow(outside.y, exponent), 1.0 / exponent);
+    return min(max(q.x, q.y), 0.0) + corner - radius;
 }
 
 void main() {

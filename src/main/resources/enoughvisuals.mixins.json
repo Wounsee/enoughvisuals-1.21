@@ -16,6 +16,7 @@
       "minecraft.client.gui.screen.HandledScreenMixin",
       "minecraft.client.gui.screen.InventoryScreenHideMixin",
       "minecraft.client.gui.screen.TitleScreenMixin",
+      "minecraft.client.gui.screen.SplashOverlayMixin",
       "minecraft.client.gui.hud.ChatHudMixin",
       "minecraft.client.gui.hud.DebugHudMixin",
       "minecraft.client.gui.hud.InGameHudMixin",
@@ -29,6 +30,7 @@
       "minecraft.client.render.CameraMixin",
       "minecraft.client.render.LivingEntityRendererMixin",
       "minecraft.client.render.PlayerEntityRendererMixin",
+      "minecraft.client.render.PlayerEntityModelEmotionMixin",
       "minecraft.client.render.LivingEntityRendererHitColorMixin",
       "minecraft.client.render.EquipmentRendererMixin",
       "minecraft.client.render.BackgroundRendererMixin",
@@ -58,6 +60,7 @@
       "minecraft.entity.LivingEntitySwingMixin",
       "minecraft.entity.LivingEntityJumpMixin",
       "minecraft.client.network.ClientPlayerInteractionManagerMixin"
+      ,"compat.PunchyConfigMixin"
     ],
     "injectors":  {
       "defaultRequire":  1

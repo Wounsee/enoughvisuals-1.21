@@ -16,12 +16,24 @@ public final class EnoughSoundPlayer {
         playCustom("ui.scroll", 0.75f, 1.0f);
     }
 
+    public static void playSlider() {
+        playCustom("ui.slider", 0.75f, 1.0f);
+    }
+
     public static void playWarn() {
         playCustom("ui.warn", 0.9f, 1.0f);
     }
 
     public static void playEvent() {
         playCustom("ui.event", 0.95f, 1.0f);
+    }
+
+    public static void playMenuOpen() {
+        playCustom("ui.menu_open", 0.9f, 1.0f);
+    }
+
+    public static void playMenuClose() {
+        playCustom("ui.menu_close", 0.9f, 1.0f);
     }
 
     public static void playHit(String style, float volume) {

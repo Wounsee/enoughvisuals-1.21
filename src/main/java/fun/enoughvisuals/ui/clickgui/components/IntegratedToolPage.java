@@ -37,7 +37,8 @@ public final class IntegratedToolPage {
         FRIENDS("\uF003", "ui.client_tools.friends.title", "Друзья", FontWeight.CLICK_GUI),
         GPS("\uF000", "ui.client_tools.gps.title", "Метки", FontWeight.CLICK_GUI),
         MACROS("\uF005", "ui.macros.title", "Макросы", FontWeight.CLICK_GUI),
-        INVENTORIES("\uF000", "ui.inventory_manager.title", "Менеджер инвентарей", FontWeight.BOOK);
+        INVENTORIES("\uF000", "ui.inventory_manager.title", "Менеджер инвентарей", FontWeight.BOOK),
+        COSMETICS("\uF009", "ui.client_tools.cosmetics.title", "Косметика", FontWeight.CLICK_GUI);
 
         private final String icon;
         private final String languageKey;
@@ -61,11 +62,13 @@ public final class IntegratedToolPage {
                 case GPS -> "tool:gps";
                 case MACROS -> "tool:macros";
                 case INVENTORIES -> HolyWorldFeatureControl.INVENTORY_MANAGER;
+                case COSMETICS -> "tool:cosmetics";
             };
         }
     }
 
     private final EnumMap<Type, PageState> states = new EnumMap<>(Type.class);
+    private final CosmeticsToolPage cosmeticsPage = new CosmeticsToolPage();
     private Type type = Type.CONFIGS;
     private float x;
     private float y;
@@ -129,6 +132,7 @@ public final class IntegratedToolPage {
             Macros.INSTANCE.setEnabledSilent(true);
         }
         if (type == Type.INVENTORIES) InventoryLayoutManager.getInstance().initialize();
+        if (type == Type.COSMETICS) cosmeticsPage.activate();
     }
 
     public Type type() { return type; }
@@ -162,6 +166,10 @@ public final class IntegratedToolPage {
 
         if (type == Type.INVENTORIES) {
             renderInventoryManager(context, x, y, width, height, scale, mouseX, mouseY, pageAlpha, offset);
+            return;
+        }
+        if (type == Type.COSMETICS) {
+            cosmeticsPage.render(context, x, y, width, height, scale, mouseX, mouseY, pageAlpha, this.searchQuery);
             return;
         }
 
@@ -521,6 +529,7 @@ public final class IntegratedToolPage {
             case GPS -> ClientLanguage.text("ui.client_tools.gps.editor", "Метка");
             case MACROS -> ClientLanguage.text("ui.macros.title", "Macros");
             case INVENTORIES -> "Менеджер инвентарей";
+            case COSMETICS -> "Косметика";
         };
         CustomFontRenderer.drawText(context, heading, cx, cy, 7.4f * s,
                 RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha), FontWeight.SEMIBOLD);
@@ -673,6 +682,7 @@ public final class IntegratedToolPage {
 
     public boolean mouseClicked(float mouseX, float mouseY, int button) {
         if (!hit(mouseX, mouseY, x, y, width, height)) return false;
+        if (type == Type.COSMETICS) return cosmeticsPage.mouseClicked(mouseX, mouseY, button);
         if (type == Type.MACROS && macroBinding) {
             state().macroKey = BindKeyUtil.mouseButtonToCode(button);
             macroBinding = false;
@@ -766,6 +776,7 @@ public final class IntegratedToolPage {
     }
 
     public boolean mouseScrolled(float mouseX, float mouseY, double amount) {
+        if (type == Type.COSMETICS) return cosmeticsPage.mouseScrolled(mouseX, mouseY, amount);
         if (!hit(mouseX, mouseY, listX, listY, listW, listH) || listMaxScroll <= 0f) return false;
         listScrollTarget += (float) amount * 20f * scale;
         listScrollTarget = Math.max(-listMaxScroll, Math.min(0f, listScrollTarget));
@@ -857,6 +868,7 @@ public final class IntegratedToolPage {
             case GPS -> count + " / " + trimScope(GpsSystem.getInstance().currentScopeLabel());
             case MACROS -> String.valueOf(count);
             case INVENTORIES -> count + " сохранений";
+            case COSMETICS -> count + " предметов";
         };
     }
 
@@ -867,6 +879,7 @@ public final class IntegratedToolPage {
             case GPS -> ClientLanguage.text("ui.client_tools.gps.empty", "Меток пока нет");
             case MACROS -> ClientLanguage.text("ui.macros.empty", "Макросов пока нет");
             case INVENTORIES -> "Сохранений пока нет";
+            case COSMETICS -> "Косметика не найдена";
         };
     }
 

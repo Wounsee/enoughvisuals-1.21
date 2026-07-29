@@ -8,7 +8,7 @@ import fun.enoughvisuals.systems.modules.settings.ModeSetting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import net.minecraft.client.MinecraftClient;
 
-@Register(name = "ColorPlus", id = "color_plus", description = "Кинематографичная цветокоррекция и bloom", category = Category.VISUAL)
+@Register(name = "ColorPlus", id = "color_plus", description = "Кинематографичная цветокоррекция", category = Category.VISUAL)
 public final class ColorPlus extends Module {
     private static ColorPlus INSTANCE;
 

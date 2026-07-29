@@ -186,24 +186,11 @@ public final class ModuleCard {
         int cardColor = RenderUtil.lerpColor(
                 RenderUtil.withAlpha(MenuScreen.CARD_BG, 0.93f * alpha),
                 RenderUtil.withAlpha(MenuScreen.CARD_HOVER, 0.97f * alpha), hover * 0.72f);
-        float feedback = clamp((now - feedbackShadowAt) / 620f);
-        if (feedbackShadowAt > 0L && feedback < 1f) {
-            float fade = 1f - RenderUtil.easeOutCubic(feedback);
-            RenderUtil.drawShadow(context, drawX, drawY, width, height, 8.5f * scale, 10f * scale,
-                    RenderUtil.withAlpha(MenuScreen.ACCENT, 0.24f * fade * alpha));
-        }
         RenderUtil.drawRoundedRect(context, drawX, drawY, width, height, 8.5f * scale, cardColor);
-        float headerRadius = Math.max(0f, 8.5f * scale - 0.5f * scale);
-        RenderUtil.drawRoundedGradient(context, drawX + 0.5f * scale, drawY + 0.5f * scale,
-                width - scale, 28f * scale, headerRadius, headerRadius, 0f, 0f,
-                RenderUtil.withAlpha(0x815FD3, 0.052f * alpha),
-                RenderUtil.withAlpha(0x815FD3, 0.052f * alpha),
-                RenderUtil.withAlpha(0x815FD3, 0f),
-                RenderUtil.withAlpha(0x815FD3, 0f));
         if (highlight > 0.01f) {
-            RenderUtil.drawShadow(context, drawX + 3f * scale, drawY + 3f * scale,
-                    width - 6f * scale, height - 6f * scale, 6f * scale, 5f * scale,
-                    RenderUtil.withAlpha(MenuScreen.ACCENT, 0.16f * highlight * alpha));
+            RenderUtil.drawRoundedRect(context, drawX + 0.7f * scale, drawY + 0.7f * scale,
+                    width - 1.4f * scale, height - 1.4f * scale, 7.8f * scale,
+                    RenderUtil.withAlpha(MenuScreen.CARD_HOVER, 0.18f * highlight * alpha));
         }
 
         renderHeader(context, scale, mouseX, mouseY, alpha, now);
@@ -715,6 +702,7 @@ public final class ModuleCard {
         else if (setting instanceof SliderSetting value) {
             activeDrag = setting;
             updateSlider(value, localX, baseW);
+            EnoughSoundPlayer.playSlider();
             return true;
         } else if (setting instanceof RangeSetting value) {
             activeDrag = setting;
@@ -870,7 +858,9 @@ public final class ModuleCard {
     }
 
     private void updateSlider(SliderSetting setting, float localX, float w) {
+        float before = setting.getProgress();
         setting.setFromProgress(clamp((localX - 4f) / (w - 8f)));
+        if (Math.abs(setting.getProgress() - before) >= 0.008f) EnoughSoundPlayer.playSlider();
     }
 
     private void updateRange(RangeSetting setting, float localX, float w) {

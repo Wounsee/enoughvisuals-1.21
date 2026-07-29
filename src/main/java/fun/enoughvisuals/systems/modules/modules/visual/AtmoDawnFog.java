@@ -14,7 +14,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import java.awt.Color;
 import org.joml.Matrix4f;
 
-@Register(name = "AtmoDawnFog", id = "atmo_dawn_fog", description = "Кинематографичная атмосфера: туман, лучи света, заря", category = Category.VISUAL)
+@Register(name = "Atmosphere", id = "atmo_dawn_fog", description = "Кинематографичная атмосфера", category = Category.VISUAL)
 public final class AtmoDawnFog extends Module {
     private static AtmoDawnFog INSTANCE;
     private static final Matrix4f WORLD_POSITION = new Matrix4f();

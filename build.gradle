@@ -49,14 +49,137 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
     modRuntimeOnly files(
-            "src/main/resources/META-INF/jars/hold-my-items.jar",
-            "src/main/resources/META-INF/jars/cloth-config.jar",
-            "src/main/resources/META-INF/jars/modmenu.jar",
-            "src/main/resources/META-INF/jars/placeholder-api.jar"
+            "cosmetic-build/fabric/build/libs/cosmetic-0.1.5+1.21.4-fabric-mc.jar")
+    runtimeOnly "com.github.FiguraMC.luaj:luaj-core:3.0.8-figura"
+    runtimeOnly "com.github.FiguraMC.luaj:luaj-jse:3.0.8-figura"
+    runtimeOnly "com.neovisionaries:nv-websocket-client:2.14"
+    // Punchy is compiled into EnoughVisuals. Its recovered sources use
+    // intermediary Minecraft names, so expose the matching 1.21.4 artifact to
+    // javac alongside Loom's named development jar.
+    compileOnly files(
+            "C:/Users/<user>/Downloads/punchy-2.6.2-fabric-1.21.5.jar"
     )
 }
 
+sourceSets.main.java.exclude "punchy/**"
+sourceSets.main.java.exclude "fun/wounsee/cosmetic/**"
+// Resource inputs are declared explicitly below so stale recovered Punchy
+// files in src/main/resources cannot shadow the deterministic generated copy.
+sourceSets.main.resources.setSrcDirs([])
+
+def cosmeticRuntimeDir = file("cosmetic-build")
+def embeddedCosmeticJar = file(
+        "cosmetic-build/fabric/build/libs/cosmetic-0.1.5+1.21.4-fabric-mc.jar")
+
+tasks.register("buildEmbeddedCosmetic", Exec) {
+    inputs.dir("src/main/java/fun/wounsee/cosmetic")
+    inputs.dir("cosmetic-build/common/src/main/resources")
+    inputs.dir("cosmetic-build/fabric/src/main/resources")
+    inputs.files(
+            "cosmetic-build/build.gradle",
+            "cosmetic-build/common/build.gradle",
+            "cosmetic-build/fabric/build.gradle",
+            "cosmetic-build/gradle.properties",
+            "cosmetic-build/settings.gradle")
+    outputs.file(embeddedCosmeticJar)
+    workingDir cosmeticRuntimeDir
+    commandLine new File(cosmeticRuntimeDir, "gradlew.bat"), ":fabric:remapJar", "--no-daemon"
+}
+
+tasks.matching { it.name == "runClient" || it.name == "generateRemapClasspath" }.configureEach {
+    dependsOn tasks.named("buildEmbeddedCosmetic")
+}
+
+def punchySourceJar = file("C:/Users/<user>/Downloads/punchy-2.6.2-fabric-1.21.5.jar")
+def punchyTargetMinecraftJar = file(
+        "C:/Users/<user>/.gradle/caches/fabric-loom/minecraftMaven/net/minecraft/" +
+        "minecraft-merged-intermediary/1.21.4-net.fabricmc.yarn.1_21_4.1.21.4+build.2-v2/" +
+        "minecraft-merged-intermediary-1.21.4-net.fabricmc.yarn.1_21_4.1.21.4+build.2-v2.jar")
+def punchyFabricResourceLoaderJar = file(
+        "C:/Users/<user>/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/" +
+        "fabric-resource-loader-v0/3.1.1+360374ac04/" +
+        "37dede548214e182babb9f66cdb25b2b5871ccfb/" +
+        "fabric-resource-loader-v0-3.1.1+360374ac04.jar")
+def punchyToolClasspath = configurations.detachedConfiguration(
+        dependencies.create("org.ow2.asm:asm:9.9"),
+        dependencies.create("org.ow2.asm:asm-tree:9.9"),
+        dependencies.create("net.fabricmc:tiny-remapper:0.14.0"))
+def punchyToolClasses = layout.buildDirectory.dir("tools/punchy-compat")
+def generatedPunchyIntermediaryResources =
+        layout.buildDirectory.dir("generated/punchy-resources-intermediary")
+def generatedPunchyResources = layout.buildDirectory.dir("generated/punchy-resources-named")
+def yarnTinyMappings = file(
+        "C:/Users/<user>/.gradle/caches/fabric-loom/1.21.4/" +
+        "net.fabricmc.yarn.1_21_4.1.21.4+build.2-v2/mappings.tiny")
+
+tasks.register("compilePunchyCompatPatcher", Exec) {
+    inputs.file("scripts/PunchyCompatPatcher.java")
+    inputs.file("scripts/PunchyNamespaceRemapper.java")
+    outputs.dir(punchyToolClasses)
+    doFirst {
+        delete(punchyToolClasses)
+        punchyToolClasses.get().asFile.mkdirs()
+    }
+    commandLine(
+            new File(System.getProperty("java.home"), "bin/javac.exe"),
+            "-cp", punchyToolClasspath.asPath,
+            "-d", punchyToolClasses.get().asFile,
+            file("scripts/PunchyCompatPatcher.java"),
+            file("scripts/PunchyNamespaceRemapper.java"))
+}
+
+tasks.register("preparePunchyIntermediaryResources", JavaExec) {
+    dependsOn tasks.named("compilePunchyCompatPatcher")
+    inputs.file(punchySourceJar)
+    inputs.file(punchyTargetMinecraftJar)
+    inputs.file("scripts/PunchyCompatPatcher.java")
+    outputs.dir(generatedPunchyIntermediaryResources)
+    classpath = files(punchyToolClasses, punchyToolClasspath)
+    mainClass = "PunchyCompatPatcher"
+    args "--prepare", punchySourceJar.absolutePath,
+            generatedPunchyIntermediaryResources.get().asFile.absolutePath,
+            punchyTargetMinecraftJar.absolutePath
+    doFirst {
+        delete(generatedPunchyIntermediaryResources)
+        generatedPunchyIntermediaryResources.get().asFile.mkdirs()
+    }
+}
+
+tasks.register("preparePunchyResources", JavaExec) {
+    dependsOn tasks.named("preparePunchyIntermediaryResources")
+    inputs.dir(generatedPunchyIntermediaryResources)
+    inputs.file(yarnTinyMappings)
+    inputs.file("scripts/PunchyNamespaceRemapper.java")
+    outputs.dir(generatedPunchyResources)
+    classpath = files(punchyToolClasses, punchyToolClasspath)
+    mainClass = "PunchyNamespaceRemapper"
+    args generatedPunchyIntermediaryResources.get().asFile.absolutePath,
+            generatedPunchyResources.get().asFile.absolutePath,
+            yarnTinyMappings.absolutePath,
+            files(punchyTargetMinecraftJar, punchyFabricResourceLoaderJar).asPath
+    doFirst {
+        delete(generatedPunchyResources)
+        generatedPunchyResources.get().asFile.mkdirs()
+    }
+}
+
 processResources {
+    dependsOn tasks.named("preparePunchyResources"), tasks.named("buildEmbeddedCosmetic")
+    from("src/main/resources") {
+        exclude "META-INF/jars/**"
+        exclude "punchy/**"
+        exclude "punchy.mixins.json"
+        exclude "punchy.compat.mixins.json"
+        exclude "assets/punchy/**"
+        exclude "assets/minecraft/textures/misc/powder_snow_outline.png"
+        exclude "resourcepacks/punchy/**"
+        exclude "META-INF/services/punchy.platform.services.*"
+    }
+    from(generatedPunchyResources)
+    from(embeddedCosmeticJar) {
+        into "META-INF/jars"
+        rename { "cosmetic.jar" }
+    }
     inputs.property "version", project.version
     inputs.property "minecraft_version", project.minecraft_version
     inputs.property "loader_version", project.loader_version
@@ -106,11 +229,26 @@ def protectedReleaseJar =
 def protectionReport =
         layout.buildDirectory.file(
                 "reports/enoughguard/${project.archives_base_name}-${project.version}.json")
+def punchyLinkageReport =
+        layout.buildDirectory.file("reports/punchy/remapped-linkage-errors.txt")
+
+tasks.register("auditPunchy1214", JavaExec) {
+    dependsOn tasks.named("remapJar"), tasks.named("compilePunchyCompatPatcher")
+    inputs.file(remappedReleaseJar)
+    inputs.file(punchyTargetMinecraftJar)
+    outputs.file(punchyLinkageReport)
+    classpath = files(punchyToolClasses, punchyToolClasspath)
+    mainClass = "PunchyCompatPatcher"
+    doFirst { punchyLinkageReport.get().asFile.parentFile.mkdirs() }
+    args "--audit-jar", remappedReleaseJar.get().asFile.absolutePath,
+            punchyTargetMinecraftJar.absolutePath,
+            punchyLinkageReport.get().asFile.absolutePath
+}
 
 tasks.register("protectRelease", Exec) {
     group = "build"
     description = "Builds the launcher-only EnoughGuard production artifact"
-    dependsOn tasks.named("remapJar")
+    dependsOn tasks.named("auditPunchy1214")
     inputs.file(remappedReleaseJar)
     inputs.file(enoughGuardCli)
     inputs.file(enoughGuardProfile)

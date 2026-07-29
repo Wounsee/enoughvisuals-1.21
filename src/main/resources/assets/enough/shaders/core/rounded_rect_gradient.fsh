@@ -10,6 +10,7 @@ uniform vec4 uColor1; // top-left
 uniform vec4 uColor2; // top-right
 uniform vec4 uColor3; // bottom-right
 uniform vec4 uColor4; // bottom-left
+uniform float uExponent;
 
 float roundedBoxSDF(vec2 p, vec2 b, vec4 r) {
     vec2 rr = (p.x > 0.0)
@@ -17,7 +18,10 @@ float roundedBoxSDF(vec2 p, vec2 b, vec4 r) {
         : ((p.y > 0.0) ? r.wx : r.xy);
     float radius = rr.x;
     vec2 q = abs(p) - b + vec2(radius);
-    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
+    vec2 outside = max(q, 0.0);
+    float exponent = max(uExponent, 2.0);
+    float corner = pow(pow(outside.x, exponent) + pow(outside.y, exponent), 1.0 / exponent);
+    return min(max(q.x, q.y), 0.0) + corner - radius;
 }
 
 void main() {

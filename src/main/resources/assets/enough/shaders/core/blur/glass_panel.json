@@ -40,6 +40,12 @@
       "type": "float",
       "count": 1,
       "values": [1.0]
+    },
+    {
+      "name": "SquircleExponent",
+      "type": "float",
+      "count": 1,
+      "values": [2.35]
     }
   ]
 }

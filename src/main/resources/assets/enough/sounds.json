@@ -23,6 +23,14 @@
       }
     ]
   },
+  "ui.slider": {
+    "sounds": [
+      {
+        "name": "enough:ui/slider",
+        "stream": false
+      }
+    ]
+  },
   "ui.warn": {
     "sounds": [
       {
@@ -35,6 +43,22 @@
     "sounds": [
       {
         "name": "enough:ui/event",
+        "stream": false
+      }
+    ]
+  },
+  "ui.menu_open": {
+    "sounds": [
+      {
+        "name": "enough:ui/menu_open",
+        "stream": false
+      }
+    ]
+  },
+  "ui.menu_close": {
+    "sounds": [
+      {
+        "name": "enough:ui/menu_close",
         "stream": false
       }
     ]

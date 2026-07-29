@@ -3,6 +3,7 @@ package fun.enoughvisuals;
 
 
 import fun.enoughvisuals.systems.config.ConfigSystem;
+import fun.enoughvisuals.systems.cosmetic.CosmeticCatalog;
 
 import fun.enoughvisuals.systems.hud.DragAndDrop;
 
@@ -36,8 +37,6 @@ import fun.enoughvisuals.ui.hud.TrapTimerHud;
 
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 
-import fun.enoughvisuals.utils.render.CustomModelRenderer;
-
 import fun.enoughvisuals.utils.render.ShaderEspRenderer;
 
 import fun.enoughvisuals.utils.sound.CombatSoundService;
@@ -53,6 +52,9 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import fun.enoughvisuals.systems.emotions.EmotionWheelManager;
+import fun.enoughvisuals.systems.modules.modules.visual.Emotions;
+import fun.enoughvisuals.ui.screen.EmotionWheelScreen;
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
@@ -95,167 +97,89 @@ public final class EnoughCore {
     public static void initializeClient() {
 
         initCustomFontRendererCompat();
-
-
-
+        applyFirstLaunchDisplayDefaults();
         RemoteConfig.getInstance().start();
-
-
-
         new CustomTab();
-
-
-
         ModuleManager manager = ModuleManager.getInstance();
-
         manager.register(
-
                 new AspectRatio(),
-
                 new Cooldowns(),
-
                 new Crosshair(),
-
                 new Animations(),
-
                 new CustomWorld(),
-
-                new CustomModel(),
-
                 new SkyBox(),
-
                 new BlockOverlay(),
-
                 new CustomHitbox(),
-
                 new GuiSize(),
-
                 new CustomTheme(),
-
+                new CornerStyle(),
                 new Friends(),
-
                 new Configs(),
-
                 new GPS(),
-
                 new Globals(),
-
                 new HUD(),
-
                 new HitParticles(),
-
                 new JumpCircle(),
-
                 new ChinaHat(),
-
                 new KillEffect(),
-
                 new Particles(),
                 new AtmoDawnFog(),
                 new AttackEffect(),
                 new ColorPlus(),
                 new MotionBlur(),
                 new WorldSquares(),
-
                 new MouseParticles(),
-
                 new Fullbright(),
-
                 new ItemPhysics(),
-
                 new ItemLight(),
-
                 new NoRender(),
-
                 new SwingAnimation(),
-
                 new ViewModel(),
-
                 new BetterHands(),
-
                 new ShaderHands(),
-
                 new GlowESP(),
-
                 new FreeLook(),
-
+                new Emotions(),
                 new Pet(),
-
                 new FriendMarker(),
-
                 new TargetESP(),
-
                 new MineRadar(),
-
                 new FakePlayer(),
-
                 new ClickFriend(),
-
                 new ChatHelper(),
-
                 new HitSound(),
-
                 new KillSound(),
-
                 new AutoAccept(),
-
                 new AutoPotion(),
-
                 new AutoReconnect(),
-
                 new AutoRespawn(),
-
                 new AutoSprint(),
-
                 new PvPSave(),
-
                 new SendCord(),
-
                 new CustomSphereSkin(),
-
                 new FastSearch(),
-
                 new FastSwap(),
-
                 new ItemPickupLogger(),
-
                 new AutoResell(),
-
                 new NameProtect(),
-
                 new Macros(),
-
                 new Prediction(),
-
                 new StreamerMode(),
-
                 new FastXP(),
-
                 new LockSlot(),
-
                 new ItemScroller(),
-
                 new FTHelper(),
-
                 new Zoom(),
-
                 new ItemSwap(),
-
                 new ClickPearl(),
-
                 new HitColor(),
-
                 new LowArmorNotify(),
-
                 new ShiftTap(),
                 new Trails(),
                 new SpecBind(),
-
                 new DeathCords(),
-
                 new AutoEat(),
                 new AutoNear(),
-                new ElytraUtility(),
                 new HealingHelper(),
                 new TrapTimer(),
                 new HealthIndicator(),
@@ -275,33 +199,24 @@ public final class EnoughCore {
 
         WorldRenderEvents.LAST.register(AtmoDawnFog::renderInWorld);
         WorldRenderEvents.LAST.register(ShaderEspRenderer::renderInWorld);
-
         WorldRenderEvents.LAST.register(BlockOverlay::renderInWorld);
-
-        WorldRenderEvents.LAST.register(CustomModelRenderer::renderInWorld);
-
         WorldRenderEvents.LAST.register(TargetESP::renderInWorld);
-
         WorldRenderEvents.LAST.register(KillEffect::renderInWorld);
-
         WorldRenderEvents.LAST.register(FriendMarker::renderInWorld);
-
         WorldRenderEvents.LAST.register(CustomHitbox::renderInWorld);
-
         WorldRenderEvents.LAST.register(Particles::renderInWorld);
-
         WorldRenderEvents.LAST.register(WorldSquares::renderInWorld);
-
         WorldRenderEvents.LAST.register(JumpCircle::renderInWorld);
-
         WorldRenderEvents.LAST.register(JumpEffect::renderInWorld);
-
         WorldRenderEvents.LAST.register(Trails::renderInWorld);
         WorldRenderEvents.LAST.register(AttackEffect::renderInWorld);
 
-        HudRenderCallback.EVENT.register((drawContext, tickCounter) ->
-
-                ModuleManager.getInstance().onRender(tickCounter.getTickDelta(true)));
+        HudRenderCallback.EVENT.register((drawContext, tickCounter) -> {
+            ModuleManager.getInstance().onRender(tickCounter.getTickDelta(true));
+            if (!(MinecraftClient.getInstance().currentScreen instanceof EmotionWheelScreen)) {
+                EmotionWheelManager.getInstance().render(drawContext);
+            }
+        });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
 
@@ -322,6 +237,7 @@ public final class EnoughCore {
         ClientTickEvents.END_CLIENT_TICK.register(CombatSoundService::onClientTick);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> ModuleManager.getInstance().onTick());
+        ClientTickEvents.END_CLIENT_TICK.register(client -> CosmeticCatalog.restoreWhenReady());
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> ConfigSystem.getInstance().onClientTick(client));
 
@@ -398,6 +314,34 @@ public final class EnoughCore {
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> ConfigSystem.getInstance().autosaveOnExit());
 
+    }
+
+    private static void applyFirstLaunchDisplayDefaults() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null || client.options == null || client.getWindow() == null) {
+            return;
+        }
+
+        Path stateDir = client.runDirectory.toPath().resolve("enoughvisuals");
+        Path marker = stateDir.resolve("display-defaults-v1.done");
+        if (Files.exists(marker)) {
+            return;
+        }
+
+        try {
+            client.options.getGuiScale().setValue(2);
+            client.options.getFullscreen().setValue(true);
+            if (!client.getWindow().isFullscreen()) {
+                client.getWindow().toggleFullscreen();
+            }
+            client.onResolutionChanged();
+            client.options.write();
+            Files.createDirectories(stateDir);
+            Files.writeString(marker, "guiScale=2\nfullscreen=true\n");
+        } catch (Exception exception) {
+            System.err.println("[EnoughVisuals] Failed to apply first-launch display defaults: "
+                    + exception.getMessage());
+        }
     }
 
 

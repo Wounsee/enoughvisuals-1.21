@@ -5,6 +5,7 @@ uniform vec2 uSize; // ширина и высота без паддинга
 uniform vec4 uRadii; // радиусы углов
 uniform float uAlpha;
 uniform float uSmoothing;
+uniform float uExponent;
 
 in vec2 texCoord;
 in vec2 localPos; // Координаты относительно самого элемента, не искажаются при наклоне!
@@ -14,7 +15,10 @@ float roundedBoxSDF(vec2 p, vec2 b, vec4 r) {
     r.xy = (p.x > 0.0) ? r.xy : r.zw;
     r.x  = (p.y > 0.0) ? r.x  : r.y;
     vec2 q = abs(p) - b + r.x;
-    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r.x;
+    vec2 outside = max(q, 0.0);
+    float exponent = max(uExponent, 2.0);
+    float corner = pow(pow(outside.x, exponent) + pow(outside.y, exponent), 1.0 / exponent);
+    return min(max(q.x, q.y), 0.0) + corner - r.x;
 }
 
 void main() {

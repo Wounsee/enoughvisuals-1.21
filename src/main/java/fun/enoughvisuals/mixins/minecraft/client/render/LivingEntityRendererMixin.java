@@ -2,7 +2,6 @@ package fun.enoughvisuals.mixins.minecraft.client.render;
 
 import fun.enoughvisuals.mixins.accessors.LivingEntityRendererAccessor;
 import fun.enoughvisuals.systems.modules.modules.utils.CustomSphereSkin;
-import fun.enoughvisuals.utils.render.CustomModelRenderer;
 import fun.enoughvisuals.utils.render.PetRenderer;
 import fun.enoughvisuals.utils.render.ShaderEspRenderer;
 import net.minecraft.client.model.Model;
@@ -39,11 +38,6 @@ public class LivingEntityRendererMixin {
             if (!(client.currentScreen instanceof InventoryScreen)) {
                 PetRenderer.renderWorldPet(playerState.id, playerState.pose, matrices, vertexConsumers, light);
             }
-            if (CustomModelRenderer.shouldHideVanillaPlayer(playerState.id)) {
-                ci.cancel();
-                return;
-            }
-
             if (client.player == null || playerState.id != client.player.getId() || playerState.wearingSkullType == null) {
                 return;
             }

@@ -8,10 +8,14 @@ uniform float uRadius;
 uniform float uCellSize;
 uniform float uOpacity;
 uniform float uSmoothing;
+uniform float uExponent;
 
 float roundedBoxSDF(vec2 p, vec2 b, float radius) {
     vec2 q = abs(p) - b + vec2(radius);
-    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
+    vec2 outside = max(q, 0.0);
+    float exponent = max(uExponent, 2.0);
+    float corner = pow(pow(outside.x, exponent) + pow(outside.y, exponent), 1.0 / exponent);
+    return min(max(q.x, q.y), 0.0) + corner - radius;
 }
 
 void main() {

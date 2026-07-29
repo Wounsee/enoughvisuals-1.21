@@ -10,7 +10,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.entity.Entity;
 import org.joml.Matrix4f;
 
-@Register(name = "Attack Effect", id = "attack_effect", description = "Эффект преломления в точке удара", category = Category.VISUAL)
+@Register(name = "Attack Effect", id = "attack_effect", description = "Эффект в точке удара", category = Category.VISUAL)
 public final class AttackEffect extends Module {
     private static AttackEffect INSTANCE;
     private static final Matrix4f POSITION = new Matrix4f();

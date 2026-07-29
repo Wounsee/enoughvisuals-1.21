@@ -13,25 +13,19 @@
   "environment": "client",
   "entrypoints": {
     "client": [
-      "fun.enoughvisuals.Enough"
+      "fun.enoughvisuals.Enough",
+      "punchy.fabric.PunchyFabricClient"
     ]
   },
+  "mixins": [
+    "enoughvisuals.mixins.json",
+    "punchy.mixins.json",
+    "punchy.compat.mixins.json"
+  ],
   "jars": [
     {
-      "file": "META-INF/jars/hold-my-items.jar"
-    },
-    {
-      "file": "META-INF/jars/cloth-config.jar"
-    },
-    {
-      "file": "META-INF/jars/modmenu.jar"
-    },
-    {
-      "file": "META-INF/jars/placeholder-api.jar"
+      "file": "META-INF/jars/cosmetic.jar"
     }
-  ],
-  "mixins": [
-    "enoughvisuals.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${loader_version}",

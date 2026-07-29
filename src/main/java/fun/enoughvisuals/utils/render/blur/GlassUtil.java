@@ -5,6 +5,8 @@ import fun.enoughvisuals.mixins.accessors.ShaderProgramAccessor;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.utils.render.RenderUtil;
+import fun.enoughvisuals.utils.render.StencilUtil;
+import fun.enoughvisuals.systems.modules.modules.client.CornerStyle;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.*;
 import net.minecraft.client.gui.DrawContext;
@@ -266,6 +268,7 @@ public class GlassUtil {
                 setUniform(panelShader, "PanelSize", w, h);
                 setUniform(panelShader, "Radius", radius);
                 setUniform(panelShader, "BlurAlpha", blur);
+                setUniform(panelShader, "SquircleExponent", CornerStyle.exponent());
                 float cr = ((tintColor >> 16) & 0xFF) / 255f;
                 float cg = ((tintColor >> 8) & 0xFF) / 255f;
                 float cb = (tintColor & 0xFF) / 255f;
@@ -287,9 +290,11 @@ public class GlassUtil {
         }
 
         if (radius > 0.5f) {
-            RenderUtil.enableScissor(x, y, w, h);
+            StencilUtil.beginStencil();
+            RenderUtil.drawRoundedMask(ctx, x, y, w, h, radius);
+            StencilUtil.applyStencil();
             drawBlurQuad(mat, x, y, w, h, u0, v0, u1, v1);
-            RenderUtil.disableScissor();
+            StencilUtil.endStencil();
             RenderUtil.drawRoundedRect(ctx, x, y, w, h, radius,
                     RenderUtil.withAlpha(tintColor, tintAlpha));
         } else {

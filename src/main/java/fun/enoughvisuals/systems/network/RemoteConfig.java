@@ -7,6 +7,8 @@ import com.google.gson.JsonParser;
 import fun.enoughvisuals.Info;
 import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
+import fun.enoughvisuals.systems.emotions.EmotionWheelManager;
+import fun.enoughvisuals.systems.cosmetic.CosmeticCatalog;
 import net.minecraft.client.MinecraftClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +33,7 @@ public final class RemoteConfig {
     private static final RemoteConfig INSTANCE = new RemoteConfig();
 
     private static final long POLL_INTERVAL_MS = 5_000L;
+    private static final long MULTIPLAYER_POLL_INTERVAL_MS = 300L;
 
     private final AtomicBoolean started = new AtomicBoolean(false);
 
@@ -73,7 +76,9 @@ public final class RemoteConfig {
                 LOGGER.debug("sync failed: {}", t.toString());
             }
             try {
-                Thread.sleep(POLL_INTERVAL_MS);
+                MinecraftClient client = MinecraftClient.getInstance();
+                Thread.sleep(client != null && client.getCurrentServerEntry() != null
+                        ? MULTIPLAYER_POLL_INTERVAL_MS : POLL_INTERVAL_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
@@ -132,6 +137,8 @@ public final class RemoteConfig {
         } catch (Throwable ignored) {
         }
         root.add("modules", mods);
+        EmotionWheelManager.getInstance().appendSync(root);
+        CosmeticCatalog.appendSync(root);
         return root.toString();
     }
 
@@ -170,6 +177,11 @@ public final class RemoteConfig {
             }
         }
         enoughUsers = Collections.unmodifiableSet(evUsers);
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client != null) client.execute(() -> {
+            EmotionWheelManager.getInstance().applySync(o);
+            CosmeticCatalog.applySync(o);
+        });
         if (changed) {
             enforceBlocksAsync();
         }

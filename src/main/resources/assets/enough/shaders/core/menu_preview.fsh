@@ -6,6 +6,7 @@ uniform vec4 uRadii;
 uniform float uAlpha;
 uniform float uSmoothing;
 uniform float uShadeStrength;
+uniform float uExponent;
 
 in vec2 texCoord;
 in vec2 localPos;
@@ -15,7 +16,10 @@ float roundedBoxSdf(vec2 point, vec2 halfSize, vec4 radii) {
     radii.xy = (point.x > 0.0) ? radii.xy : radii.zw;
     radii.x = (point.y > 0.0) ? radii.x : radii.y;
     vec2 edge = abs(point) - halfSize + radii.x;
-    return min(max(edge.x, edge.y), 0.0) + length(max(edge, 0.0)) - radii.x;
+    vec2 outside = max(edge, 0.0);
+    float exponent = max(uExponent, 2.0);
+    float corner = pow(pow(outside.x, exponent) + pow(outside.y, exponent), 1.0 / exponent);
+    return min(max(edge.x, edge.y), 0.0) + corner - radii.x;
 }
 
 void main() {

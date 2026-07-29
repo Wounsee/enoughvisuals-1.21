@@ -217,6 +217,7 @@
   "ui.client_tools.friends.missing": "Friend not found",
   "ui.client_tools.configs.title": "Configs",
   "ui.inventory_manager.title": "Inventory Manager",
+  "ui.client_tools.cosmetics.title": "Cosmetics",
   "ui.client_tools.configs.status": "%d shown - active: %s",
   "ui.client_tools.configs.empty": "No configs found",
   "ui.client_tools.configs.active": "Active config",
@@ -665,5 +666,11 @@
   "chat.cfg.help_save": " §d.cfg save [name] §f- save current",
   "chat.cfg.help_load": " §d.cfg load <name|index> §f- load config",
   "chat.cfg.help_remove": " §d.cfg remove <name|index> §f- remove config",
-  "chat.cfg.help_dir": " §d.cfg dir §f- open configs folder"
+  "chat.cfg.help_dir": " §d.cfg dir §f- open configs folder",
+  "modules.corner_style.name": "Corners",
+  "modules.corner_style.description": "Selects the interface corner shape",
+  "settings.corner_style.shape.name": "Shape",
+  "settings.corner_style.shape.description": "Regular rounding or a smooth squircle",
+  "settings.custom_theme.squircle_curvature.name": "Squircle softness",
+  "settings.custom_theme.squircle_curvature.description": "Lower values produce softer and rounder corners"
 }

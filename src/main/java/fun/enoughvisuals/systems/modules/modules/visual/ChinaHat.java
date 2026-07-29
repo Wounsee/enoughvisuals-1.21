@@ -8,7 +8,7 @@ import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 
-@Register(name = "ChinaHat", id = "china_hat", description = "Стеклянная неоновая шляпа", category = Category.VISUAL)
+@Register(name = "ChinaHat", id = "china_hat", description = "Шляпа мелстроя", category = Category.VISUAL)
 public final class ChinaHat extends Module {
     private final fun.enoughvisuals.port.ChinaHat renderer = new fun.enoughvisuals.port.ChinaHat();
 

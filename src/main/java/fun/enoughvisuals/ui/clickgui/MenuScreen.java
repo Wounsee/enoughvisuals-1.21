@@ -107,7 +107,7 @@ public class MenuScreen extends Screen {
             .toArray(Category[]::new);
     private final Map<Module, ModuleCard> cardCache = new LinkedHashMap<>();
     private final List<ModuleCard> cards = new ArrayList<>();
-    private final float[] navHover = new float[9];
+    private final float[] navHover = new float[16];
     private final IntegratedToolPage toolPage = new IntegratedToolPage();
     private final IntegratedToolPage.Type initialTool;
 
@@ -348,6 +348,7 @@ public class MenuScreen extends Screen {
 
         long now = System.currentTimeMillis();
         if (closing && now - closeStart >= CLOSE_MS + 35L) {
+            StencilUtil.resetRenderState();
             if (client != null && client.currentScreen == this) client.setScreen(null);
             RenderSystem.depthMask(true);
             StencilUtil.resetRenderState();
@@ -481,31 +482,18 @@ public class MenuScreen extends Screen {
         RenderUtil.drawRect(context, windowX + 14f * scale, separatorY, sw - 28f * scale, 0.6f,
                 RenderUtil.withAlpha(0xFFFFFF, 0.065f * alpha));
 
-        String[] toolIcons = {ICON_CONFIG, ICON_FRIENDS, ICON_WAYPOINT, ICON_BIND, "\uF000", "\uF000"};
-        String[] toolNames = {
-                ClientLanguage.text("ui.client_tools.configs.title", "Конфиги"),
-                ClientLanguage.text("ui.client_tools.friends.title", "Друзья"),
-                ClientLanguage.text("ui.client_tools.gps.title", "Метки"),
-                ClientLanguage.text("ui.macros.title", "Макросы"),
-                "Инвентари",
-                "Ивенты"
-        };
-        FontWeight[] toolWeights = {FontWeight.CLICK_GUI, FontWeight.CLICK_GUI, FontWeight.CLICK_GUI,
-                FontWeight.CLICK_GUI, FontWeight.BOOK, FontWeight.EVENT};
         float toolsY = windowY + NAV_TOOLS_Y * scale;
         float toolRowH = NAV_TOOL_ROW_H * scale;
         List<IntegratedToolPage.Type> visibleTools = visibleTools();
         for (int i = 0; i < visibleTools.size(); i++) {
             IntegratedToolPage.Type visibleTool = visibleTools.get(i);
-            int sourceIndex = visibleTool.ordinal();
-            renderSidebarAction(context, mx, my, i + 3, toolsY + i * toolRowH, toolIcons[sourceIndex],
-                    toolNames[sourceIndex], toolWeights[sourceIndex], activeTool == visibleTool, alpha);
+            renderSidebarAction(context, mx, my, i + 3, toolsY + i * toolRowH, visibleTool.icon(),
+                    visibleTool.title(), visibleTool.iconWeight(), activeTool == visibleTool, alpha);
         }
         if (SHOW_EVENTS_TAB) {
-            int eventIndex = toolIcons.length - 1;
             renderSidebarAction(context, mx, my, visibleTools.size() + 3,
-                    toolsY + visibleTools.size() * toolRowH, toolIcons[eventIndex], toolNames[eventIndex],
-                    toolWeights[eventIndex], false, alpha);
+                    toolsY + visibleTools.size() * toolRowH, "\uF000", "Ивенты",
+                    FontWeight.EVENT, false, alpha);
         }
 
         float profileH = 25f * scale;
@@ -852,11 +840,19 @@ public class MenuScreen extends Screen {
 
     private void startClosing() {
         if (closing) return;
+        StencilUtil.resetRenderState();
         closing = true;
+        EnoughSoundPlayer.playMenuClose();
         closeStart = System.currentTimeMillis();
         bindingModule = null;
         bindingSetting = null;
         if (picker != null) picker.close();
+    }
+
+    @Override
+    public void removed() {
+        StencilUtil.resetRenderState();
+        super.removed();
     }
 
     private boolean canInteract() {

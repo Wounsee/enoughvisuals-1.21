@@ -1,10 +1,11 @@
 package fun.enoughvisuals.systems.modules.modules.visual;
 
+import fun.enoughvisuals.compat.PunchyRuntimeBridge;
 import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 
-@Register(name = "Hold My Items", id = "better_hands", description = "Hold My Items first-person animations", category = Category.VISUAL)
+@Register(name = "Hold My Items", id = "better_hands", description = "Hold My Items", category = Category.VISUAL)
 public class BetterHands extends Module {
 
     public static BetterHands INSTANCE;
@@ -17,6 +18,9 @@ public class BetterHands extends Module {
 
     @Override
     protected void onEnable() {
+        // A previous world, account swap or interrupted disable may leave
+        // interpolation state behind. Always start Punchy from a clean pose.
+        PunchyRuntimeBridge.resetToVanilla();
         restoreSwingAnimation = SwingAnimation.INSTANCE != null && SwingAnimation.INSTANCE.isEnabled();
         restoreViewModel = ViewModel.INSTANCE != null && ViewModel.INSTANCE.isEnabled();
 
@@ -30,6 +34,11 @@ public class BetterHands extends Module {
 
     @Override
     protected void onDisable() {
+        // Stop every Punchy state before restoring competing modules. This is
+        // immediate on purpose: after the toggle returns, vanilla owns both
+        // hands again and no stale blend/equip/suppression state can leak.
+        PunchyRuntimeBridge.resetToVanilla();
+
         if (restoreSwingAnimation && SwingAnimation.INSTANCE != null) {
             SwingAnimation.INSTANCE.enableSilent();
         }

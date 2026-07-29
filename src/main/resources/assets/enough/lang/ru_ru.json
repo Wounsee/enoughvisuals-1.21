@@ -217,6 +217,7 @@
   "ui.client_tools.friends.missing": "Друг не найден",
   "ui.client_tools.configs.title": "Конфиги",
   "ui.inventory_manager.title": "Менеджер инвентарей",
+  "ui.client_tools.cosmetics.title": "Косметика",
   "ui.client_tools.configs.status": "%d показано - активный: %s",
   "ui.client_tools.configs.empty": "Конфиги не найдены",
   "ui.client_tools.configs.active": "Активный конфиг",
@@ -665,5 +666,11 @@
   "chat.cfg.help_save": " §d.cfg save [name] §f- сохранить текущий",
   "chat.cfg.help_load": " §d.cfg load <name|index> §f- загрузить конфиг",
   "chat.cfg.help_remove": " §d.cfg remove <name|index> §f- удалить конфиг",
-  "chat.cfg.help_dir": " §d.cfg dir §f- открыть папку конфигов"
+  "chat.cfg.help_dir": " §d.cfg dir §f- открыть папку конфигов",
+  "modules.corner_style.name": "Закругления",
+  "modules.corner_style.description": "Выбирает форму углов интерфейса",
+  "settings.corner_style.shape.name": "Форма",
+  "settings.corner_style.shape.description": "Обычное закругление или плавный сквиркл",
+  "settings.custom_theme.squircle_curvature.name": "Мягкость сквиркла",
+  "settings.custom_theme.squircle_curvature.description": "Чем меньше значение, тем круглее и мягче выглядят углы"
 }

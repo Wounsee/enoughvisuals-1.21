@@ -11,6 +11,8 @@ import fun.enoughvisuals.systems.modules.modules.utils.Macros;
 import fun.enoughvisuals.systems.modules.modules.utils.SendCord;
 import fun.enoughvisuals.systems.modules.modules.utils.SpecBind;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
+import fun.enoughvisuals.utils.sound.EnoughSoundPlayer;
+import fun.enoughvisuals.systems.emotions.EmotionWheelManager;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import org.lwjgl.glfw.GLFW;
@@ -30,6 +32,7 @@ public abstract class KeyInputMixin {
 
     @Inject(method = "onKey", at = @At("HEAD"))
     private void enough$onKey(long window, int key, int scancode, int action, int modifiers, CallbackInfo ci) {
+        if (key != GLFW.GLFW_KEY_UNKNOWN && key >= 0 && EmotionWheelManager.getInstance().onKey(key, action)) return;
         if (action != GLFW.GLFW_PRESS) return;
         if (key == GLFW.GLFW_KEY_UNKNOWN || key < 0) return;
 
@@ -39,6 +42,7 @@ public abstract class KeyInputMixin {
 
         if (key == GLFW.GLFW_KEY_RIGHT_SHIFT) {
             if (client.currentScreen == null) {
+                EnoughSoundPlayer.playMenuOpen();
                 client.setScreen(new MenuScreen());
             }
             return;

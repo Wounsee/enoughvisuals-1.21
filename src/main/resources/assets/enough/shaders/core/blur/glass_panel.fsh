@@ -8,6 +8,7 @@ uniform vec2 PanelSize;   // panel size in GUI pixels
 uniform float Radius;     // corner radius in GUI pixels
 uniform vec4 TintColor;   // kept for json compatibility; tint is drawn in a separate pass
 uniform float BlurAlpha;  // blur visibility 0..1
+uniform float SquircleExponent;
 
 out vec4 fragColor;
 
@@ -15,7 +16,10 @@ out vec4 fragColor;
 // b = half-size, r = corner radius
 float sdRoundedBox(vec2 p, vec2 b, float r) {
     vec2 q = abs(p) - b + r;
-    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+    vec2 outside = max(q, 0.0);
+    float exponent = max(SquircleExponent, 2.0);
+    float corner = pow(pow(outside.x, exponent) + pow(outside.y, exponent), 1.0 / exponent);
+    return corner + min(max(q.x, q.y), 0.0) - r;
 }
 
 void main() {

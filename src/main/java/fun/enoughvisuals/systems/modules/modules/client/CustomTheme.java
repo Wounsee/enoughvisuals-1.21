@@ -47,9 +47,13 @@ public class CustomTheme extends Module {
     ));
 
     public final SliderSetting clickGuiRadius = add(new SliderSetting(
-            "Закругление ClickGUI", "click_gui_radius", 10.0, 3.0, 16.0, 0.5));
+            "Закругление ClickGUI", "click_gui_radius", 14.0, 3.0, 28.0, 0.5));
     public final SliderSetting hudRadius = add(new SliderSetting(
-            "Закругление HUD", "hud_radius", 6.0, 2.0, 12.0, 0.5));
+            "Закругление HUD", "hud_radius", 8.0, 2.0, 20.0, 0.5));
+    public final SliderSetting squircleCurvature = add(new SliderSetting(
+            "Мягкость сквиркла", "squircle_curvature",
+            "Меньшее значение делает углы мягче и круглее",
+            2.35, 2.05, 2.85, 0.05));
 
     public final ColorSetting itemColor = add(new ColorSetting(
             "Цвет предметов",
@@ -188,6 +192,11 @@ public class CustomTheme extends Module {
     public static float hudRadiusScale() {
         CustomTheme theme = activeTheme();
         return theme == null ? 1f : theme.hudRadius.get().floatValue() / 6f;
+    }
+
+    public static float squircleExponent() {
+        CustomTheme theme = activeTheme();
+        return theme == null ? 2.35f : theme.squircleCurvature.get().floatValue();
     }
 
     public int itemAccentColor() {
