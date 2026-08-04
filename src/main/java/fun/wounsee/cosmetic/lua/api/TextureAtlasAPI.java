@@ -1,0 +1,70 @@
+package fun.wounsee.cosmetic.lua.api;
+
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.resources.ResourceLocation;
+import fun.wounsee.cosmetic.lua.LuaNotNil;
+import fun.wounsee.cosmetic.lua.LuaWhitelist;
+import fun.wounsee.cosmetic.lua.docs.LuaMethodDoc;
+import fun.wounsee.cosmetic.lua.docs.LuaMethodOverload;
+import fun.wounsee.cosmetic.lua.docs.LuaTypeDoc;
+import fun.wounsee.cosmetic.math.vector.FiguraVec4;
+import fun.wounsee.cosmetic.mixin.render.TextureAtlasAccessor;
+import fun.wounsee.cosmetic.utils.LuaUtils;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@LuaWhitelist
+@LuaTypeDoc(
+        name = "TextureAtlas",
+        value = "texture_atlas"
+)
+public class TextureAtlasAPI {
+
+    private final TextureAtlas atlas;
+
+    public TextureAtlasAPI(TextureAtlas atlas) {
+        this.atlas = atlas;
+    }
+
+    @LuaWhitelist
+    @LuaMethodDoc("texture_atlas.list_sprites")
+    public List<String> listSprites() {
+        List<String> list = new ArrayList<>();
+        for (ResourceLocation res : ((TextureAtlasAccessor) atlas).getTexturesByName().keySet())
+            list.add(res.toString());
+        return list;
+    }
+
+    @LuaWhitelist
+    @LuaMethodDoc(
+            overloads = @LuaMethodOverload(
+                    argumentTypes = String.class,
+                    argumentNames = "path"
+            ),
+            value = "texture_atlas.get_sprite_uv"
+    )
+    public FiguraVec4 getSpriteUV(@LuaNotNil String sprite) {
+        ResourceLocation spriteLocation = LuaUtils.parsePath(sprite);
+        TextureAtlasSprite s = atlas.getSprite(spriteLocation);
+        return FiguraVec4.of(s.getU0(), s.getV0(), s.getU1(), s.getV1());
+    }
+
+    @LuaWhitelist
+    @LuaMethodDoc("texture_atlas.get_width")
+    public int getWidth() {
+        return ((TextureAtlasAccessor) atlas).getWidth();
+    }
+
+    @LuaWhitelist
+    @LuaMethodDoc("texture_atlas.get_height")
+    public int getHeight() {
+        return ((TextureAtlasAccessor) atlas).getHeight();
+    }
+
+    @Override
+    public String toString() {
+        return "TextureAtlas (" + atlas.location() + ")";
+    }
+}

@@ -1,0 +1,7 @@
+EnoughVisuals vendor notes for Rizzener/FunTimeEventsSDK v1.0.5
+
+- ServerContext.FUN_TIME_PATTERN is restricted to the provider-approved
+  *.funtime.su and *.funtime.sh hostnames. No other similarly named domain
+  starts collection or transmission.
+- The API key is not embedded in either SDK JAR. It is leased through the
+  authenticated EnoughLauncher loopback bridge at runtime.

@@ -1,0 +1,9 @@
+﻿{
+  "pack": {
+    "description": "§6■ Default Animation\n",
+    "pack_format": 75,
+    "min_format": 15,
+    "max_format": 84,
+    "supported_formats": [15, 84]
+  }
+}

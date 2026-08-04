@@ -1,0 +1,3239 @@
+{
+  "emptyHand": {
+    "customAnimation": [
+      {
+        "type": "mining_v2",
+        "start": "new_punch_start",
+        "looping": "new_punch_loop",
+        "end": "new_punch_end"
+      },
+      {
+        "type": "attack",
+        "var_1": "new_punch_attack"
+      }
+    ],
+    "armTransforms": {
+      "right": {
+        "scale": 1.0,
+        "offX": -0.02000001,
+        "offY": 0.18,
+        "offZ": -0.2,
+        "rotX": 0.0,
+        "rotY": -76.0,
+        "rotZ": 36.0,
+        "pivotX": 0.0,
+        "pivotY": 0.0,
+        "pivotZ": 0.0
+      },
+      "left": {
+        "scale": 1.0,
+        "offX": 0.02000001,
+        "offY": 0.18,
+        "offZ": -0.2,
+        "rotX": 0.0,
+        "rotY": 76.0,
+        "rotZ": -36.0,
+        "pivotX": 0.0,
+        "pivotY": 0.0,
+        "pivotZ": 0.0
+      }
+    }
+  },
+  "customGroups": [
+    {
+      "name": "HORNS",
+      "items": [
+        "minecraft:goat_horn"
+      ]
+    },
+    {
+      "name": "LEAVES_GROUP",
+      "items": [
+        "minecraft:oak_leaves",
+        "minecraft:spruce_leaves",
+        "minecraft:birch_leaves",
+        "minecraft:jungle_leaves",
+        "minecraft:acacia_leaves",
+        "minecraft:dark_oak_leaves",
+        "minecraft:mangrove_leaves",
+        "minecraft:azalea_leaves",
+        "minecraft:flowering_azalea_leaves"
+      ]
+    },
+    {
+      "name": "THROW_GROUP",
+      "items": [
+        "minecraft:egg",
+        "minecraft:snowball",
+        "minecraft:ender_pearl",
+        "minecraft:ender_eye",
+        "minecraft:experience_bottle",
+        "minecraft:splash_potion",
+        "minecraft:lingering_potion",
+        "minecraft:wind_charge"
+      ]
+    },
+    {
+      "name": "PISTONS",
+      "items": [
+        "minecraft:piston",
+        "minecraft:sticky_piston"
+      ]
+    },
+    {
+      "name": "SPECIAL_BLOCKS",
+      "items": [
+        "minecraft:redstone",
+        "minecraft:redstone_torch",
+        "minecraft:redstone_wall_torch",
+        "minecraft:repeater",
+        "minecraft:comparator",
+        "minecraft:stone_pressure_plate",
+        "minecraft:polished_blackstone_pressure_plate",
+        "minecraft:oak_pressure_plate",
+        "minecraft:spruce_pressure_plate",
+        "minecraft:birch_pressure_plate",
+        "minecraft:jungle_pressure_plate",
+        "minecraft:acacia_pressure_plate",
+        "minecraft:dark_oak_pressure_plate",
+        "minecraft:mangrove_pressure_plate",
+        "minecraft:cherry_pressure_plate",
+        "minecraft:bamboo_pressure_plate",
+        "minecraft:crimson_pressure_plate",
+        "minecraft:warped_pressure_plate",
+        "minecraft:stone_button",
+        "minecraft:polished_blackstone_button",
+        "minecraft:oak_button",
+        "minecraft:spruce_button",
+        "minecraft:birch_button",
+        "minecraft:jungle_button",
+        "minecraft:acacia_button",
+        "minecraft:dark_oak_button",
+        "minecraft:mangrove_button",
+        "minecraft:cherry_button",
+        "minecraft:bamboo_button",
+        "minecraft:crimson_button",
+        "minecraft:warped_button",
+        "minecraft:lever",
+        "minecraft:tripwire_hook",
+        "minecraft:string",
+        "minecraft:daylight_detector",
+        "minecraft:lightning_rod",
+        "minecraft:rail",
+        "minecraft:powered_rail",
+        "minecraft:detector_rail",
+        "minecraft:activator_rail",
+        "minecraft:oak_fence",
+        "minecraft:spruce_fence",
+        "minecraft:birch_fence",
+        "minecraft:jungle_fence",
+        "minecraft:acacia_fence",
+        "minecraft:dark_oak_fence",
+        "minecraft:mangrove_fence",
+        "minecraft:cherry_fence",
+        "minecraft:bamboo_fence",
+        "minecraft:crimson_fence",
+        "minecraft:warped_fence",
+        "minecraft:oak_fence_gate",
+        "minecraft:spruce_fence_gate",
+        "minecraft:birch_fence_gate",
+        "minecraft:jungle_fence_gate",
+        "minecraft:acacia_fence_gate",
+        "minecraft:dark_oak_fence_gate",
+        "minecraft:mangrove_fence_gate",
+        "minecraft:cherry_fence_gate",
+        "minecraft:bamboo_fence_gate",
+        "minecraft:crimson_fence_gate",
+        "minecraft:warped_fence_gate",
+        "minecraft:ladder",
+        "minecraft:white_banner",
+        "minecraft:orange_banner",
+        "minecraft:magenta_banner",
+        "minecraft:light_blue_banner",
+        "minecraft:yellow_banner",
+        "minecraft:lime_banner",
+        "minecraft:pink_banner",
+        "minecraft:gray_banner",
+        "minecraft:light_gray_banner",
+        "minecraft:cyan_banner",
+        "minecraft:purple_banner",
+        "minecraft:blue_banner",
+        "minecraft:brown_banner",
+        "minecraft:green_banner",
+        "minecraft:red_banner",
+        "minecraft:black_banner",
+        "minecraft:iron_golem",
+        "minecraft:snow_golem",
+        "minecraft:piston",
+        "minecraft:sticky_piston"
+      ]
+    }
+  ],
+  "chestProxy": {
+    "raft": {
+      "scale": 0.9499998,
+      "offX": 0.04,
+      "offY": 0.12,
+      "offZ": -0.5099998,
+      "rotX": 0.0,
+      "rotY": -90.0,
+      "rotZ": 0.0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0
+    },
+    "boat": {
+      "scale": 0.9499998,
+      "offX": 0.04,
+      "offY": -0.21000001,
+      "offZ": -0.5099998,
+      "rotX": 0.0,
+      "rotY": -92.0,
+      "rotZ": 0.0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0
+    },
+    "minecart": {
+      "scale": 0.8299999,
+      "offX": 0.40999988,
+      "offY": 0.3799999,
+      "offZ": -0.40999988,
+      "rotX": 0.0,
+      "rotY": -90.0,
+      "rotZ": 0.0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0
+    }
+  },
+  "paddleProxy": {
+    "raft_right": {
+      "scale": 0.84999955,
+      "offX": -0.20000003,
+      "offY": 0.5200004,
+      "offZ": 0.18000022,
+      "rotX": 87.0,
+      "rotY": -181.0,
+      "rotZ": 257.0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0
+    },
+    "raft_left": {
+      "scale": 0.84999955,
+      "offX": 0.23000017,
+      "offY": 0.5099998,
+      "offZ": 0.1900001,
+      "rotX": 87.0,
+      "rotY": -3.0,
+      "rotZ": 259.0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0
+    },
+    "boat_left": {
+      "scale": 0.84999955,
+      "offX": 0.31000012,
+      "offY": 0.47999984,
+      "offZ": 0.1900001,
+      "rotX": 87.0,
+      "rotY": -3.0,
+      "rotZ": 259.0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0
+    },
+    "boat_right": {
+      "scale": 0.84999955,
+      "offX": -0.28000003,
+      "offY": 0.48000044,
+      "offZ": 0.1500002,
+      "rotX": 84.0,
+      "rotY": -181.0,
+      "rotZ": 257.0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0
+    }
+  },
+  "fishingLineProxy": {
+    "rod_right": {
+      "scale": 1.0,
+      "offX": -6.1400065,
+      "offY": 12.120025,
+      "offZ": -7.8600087,
+      "rotX": 0.0,
+      "rotY": 0.0,
+      "rotZ": 0.0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0
+    },
+    "rod_left": {
+      "scale": 1.0,
+      "offX": 6.1400065,
+      "offY": 12.120025,
+      "offZ": -7.8600087,
+      "rotX": 0.0,
+      "rotY": 0.0,
+      "rotZ": 0.0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0
+    }
+  },
+  "enchantParticleProxy": {
+    "book_left": {
+      "scale": 1.0,
+      "offX": 1.2999998,
+      "offY": 0.9800002,
+      "offZ": 0.45,
+      "rotX": 0.0,
+      "rotY": 0.0,
+      "rotZ": 0.0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0
+    },
+    "book_right": {
+      "scale": 1.0,
+      "offX": 0.3399998,
+      "offY": 1.2799991,
+      "offZ": 0.46999982,
+      "rotX": 0.0,
+      "rotY": 0.0,
+      "rotZ": 0.0,
+      "pivotX": 0.0,
+      "pivotY": 0.0,
+      "pivotZ": 0.0
+    }
+  },
+  "default_animations": [
+    {
+      "type": "hamster_pet",
+      "name": "hamster_pet"
+    },
+    {
+      "type": "hamster_dismount",
+      "name": "hamster_dismount"
+    },
+    {
+      "type": "hamster_throw_right_soulder",
+      "charge": "hamster_throw_charge_right_shoulder",
+      "release": "hamster_throw_release",
+      "abbort": "hamster_throw_abbort_right_shoulder"
+    },
+    {
+      "type": "hamster_throw_left_soulder",
+      "charge": "hamster_throw_charge_left_shoulder",
+      "release": "hamster_throw_release",
+      "abbort": "hamster_throw_abbort_left_shoulder"
+    },
+    {
+      "type": "hamster_throw_head",
+      "charge": "hamster_throw_charge_head",
+      "release": "hamster_throw_release",
+      "abbort": "hamster_throw_abbort_head"
+    },
+    {
+      "betterCombat": [
+        {
+          "type": "melee_combo",
+          "attack_1": "attack_1",
+          "attack_2": "attack_1",
+          "attack_3": "attack_2",
+          "attack_4": "attack_2",
+          "attack_5": "attack_combo_double_1",
+          "attack_6": "attack_combo_double_2"
+        }
+      ]
+    },
+    {
+      "type": "walk_on_water_v2",
+      "start": "new_walk_on_water_start",
+      "looping": "new_walk_on_water_loop",
+      "end": "new_walk_on_water_end"
+    },
+    {
+      "type": "mining_v2",
+      "start": "new_punch_start",
+      "looping": "new_punch_loop",
+      "end": "new_punch_end"
+    },
+    {
+      "type": "attack",
+      "var_1": "new_punch_attack"
+    },
+    {
+      "type": "eating",
+      "skip_blend_in": true,
+      "start": "eat_start",
+      "looping": "eat_loop",
+      "end": "eat_end"
+    },
+    {
+      "type": "drinking",
+      "skip_blend_in": true,
+      "start": "drink_start",
+      "looping": "drink_loop",
+      "end": "drink_end"
+    },
+    {
+      "type": "hand_out",
+      "var_1": "hand_out"
+    },
+    {
+      "type": "hand_in",
+      "var_1": "hand_in"
+    }
+  ],
+  "item": {
+    "HORNS": {
+      "customAnimation": [
+        {
+          "type": "useitem",
+          "name": "use_horn"
+        },
+        {
+          "type": "inspect",
+          "name": "use_horn"
+        }
+      ]
+    },
+    "SPEAR": {
+      "customAnimation": [
+        {
+          "type": "attack",
+          "var_1": "attack_spear_v2"
+        },
+        {
+          "type": "mining",
+          "name": "attack_spear_v2"
+        },
+        {
+          "type": "hand_in",
+          "var_1": "hand_in_spear"
+        },
+        {
+          "type": "spear_charge",
+          "stage_1": "use_spear_pose_1",
+          "stage_2": "use_spear_pose_2",
+          "stage_3": "use_spear_pose_3"
+        }
+      ]
+    },
+    "LEAVES_GROUP": {
+      "particle_emitters": [
+        {
+          "type": "minecraft:cherry_leaves",
+          "tint": [
+            78,
+            176,
+            84
+          ],
+          "target": "item_center",
+          "triggers": [
+            "sprinting",
+            "mining",
+            "attacking"
+          ],
+          "offset": "0:0:0",
+          "spread": "0.3:0.2:0.3",
+          "count": 2,
+          "life": 1,
+          "size": 0.06,
+          "size_end": 0,
+          "alpha": 1,
+          "alpha_end": 1,
+          "drag": 0.985,
+          "gravity": -0.35
+        },
+        {
+          "type": "minecraft:cherry_leaves",
+          "tint": [
+            78,
+            176,
+            84
+          ],
+          "target": "item_center",
+          "triggers": {
+            "falling": {
+              "min_blocks": 0
+            }
+          },
+          "offset": "0:0:0",
+          "spread": "0.3:0.2:0.3",
+          "count": 2,
+          "life": 3,
+          "size": 0.06,
+          "size_end": 0,
+          "alpha": 1,
+          "alpha_end": 1,
+          "drag": 0.985,
+          "gravity": -0.35
+        }
+      ]
+    },
+    "ARROW": {
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.13999999,
+          "offY": -0.13999997,
+          "offZ": 0.06999999,
+          "rotX": -45.0,
+          "rotY": 93.0,
+          "rotZ": 0.0,
+          "pivotX": -0.06999999,
+          "pivotY": 0.089999974,
+          "pivotZ": -0.059999995
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.14999999,
+          "offY": -0.13999997,
+          "offZ": 0.059999995,
+          "rotX": -132.0,
+          "rotY": -89.0,
+          "rotZ": 1.0,
+          "pivotX": 0.06999999,
+          "pivotY": 0.089999974,
+          "pivotZ": -0.059999995
+        }
+      }
+    },
+    "FULL_BLOCK": {
+      "disable_sprint_lateral_tilt": true,
+      "customAnimation": [
+        {
+          "type": "attack",
+          "var_1": "interact"
+        },
+        {
+          "type": "mining_v2",
+          "start": "full_block_mining_start",
+          "looping": "full_block_mining_loop",
+          "end": "full_block_mining_end"
+        }
+      ],
+      "transforms": {
+        "right": {
+          "scale": 0.95758754,
+          "offX": -0.19000006,
+          "offY": 0.26,
+          "offZ": 0.03999996,
+          "rotX": 4.0000153,
+          "rotY": -24.0,
+          "rotZ": 3.0,
+          "pivotX": -0.00999999,
+          "pivotY": -0.029999971,
+          "pivotZ": 0.18871593
+        },
+        "left": {
+          "scale": 0.95758754,
+          "offX": 0.19000006,
+          "offY": 0.26,
+          "offZ": 0.03999996,
+          "rotX": 4.0000153,
+          "rotY": 24.0,
+          "rotZ": -3.0,
+          "pivotX": 0.00999999,
+          "pivotY": -0.029999971,
+          "pivotZ": 0.18871593
+        }
+      }
+    },
+    "SHOVEL": {
+      "customAnimation": [
+        {
+          "type": "mining_v2",
+          "start": "new_mining_digging_start",
+          "looping": "new_mining_digging_loop",
+          "end": "new_mining_digging_end"
+        },
+        {
+          "type": "attack",
+          "var_1": "attack_1",
+          "var_2": "attack_2",
+          "critical_hit": "attack_critical"
+        },
+        {
+          "type": "useItem",
+          "name": "new_mining_use_digging"
+        }
+      ],
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": -17.0,
+          "rotY": 89.0,
+          "rotZ": -4.0,
+          "pivotX": 0.03,
+          "pivotY": 0.049999997,
+          "pivotZ": -0.02
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": -17.0,
+          "rotY": -89.0,
+          "rotZ": 4.0,
+          "pivotX": -0.03,
+          "pivotY": 0.049999997,
+          "pivotZ": -0.02
+        }
+      }
+    },
+    "MACE": {
+      "betterCombat": [
+        {
+          "type": "melee_combo",
+          "attack_1": "attack_mace",
+          "attack_2": "attack_mace",
+          "attack_3": "attack_mace",
+          "attack_4": "attack_mace",
+          "attack_5": "attack_mace",
+          "attack_6": "attack_mace"
+        }
+      ],
+      "customAnimation": [
+        {
+          "type": "mining_v2",
+          "start": "new_mining_forward_start",
+          "looping": "new_mining_forward_loop",
+          "end": "new_mining_forward_end"
+        },
+        {
+          "type": "attack",
+          "var_1": "attack_mace",
+          "critical_hit": "attack_mace"
+        }
+      ]
+    },
+    "SWORD": {
+      "disable_sprint_lateral_tilt": true,
+      "customAnimation": [
+        {
+          "type": "attack",
+          "var_1": "attack_1",
+          "var_2": "attack_2",
+          "var_3": "attack_3",
+          "critical_hit": "attack_critical"
+        },
+        {
+          "type": "mining_v2",
+          "start": "new_mining_st_start",
+          "looping": "new_mining_st_loop",
+          "end": "new_mining_st_end"
+        },
+        {
+          "type": "inspect",
+          "name": "new_inspect"
+        },
+        { "type": "triggerable", "name": "sword_inspect_rework", "key": "G" },
+        { "type": "triggerable", "name": "sword_inspect_old", "key": "J" }
+      ],
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 12.256821,
+          "rotY": 2.8015594,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.03891051,
+          "pivotZ": 0.019455194
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": -0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 12.256821,
+          "rotY": -2.8015594,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.03891051,
+          "pivotZ": 0.019455194
+        }
+      }
+    },
+    "CROSSBOW": {
+      "customAnimation": [
+        {
+          "type": "use_crossbow",
+          "name": "use_crossbow"
+        },
+        {
+          "type": "use_crossbow_shot",
+          "name": "use_crossbow_shot"
+        }
+      ],
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 21.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.049999997,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": -21.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.049999997,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "BOW": {
+      "customAnimation": [
+        {
+          "type": "use_bow",
+          "name": "use_bow"
+        }
+      ],
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 4.0,
+          "rotY": 0.0,
+          "rotZ": -10.0,
+          "pivotX": -0.049999997,
+          "pivotY": 0.049999997,
+          "pivotZ": -0.01
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": -0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 4.0,
+          "rotY": -0.0,
+          "rotZ": 10.0,
+          "pivotX": 0.049999997,
+          "pivotY": 0.049999997,
+          "pivotZ": -0.01
+        }
+      }
+    },
+    "SPECIAL_BLOCKS": {
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "PISTONS": {
+      "transforms": {
+        "right": {
+          "scale": 0.5700004,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 5.0,
+          "rotY": 18.0,
+          "rotZ": 12.0,
+          "pivotX": -0.09999999,
+          "pivotY": 0.33999994,
+          "pivotZ": -0.24000002
+        },
+        "left": {
+          "scale": 0.5700004,
+          "offX": -0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 5.0,
+          "rotY": -18.0,
+          "rotZ": -12.0,
+          "pivotX": 0.09999999,
+          "pivotY": 0.33999994,
+          "pivotZ": -0.24000002
+        }
+      }
+    },
+    "THROW_GROUP": {
+      "customAnimation": [
+        {
+          "type": "useItem",
+          "name": "throw_item"
+        },
+        {
+          "type": "attack",
+          "var_1": "throw_item"
+        }
+      ]
+    },
+    "SHIELD": {
+      "customAnimation": [
+        {
+          "type": "use_shield",
+          "name": "use_shield"
+        },
+        {
+          "type": "attack",
+          "var_1": "new_punch_attack"
+        }
+      ]
+    },
+    "FISHING_ROD": {
+      "disable_walk_on_water": true,
+      "disable_dry_out": true,
+      "disable_swiming": true,
+      "disable_sprint_lateral_tilt": true,
+      "customAnimation": [
+        {
+          "type": "fishingrod",
+          "throw": "throw_fishing_rod",
+          "pull": "pull_fishing_rod"
+        },
+        {
+          "type": "attack",
+          "var_1": "attack_1"
+        }
+      ],
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.01,
+          "offY": 0.019999985,
+          "offZ": 0.06999999,
+          "rotX": -56.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.10999997,
+          "pivotZ": -0.04
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": -0.01,
+          "offY": 0.019999985,
+          "offZ": 0.06999999,
+          "rotX": -56.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.10999997,
+          "pivotZ": -0.04
+        }
+      }
+    },
+    "AXE": {
+      "betterCombat": [
+        {
+          "type": "melee_combo",
+          "attack_1": "attack_1",
+          "attack_2": "attack_1",
+          "attack_3": "attack_2",
+          "attack_4": "attack_2",
+          "attack_5": "attack_combo_double_1",
+          "attack_6": "attack_combo_double_1"
+        }
+      ],
+      "customAnimation": [
+        {
+          "type": "mining_v2",
+          "start": "new_mining_sideways_start",
+          "looping": "new_mining_sideways_loop",
+          "end": "new_mining_sideways_end"
+        },
+        {
+          "type": "attack",
+          "var_1": "attack_1",
+          "var_2": "attack_2",
+          "critical_hit": "attack_critical"
+        },
+        {
+          "type": "useItem",
+          "name": "mining_use_foward"
+        }
+      ]
+    },
+    "HOE": {
+      "customAnimation": [
+        {
+          "type": "mining_v2",
+          "start": "new_mining_forward_start",
+          "looping": "new_mining_forward_loop",
+          "end": "new_mining_forward_end"
+        },
+        {
+          "type": "attack",
+          "var_1": "attack_1",
+          "var_2": "attack_2",
+          "var_3": "attack_3",
+          "critical_hit": "attack_critical"
+        },
+        {
+          "type": "useItem",
+          "name": "mining_use_foward_2"
+        }
+      ]
+    },
+    "FLINT": {
+      "customAnimation": [
+        {
+          "type": "useItem",
+          "name": "set_fire"
+        }
+      ],
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.059999995,
+          "offY": -0.27,
+          "offZ": -0.01,
+          "rotX": -1.0,
+          "rotY": -1.0,
+          "rotZ": 8.0,
+          "pivotX": 0.0,
+          "pivotY": 0.049999997,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 0.97,
+          "offX": 0.059999995,
+          "offY": -0.25000003,
+          "offZ": 0.09999999,
+          "rotX": -1.0,
+          "rotY": -167.0,
+          "rotZ": -4.0,
+          "pivotX": 0.09999999,
+          "pivotY": 0.049999997,
+          "pivotZ": -0.03
+        }
+      }
+    },
+    "PICKAXE": {
+      "customAnimation": [
+        {
+          "type": "mining_v2",
+          "start": "new_mining_forward_start",
+          "looping": "new_mining_forward_loop",
+          "end": "new_mining_forward_end"
+        },
+        {
+          "type": "attack",
+          "var_1": "attack_1",
+          "var_2": "attack_2",
+          "critical_hit": "attack_critical"
+        },
+        {
+          "type": "inspect",
+          "name": "new_inspect_pickaxe"
+        }
+      ]
+    },
+    "BOAT": {
+      "transforms": {
+        "right": {
+          "scale": 0.43000054,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": -415.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.03,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 0.43000054,
+          "offX": -0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 415.0,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.03,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "MINECART": {
+      "transforms": {
+        "right": {
+          "scale": 0.4900005,
+          "offX": 0.0,
+          "offY": 0.02,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 30.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 0.4900005,
+          "offX": -0.0,
+          "offY": 0.03,
+          "offZ": 0.16,
+          "rotX": 0.0,
+          "rotY": 153.0,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "CHEST": {
+      "transforms": {
+        "right": {
+          "scale": 0.32000065,
+          "offX": -0.35999992,
+          "offY": 0.109999985,
+          "offZ": -0.46999982,
+          "rotX": 0.0,
+          "rotY": 136.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 0.32000065,
+          "offX": -0.61,
+          "offY": 0.09999999,
+          "offZ": -0.4299999,
+          "rotX": 0.0,
+          "rotY": -136.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "LANTERN": {
+      "physics": [
+        {
+          "name": "FULL_PENDULUM",
+          "limitDeg": 55.0,
+          "force": 0.1,
+          "speed": 1.0,
+          "cameraSens": 0.25,
+          "gravity": 25.0
+        }
+      ],
+      "transforms": {
+        "right": {
+          "scale": 1.01,
+          "offX": 0.0,
+          "offY": -0.49999976,
+          "offZ": 0.06999993,
+          "rotX": 0.3501892,
+          "rotY": 41.322952,
+          "rotZ": -91.05058,
+          "pivotX": -0.03891051,
+          "pivotY": 0.023346305,
+          "pivotZ": -0.060000002,
+          "physics": "FULL_PENDULUM"
+        },
+        "left": {
+          "scale": 1.01,
+          "offX": -0.0,
+          "offY": -0.49999976,
+          "offZ": 0.06999993,
+          "rotX": 0.3501892,
+          "rotY": -41.322952,
+          "rotZ": 91.05058,
+          "pivotX": 0.03891051,
+          "pivotY": 0.023346305,
+          "pivotZ": -0.060000002,
+          "physics": "FULL_PENDULUM"
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": -0.14396882,
+          "offZ": -0.100000024,
+          "rotX": -23.463028,
+          "rotY": -99.80545,
+          "rotZ": -1.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": -0.14396882,
+          "offZ": -0.100000024,
+          "rotX": -23.463028,
+          "rotY": 99.80545,
+          "rotZ": 1.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    }
+  },
+  "itemSpecific": {
+    "minecraft:diamond": {
+      "kind": "INGREDIENT",
+      "armKind": "INGREDIENT",
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": -0.26459146,
+          "offZ": 0.070038795,
+          "rotX": 3.8521423,
+          "rotY": -14.357971,
+          "rotZ": 0.0,
+          "pivotX": -0.11284047,
+          "pivotY": 0.22178984,
+          "pivotZ": -0.029182851
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": -0.0,
+          "offY": -0.26459146,
+          "offZ": 0.070038795,
+          "rotX": 3.8521423,
+          "rotY": 14.357971,
+          "rotZ": -0.0,
+          "pivotX": 0.11284047,
+          "pivotY": 0.22178984,
+          "pivotZ": -0.029182851
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "minecraft:golden_dandelion": {
+      "kind": "BLOCK",
+      "armKind": "BLOCK",
+      "customAnimation": [
+        {
+          "type": "inspect",
+          "name": "golden_dandelion_inspect"
+        }
+      ],
+      "transforms": {
+        "right": {
+          "scale": 1.2622569,
+          "offX": -0.09338522,
+          "offY": 0.07782102,
+          "offZ": 0.019455194,
+          "rotX": 0.0,
+          "rotY": -17.15953,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.2622569,
+          "offX": 0.09338522,
+          "offY": 0.07782102,
+          "offZ": 0.019455194,
+          "rotX": 0.0,
+          "rotY": 17.15953,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "adorablehamsterpets:cheese": {
+      "kind": "INGREDIENT",
+      "armKind": "INGREDIENT",
+      "customAnimation": [
+        {
+          "type": "hamster_r_shoulder",
+          "name": "hamster_main_hand_shoulder"
+        },
+        {
+          "type": "hamster_l_shoulder",
+          "name": "hamster_off_hand_shoulder"
+        },
+        {
+          "type": "hamster_head",
+          "name": "hamster_head_shoulder"
+        }
+      ]
+    },
+    "punchy:baby_carry_minecraft_wolf": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "customAnimation": [
+        {
+          "type": "inspect",
+          "name": "inspect_baby_wolf"
+        }
+      ],
+      "transforms": {
+        "right": {
+          "scale": 0.83000016,
+          "offX": 0.04669261,
+          "offY": -0.10894942,
+          "offZ": 0.116731405,
+          "rotX": 4.0000153,
+          "rotY": -89.29962,
+          "rotZ": -0.0,
+          "pivotX": -0.029999971,
+          "pivotY": 0.19000006,
+          "pivotZ": -0.07999998
+        },
+        "left": {
+          "scale": 0.83000016,
+          "offX": -0.04669261,
+          "offY": -0.10894942,
+          "offZ": 0.116731405,
+          "rotX": 4.0000153,
+          "rotY": 89.29962,
+          "rotZ": 0.0,
+          "pivotX": 0.029999971,
+          "pivotY": 0.19000006,
+          "pivotZ": -0.07999998
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_cow": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 1.1353114,
+          "offX": 0.035019398,
+          "offY": -0.112840414,
+          "offZ": 0.16731524,
+          "rotX": 0.0,
+          "rotY": -92.101166,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.1353114,
+          "offX": -0.035019398,
+          "offY": -0.112840414,
+          "offZ": 0.16731524,
+          "rotX": 0.0,
+          "rotY": 92.101166,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_pig": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.0,
+          "offY": -0.023346305,
+          "offZ": 0.18677044,
+          "rotX": 3.1517487,
+          "rotY": -90.70038,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": -0.023346305,
+          "offZ": 0.18677044,
+          "rotX": 3.1517487,
+          "rotY": 90.70038,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_sheep": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 1.3525293,
+          "offX": 0.011673093,
+          "offY": -0.073929906,
+          "offZ": 0.18287945,
+          "rotX": 5.2529297,
+          "rotY": -93.85214,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.3525293,
+          "offX": -0.011673093,
+          "offY": -0.073929906,
+          "offZ": 0.18287945,
+          "rotX": 5.2529297,
+          "rotY": 93.85214,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_chicken": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.058365703,
+          "offY": 0.124513626,
+          "offZ": 0.22957206,
+          "rotX": 3.5019379,
+          "rotY": -84.39688,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": -0.058365703,
+          "offY": 0.124513626,
+          "offZ": 0.22957206,
+          "rotX": 3.5019379,
+          "rotY": 84.39688,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_cat": {
+      "kind": "INGREDIENT",
+      "armKind": "INGREDIENT",
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.04669261,
+          "offY": 0.15175104,
+          "offZ": 0.22957206,
+          "rotX": 7.7042694,
+          "rotY": -91.0506,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": -0.04669261,
+          "offY": 0.15175104,
+          "offZ": 0.22957206,
+          "rotX": 7.7042694,
+          "rotY": 91.0506,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_ocelot": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.066147804,
+          "offY": 0.112840414,
+          "offZ": 0.18677044,
+          "rotX": 2.1011505,
+          "rotY": -84.74707,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": -0.066147804,
+          "offY": 0.112840414,
+          "offZ": 0.18677044,
+          "rotX": 2.1011505,
+          "rotY": 84.74707,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_fox": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.08171201,
+          "offY": 0.085603,
+          "offZ": 0.12840462,
+          "rotX": 0.0,
+          "rotY": -95.60312,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": -0.08171201,
+          "offY": 0.085603,
+          "offZ": 0.12840462,
+          "rotX": 0.0,
+          "rotY": 95.60312,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_rabbit": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.0,
+          "offY": 0.073930025,
+          "offZ": 0.19844365,
+          "rotX": 0.0,
+          "rotY": -88.9494,
+          "rotZ": 0.7003937,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.073930025,
+          "offZ": 0.19844365,
+          "rotX": 0.0,
+          "rotY": 88.9494,
+          "rotZ": -0.7003937,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_adorablehamsterpets_hamster": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 0.831108,
+          "offX": -0.036931753,
+          "offY": 0.16483903,
+          "offZ": 0.09332991,
+          "rotX": -7.159088,
+          "rotY": -43.182358,
+          "rotZ": 0.7003937,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 0.831108,
+          "offX": 0.036931753,
+          "offY": 0.16483903,
+          "offZ": 0.09332991,
+          "rotX": -7.159088,
+          "rotY": 43.182358,
+          "rotZ": -0.7003937,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_horse": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 1.7051557,
+          "offX": -0.0,
+          "offY": -0.10505831,
+          "offZ": 0.14785981,
+          "rotX": 0.0,
+          "rotY": -97.704285,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.7051557,
+          "offX": 0.0,
+          "offY": -0.10505831,
+          "offZ": 0.14785981,
+          "rotX": 0.0,
+          "rotY": 97.704285,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_skeleton_horse": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 1.7051557,
+          "offX": -0.0,
+          "offY": -0.10505831,
+          "offZ": 0.14785981,
+          "rotX": 0.0,
+          "rotY": -97.704285,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.7051557,
+          "offX": 0.0,
+          "offY": -0.10505831,
+          "offZ": 0.14785981,
+          "rotX": 0.0,
+          "rotY": 97.704285,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_zombie_horse": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 1.7051557,
+          "offX": -0.0,
+          "offY": -0.10505831,
+          "offZ": 0.14785981,
+          "rotX": 0.0,
+          "rotY": -97.704285,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.7051557,
+          "offX": 0.0,
+          "offY": -0.10505831,
+          "offZ": 0.14785981,
+          "rotX": 0.0,
+          "rotY": 97.704285,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_donkey": {
+      "kind": "INGREDIENT",
+      "armKind": "INGREDIENT",
+      "transforms": {
+        "right": {
+          "scale": 1.1917316,
+          "offX": -0.011673212,
+          "offY": -0.14396882,
+          "offZ": 0.08171201,
+          "rotX": 0.0,
+          "rotY": -114.16342,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.1917316,
+          "offX": 0.011673212,
+          "offY": -0.14396882,
+          "offZ": 0.08171201,
+          "rotX": 0.0,
+          "rotY": 114.16342,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_mule": {
+      "kind": "INGREDIENT",
+      "armKind": "INGREDIENT",
+      "transforms": {
+        "right": {
+          "scale": 1.3327821,
+          "offX": -0.0,
+          "offY": -0.14007783,
+          "offZ": 0.16731524,
+          "rotX": 0.0,
+          "rotY": -99.45526,
+          "rotZ": -0.7003784,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.3327821,
+          "offX": 0.0,
+          "offY": -0.14007783,
+          "offZ": 0.16731524,
+          "rotX": 0.0,
+          "rotY": 99.45526,
+          "rotZ": 0.7003784,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_llama": {
+      "kind": "INGREDIENT",
+      "armKind": "FOOD",
+      "transforms": {
+        "right": {
+          "scale": 1.4935799,
+          "offX": -0.0,
+          "offY": -0.10894942,
+          "offZ": 0.116731405,
+          "rotX": 2.8015594,
+          "rotY": -97.354095,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.4935799,
+          "offX": 0.0,
+          "offY": -0.10894942,
+          "offZ": 0.116731405,
+          "rotX": 2.8015594,
+          "rotY": 97.354095,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_trader_llama": {
+      "kind": "INGREDIENT",
+      "armKind": "FOOD",
+      "transforms": {
+        "right": {
+          "scale": 1.4935799,
+          "offX": -0.0,
+          "offY": -0.10894942,
+          "offZ": 0.116731405,
+          "rotX": 2.8015594,
+          "rotY": -97.354095,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.4935799,
+          "offX": 0.0,
+          "offY": -0.10894942,
+          "offZ": 0.116731405,
+          "rotX": 2.8015594,
+          "rotY": 97.354095,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_camel": {
+      "kind": "INGREDIENT",
+      "armKind": "FOOD",
+      "transforms": {
+        "right": {
+          "scale": 2.1536965,
+          "offX": -0.0,
+          "offY": 0.062256813,
+          "offZ": 0.116731405,
+          "rotX": 2.8015594,
+          "rotY": -97.354095,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 2.1536965,
+          "offX": 0.0,
+          "offY": 0.062256813,
+          "offZ": 0.116731405,
+          "rotX": 2.8015594,
+          "rotY": 97.354095,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_polar_bear": {
+      "kind": "INGREDIENT",
+      "armKind": "INGREDIENT",
+      "transforms": {
+        "right": {
+          "scale": 1.3327821,
+          "offX": -0.0,
+          "offY": -0.14007783,
+          "offZ": 0.16731524,
+          "rotX": 0.0,
+          "rotY": -99.45526,
+          "rotZ": -0.7003784,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.3327821,
+          "offX": 0.0,
+          "offY": -0.14007783,
+          "offZ": 0.16731524,
+          "rotX": 0.0,
+          "rotY": 99.45526,
+          "rotZ": 0.7003784,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_goat": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 1.7051557,
+          "offX": -0.0,
+          "offY": -0.10505831,
+          "offZ": 0.14785981,
+          "rotX": 0.0,
+          "rotY": -97.704285,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.7051557,
+          "offX": 0.0,
+          "offY": -0.10505831,
+          "offZ": 0.14785981,
+          "rotX": 0.0,
+          "rotY": 97.704285,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_turtle": {
+      "kind": "INGREDIENT",
+      "armKind": "INGREDIENT",
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.04669261,
+          "offY": 0.15175104,
+          "offZ": 0.22957206,
+          "rotX": 7.7042694,
+          "rotY": -91.0506,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": -0.04669261,
+          "offY": 0.15175104,
+          "offZ": 0.22957206,
+          "rotX": 7.7042694,
+          "rotY": 91.0506,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_snifflet": {
+      "kind": "INGREDIENT",
+      "armKind": "INGREDIENT",
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.04669261,
+          "offY": 0.15175104,
+          "offZ": 0.22957206,
+          "rotX": 7.7042694,
+          "rotY": -91.0506,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": -0.04669261,
+          "offY": 0.15175104,
+          "offZ": 0.22957206,
+          "rotX": 7.7042694,
+          "rotY": 91.0506,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_bee": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.0,
+          "offY": 0.10894942,
+          "offZ": 0.21789885,
+          "rotX": 2.4513702,
+          "rotY": -106.809326,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.10894942,
+          "offZ": 0.21789885,
+          "rotX": 2.4513702,
+          "rotY": 106.809326,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_dolphin": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.0,
+          "offY": 0.116731405,
+          "offZ": 0.14785981,
+          "rotX": 0.0,
+          "rotY": -101.55643,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.116731405,
+          "offZ": 0.14785981,
+          "rotX": 0.0,
+          "rotY": 101.55643,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_glow_squid": {
+      "kind": "INGREDIENT",
+      "armKind": "INGREDIENT",
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.011673212,
+          "offY": 0.16342402,
+          "offZ": 0.28015566,
+          "rotX": 5.603119,
+          "rotY": -126.42023,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.011673212,
+          "offY": 0.16342402,
+          "offZ": 0.28015566,
+          "rotX": 5.603119,
+          "rotY": 126.42023,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_squid": {
+      "kind": "INGREDIENT",
+      "armKind": "INGREDIENT",
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.011673212,
+          "offY": 0.16342402,
+          "offZ": 0.28015566,
+          "rotX": 5.603119,
+          "rotY": -126.42023,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.011673212,
+          "offY": 0.16342402,
+          "offZ": 0.28015566,
+          "rotX": 5.603119,
+          "rotY": 126.42023,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_strider": {
+      "kind": "INGREDIENT",
+      "armKind": "INGREDIENT",
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.03891051,
+          "offY": 0.09338522,
+          "offZ": 0.15564203,
+          "rotX": 0.0,
+          "rotY": -112.762634,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": -0.03891051,
+          "offY": 0.09338522,
+          "offZ": 0.15564203,
+          "rotX": 0.0,
+          "rotY": 112.762634,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "punchy:baby_carry_minecraft_panda": {
+      "kind": "INGREDIENT",
+      "armKind": "EMPTY_HAND",
+      "transforms": {
+        "right": {
+          "scale": 1.3948444,
+          "offX": -0.0077819824,
+          "offY": 0.011673212,
+          "offZ": 0.22178984,
+          "rotX": 0.0,
+          "rotY": -102.606995,
+          "rotZ": -0.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.3948444,
+          "offX": 0.0077819824,
+          "offY": 0.011673212,
+          "offZ": 0.22178984,
+          "rotX": 0.0,
+          "rotY": 102.606995,
+          "rotZ": 0.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      },
+      "armTransforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": -0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": -76.0,
+          "rotZ": 36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": 0.02000001,
+          "offY": 0.18,
+          "offZ": -0.2,
+          "rotX": 0.0,
+          "rotY": 76.0,
+          "rotZ": -36.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "minecraft:cherry_leaves": {
+      "particle_emitters": [
+        {
+          "type": "minecraft:cherry_leaves",
+          "tint": [
+            1.00,
+            0.62,
+            0.82
+          ],
+          "target": "item_center",
+          "triggers": [
+            "sprinting",
+            "mining",
+            "attacking"
+          ],
+          "offset": "0:0:0",
+          "spread": "0.3:0.2:0.3",
+          "count": 2,
+          "life": 1,
+          "size": 0.06,
+          "size_end": 0,
+          "alpha": 1,
+          "alpha_end": 1,
+          "drag": 0.985,
+          "gravity": -0.35
+        },
+        {
+          "type": "minecraft:cherry_leaves",
+          "target": "item_center",
+          "triggers": {
+            "falling": {
+              "min_blocks": 0
+            }
+          },
+          "offset": "0:0:0",
+          "spread": "0.3:0.2:0.3",
+          "count": 2,
+          "life": 3,
+          "size": 0.06,
+          "size_end": 0,
+          "alpha": 1,
+          "alpha_end": 1,
+          "drag": 0.985,
+          "gravity": -0.35,
+          "light_percent": 70,
+          "full_bright": false,
+          "emissive_strength": 0
+        }
+      ]
+    },
+    "minecraft:pale_oak_leaves": {
+      "particle_emitters": [
+        {
+          "type": "minecraft:tinted_leaves",
+          "tint": [
+            0.62,
+            0.66,
+            0.62
+          ],
+          "target": "item_center",
+          "triggers": [
+            "sprinting",
+            "mining",
+            "attacking"
+          ],
+          "offset": "0:0:0",
+          "spread": "0.3:0.2:0.3",
+          "count": 2,
+          "life": 1,
+          "size": 0.06,
+          "size_end": 0,
+          "alpha": 1,
+          "alpha_end": 1,
+          "drag": 0.985,
+          "gravity": -0.35
+        },
+        {
+          "type": "minecraft:tinted_leaves",
+          "tint": [
+            0.62,
+            0.66,
+            0.62
+          ],
+          "target": "item_center",
+          "triggers": {
+            "falling": {
+              "min_blocks": 0
+            }
+          },
+          "offset": "0:0:0",
+          "spread": "0.3:0.2:0.3",
+          "count": 2,
+          "life": 3,
+          "size": 0.06,
+          "size_end": 0,
+          "alpha": 1,
+          "alpha_end": 1,
+          "drag": 0.985,
+          "gravity": -0.35
+        }
+      ]
+    },
+    "minecraft:pink_petals": {
+      "particle_emitters": [
+        {
+          "type": "minecraft:cherry_leaves",
+          "target": "world_block_face",
+          "block_face": "hit",
+          "triggers": [
+            "useItem"
+          ],
+          "offset": "0:0:0",
+          "spread": "0.3:0.2:0.3",
+          "count": 10,
+          "life": 1,
+          "size": 0.06,
+          "size_end": 0,
+          "alpha": 1,
+          "alpha_end": 1,
+          "drag": 0.985,
+          "gravity": -0.35
+        }
+      ]
+    },
+    "minecraft:wildflowers": {
+      "particle_emitters": [
+        {
+          "type": "minecraft:cherry_leaves",
+          "target": "world_block_face",
+          "block_face": "hit",
+          "tint": [
+            237,
+            255,
+            0
+          ],
+          "triggers": [
+            "useItem"
+          ],
+          "offset": "0:0:0",
+          "spread": "0.3:0.2:0.3",
+          "count": 10,
+          "life": 1,
+          "size": 0.06,
+          "size_end": 0,
+          "alpha": 1,
+          "alpha_end": 1,
+          "drag": 0.985,
+          "gravity": -0.35
+        }
+      ]
+    },
+    "minecraft:leaf_litter": {
+      "particle_emitters": [
+        {
+          "type": "minecraft:tinted_leaves",
+          "tint": [
+            128,
+            93,
+            18
+          ],
+          "target": "world_block_face",
+          "block_face": "hit",
+          "triggers": [
+            "useItem"
+          ],
+          "offset": "0:0:0",
+          "spread": "0.3:0.2:0.3",
+          "count": 10,
+          "life": 1,
+          "size": 0.06,
+          "size_end": 0,
+          "alpha": 1,
+          "alpha_end": 1,
+          "drag": 0.985,
+          "gravity": -0.35
+        }
+      ]
+    },
+    "minecraft:water_bucket": {
+      "particle_emitters": [
+        {
+          "type": "minecraft:dripping_water",
+          "target": "item_center",
+          "tint": [
+            0,
+            8,
+            255
+          ],
+          "triggers": [
+            "mining"
+          ],
+          "offset": "0:0:0",
+          "spread": "0.3:0.2:0.3",
+          "count": 2,
+          "life": 1,
+          "size": 0.06,
+          "size_end": 0,
+          "alpha": 1,
+          "alpha_end": 1,
+          "drag": 0.985,
+          "gravity": -0.65
+        }
+      ]
+    },
+    "minecraft:milk_bucket": {
+      "particle_emitters": [
+        {
+          "type": "minecraft:dripping_water",
+          "target": "item_top",
+          "tint": [
+            255,
+            255,
+            255
+          ],
+          "triggers": [
+            "mining"
+          ],
+          "offset": "0:0:0",
+          "spread": "0.3:0.2:0.3",
+          "count": 2,
+          "life": 1,
+          "size": 0.06,
+          "size_end": 0,
+          "alpha": 1,
+          "alpha_end": 1,
+          "drag": 0.985,
+          "gravity": -0.65
+        }
+      ]
+    },
+    "minecraft:lava_bucket": {
+      "particle_emitters": [
+        {
+          "type": "minecraft:dripping_lava",
+          "target": "item_top",
+          "triggers": [
+            "mining"
+          ],
+          "offset": "0:0:0",
+          "spread": "0.3:0.2:0.3",
+          "count": 2,
+          "life": 1,
+          "size": 0.06,
+          "size_end": 0,
+          "alpha": 1,
+          "alpha_end": 1,
+          "drag": 0.985,
+          "gravity": -0.65
+        }
+      ]
+    },
+    "minecraft:powder_snow_bucket": {
+      "particle_emitters": [
+        {
+          "type": "minecraft:snowflake",
+          "target": "item_top",
+          "triggers": [
+            "mining"
+          ],
+          "offset": "0:0:0",
+          "spread": "0.3:0.2:0.3",
+          "count": 2,
+          "life": 1,
+          "size": 0.06,
+          "size_end": 0,
+          "alpha": 1,
+          "alpha_end": 1,
+          "drag": 0.985,
+          "gravity": -0.65
+        }
+      ]
+    },
+    "minecraft:trident": {
+      "kind": "TRIDENT",
+      "betterCombat": [
+        {
+          "type": "melee_combo",
+          "attack_1": "attack_spear_v2",
+          "attack_2": "attack_spear_v2",
+          "attack_3": "attack_spear_v2",
+          "attack_4": "attack_spear_v2",
+          "attack_5": "attack_spear_v2",
+          "attack_6": "attack_spear_v2"
+        }
+      ],
+      "transforms": {
+        "right": {
+          "scale": 1.0,
+          "offX": 0.0,
+          "offY": 0.0,
+          "offZ": 0.07782102,
+          "rotX": 0.0,
+          "rotY": 51.828796,
+          "rotZ": 0.0,
+          "pivotX": -0.0019454956,
+          "pivotY": 0.095330715,
+          "pivotZ": -0.036964953
+        },
+        "left": {
+          "scale": 1.0,
+          "offX": -0.0,
+          "offY": 0.0,
+          "offZ": 0.07782102,
+          "rotX": 0.0,
+          "rotY": -51.828796,
+          "rotZ": -0.0,
+          "pivotX": 0.0019454956,
+          "pivotY": 0.095330715,
+          "pivotZ": -0.036964953
+        }
+      },
+      "customAnimation": [
+        {
+          "type": "attack",
+          "var_1": "attack_3"
+        },
+        {
+          "type": "mining_v2",
+          "start": "new_mining_st_start",
+          "looping": "new_mining_st_loop",
+          "end": "new_mining_st_end"
+        }
+      ]
+    },
+    "minecraft:stick": {
+      "kind": "TRIDENT",
+      "customAnimation": [
+        {
+          "type": "attack",
+          "var_1": "attack_1",
+          "var_2": "attack_3"
+        },
+        {
+          "type": "mining_v2",
+          "start": "new_mining_st_start",
+          "looping": "new_mining_st_loop",
+          "end": "new_mining_st_end"
+        }
+      ]
+    },
+    "minecraft:shears": {
+      "kind": "INGREDIENT",
+      "customAnimation": [
+        {
+          "type": "mining",
+          "name": "shears"
+        },
+        {
+          "type": "useItem",
+          "name": "shears"
+        },
+        {
+          "type": "attack",
+          "var_1": "shears"
+        }
+      ]
+    },
+    "minecraft:flint": {
+      "kind": "INGREDIENT",
+      "transforms": {
+        "right": {
+          "scale": 0.72000027,
+          "offX": -0.0,
+          "offY": -0.18,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": -0.0,
+          "rotZ": -0.0,
+          "pivotX": -0.13999999,
+          "pivotY": 0.0,
+          "pivotZ": 0.01
+        },
+        "left": {
+          "scale": 0.72000027,
+          "offX": 0.0,
+          "offY": -0.18,
+          "offZ": 0.0,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "pivotX": 0.13999999,
+          "pivotY": 0.0,
+          "pivotZ": 0.01
+        }
+      }
+    },
+    "minecraft:filled_map": {
+      "kind": "INGREDIENT",
+      "transforms": {
+        "right": {
+          "scale": 1.2299998,
+          "offX": -0.26000002,
+          "offY": 0.07999999,
+          "offZ": 0.24000002,
+          "rotX": -34.0,
+          "rotY": -23.0,
+          "rotZ": -12.0,
+          "pivotX": 0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        },
+        "left": {
+          "scale": 1.2299998,
+          "offX": 0.26000002,
+          "offY": 0.07999999,
+          "offZ": 0.24000002,
+          "rotX": -34.0,
+          "rotY": 23.0,
+          "rotZ": 12.0,
+          "pivotX": -0.0,
+          "pivotY": 0.0,
+          "pivotZ": 0.0
+        }
+      }
+    },
+    "minecraft:enchanting_table": {
+      "kind": "BLOCK",
+      "transforms": {
+        "right": {
+          "scale": 0.5600004,
+          "offX": -0.14000072,
+          "offY": 0.3199999,
+          "offZ": 0.38999993,
+          "rotX": -124.0,
+          "rotY": -45.0,
+          "rotZ": -151.0,
+          "pivotX": -0.049999982,
+          "pivotY": 0.020000193,
+          "pivotZ": -0.030000014
+        },
+        "left": {
+          "scale": 0.5600004,
+          "offX": 0.14000072,
+          "offY": 0.3199999,
+          "offZ": 0.38999993,
+          "rotX": -124.0,
+          "rotY": 45.0,
+          "rotZ": 151.0,
+          "pivotX": 0.049999982,
+          "pivotY": 0.020000193,
+          "pivotZ": -0.030000014
+        }
+      }
+    }
+  }
+}

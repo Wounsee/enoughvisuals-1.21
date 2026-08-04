@@ -4,3 +4,15 @@
 /run/
 /mappings/
 /skidfuscator/mappings/
+/.codex-temp/
+/config/
+/logs/
+/out/
+/scripts/*.class
+
+# Embedded cosmetic build: keep sources and the Gradle wrapper, not caches.
+/cosmetic-build/.gradle/
+/cosmetic-build/build/
+/cosmetic-build/**/.gradle/
+/cosmetic-build/**/build/
+/cosmetic-build/.idea/

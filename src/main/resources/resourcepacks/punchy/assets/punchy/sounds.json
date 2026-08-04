@@ -1,0 +1,27 @@
+{
+  "animationssounds/firstspinv2": {
+    "sounds": [
+      "punchy:animationssounds/firstspinv2"
+    ]
+  },
+  "animationssounds/lastspinv2": {
+    "sounds": [
+      "punchy:animationssounds/lastspinv2"
+    ]
+  },
+  "animationssounds/move3": {
+    "sounds": [
+      "punchy:animationssounds/move3"
+    ]
+  },
+  "animationssounds/spin2": {
+    "sounds": [
+      "punchy:animationssounds/spin2"
+    ]
+  },
+  "animationssounds/sword-attack2": {
+    "sounds": [
+      "punchy:animationssounds/sword-attack2"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "animationssounds/load_bow": {
+    "sounds": [
+      "punchy:animationssounds/load_bow"
+    ]
+  },
+  "animationssounds/pancada_chaves": {
+    "sounds": [
+      "punchy:animationssounds/pancada_chaves"
+    ]
+  }
+}
