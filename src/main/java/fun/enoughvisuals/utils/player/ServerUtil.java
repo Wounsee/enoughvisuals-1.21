@@ -6,8 +6,16 @@ import net.minecraft.client.network.ServerInfo;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 public class ServerUtil {
+
+    private static final Pattern FUNTIME_EVENTS_HOST = Pattern.compile(
+            "^(?:(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)*)funtime\\.(?:su|sh)$",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern HOLYWORLD_HOST = Pattern.compile(
+            "^(?:(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)*)holyworld\\.[a-z]{2,63}$",
+            Pattern.CASE_INSENSITIVE);
 
     public static String getCurrentServerHost() {
         MinecraftClient mc = MinecraftClient.getInstance();
@@ -60,6 +68,10 @@ public class ServerUtil {
         return hasServerSegment("funtime") || hasServerSegment("funsky");
     }
 
+    public static boolean isFunTimeEventsServer() {
+        return FUNTIME_EVENTS_HOST.matcher(getCurrentServerHost()).matches();
+    }
+
     public static boolean isFunTrainerServer() {
         return hasServerSegment("funtrainer");
     }
@@ -70,6 +82,10 @@ public class ServerUtil {
 
     public static boolean isHolyWorldServer() {
         return hasServerSegment("holyworld");
+    }
+
+    public static boolean isHolyWorldEventsServer() {
+        return HOLYWORLD_HOST.matcher(getCurrentServerHost()).matches();
     }
 
     public static boolean isShiftTapSupported() {

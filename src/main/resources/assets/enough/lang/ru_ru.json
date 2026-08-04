@@ -216,7 +216,7 @@
   "ui.client_tools.friends.removed": "Друг удалён",
   "ui.client_tools.friends.missing": "Друг не найден",
   "ui.client_tools.configs.title": "Конфиги",
-  "ui.inventory_manager.title": "Менеджер инвентарей",
+  "ui.inventory_manager.title": "Инвентари",
   "ui.client_tools.cosmetics.title": "Косметика",
   "ui.client_tools.configs.status": "%d показано - активный: %s",
   "ui.client_tools.configs.empty": "Конфиги не найдены",

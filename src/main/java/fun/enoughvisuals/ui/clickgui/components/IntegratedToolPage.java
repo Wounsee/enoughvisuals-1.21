@@ -37,8 +37,9 @@ public final class IntegratedToolPage {
         FRIENDS("\uF003", "ui.client_tools.friends.title", "Друзья", FontWeight.CLICK_GUI),
         GPS("\uF000", "ui.client_tools.gps.title", "Метки", FontWeight.CLICK_GUI),
         MACROS("\uF005", "ui.macros.title", "Макросы", FontWeight.CLICK_GUI),
-        INVENTORIES("\uF000", "ui.inventory_manager.title", "Менеджер инвентарей", FontWeight.BOOK),
-        COSMETICS("\uF009", "ui.client_tools.cosmetics.title", "Косметика", FontWeight.CLICK_GUI);
+        INVENTORIES("\uF000", "ui.inventory_manager.title", "Инвентари", FontWeight.BOOK),
+        COSMETICS("\uF009", "ui.client_tools.cosmetics.title", "Косметика", FontWeight.CLICK_GUI),
+        EVENTS("\uF000", "ui.client_tools.events.title", "Ивенты", FontWeight.EVENT);
 
         private final String icon;
         private final String languageKey;
@@ -63,12 +64,14 @@ public final class IntegratedToolPage {
                 case MACROS -> "tool:macros";
                 case INVENTORIES -> HolyWorldFeatureControl.INVENTORY_MANAGER;
                 case COSMETICS -> "tool:cosmetics";
+                case EVENTS -> "tool:events";
             };
         }
     }
 
     private final EnumMap<Type, PageState> states = new EnumMap<>(Type.class);
     private final CosmeticsToolPage cosmeticsPage = new CosmeticsToolPage();
+    private final EventsToolPage eventsPage = new EventsToolPage();
     private Type type = Type.CONFIGS;
     private float x;
     private float y;
@@ -112,6 +115,7 @@ public final class IntegratedToolPage {
     public void activate(Type next) {
         if (next == null || HolyWorldFeatureControl.getInstance().isToolBlocked(next.featureId())) return;
         if (type != next) {
+            if (type == Type.COSMETICS) cosmeticsPage.deactivate();
             type = next;
             pageChangedAt = System.currentTimeMillis();
             listScroll = listScrollTarget = 0f;
@@ -133,6 +137,13 @@ public final class IntegratedToolPage {
         }
         if (type == Type.INVENTORIES) InventoryLayoutManager.getInstance().initialize();
         if (type == Type.COSMETICS) cosmeticsPage.activate();
+        if (type == Type.EVENTS) eventsPage.activate();
+    }
+
+    public void close() {
+        cosmeticsPage.deactivate();
+        focusedInput = null;
+        macroBinding = false;
     }
 
     public Type type() { return type; }
@@ -172,6 +183,10 @@ public final class IntegratedToolPage {
             cosmeticsPage.render(context, x, y, width, height, scale, mouseX, mouseY, pageAlpha, this.searchQuery);
             return;
         }
+        if (type == Type.EVENTS) {
+            eventsPage.render(context, x, y, width, height, scale, mouseX, mouseY, pageAlpha);
+            return;
+        }
 
         renderList(context, listX - offset, listY, listW, listH, scale, mouseX, mouseY, pageAlpha);
         renderEditor(context, editorX + offset, editorY, editorW, editorH, scale, mouseX, mouseY, pageAlpha);
@@ -198,7 +213,7 @@ public final class IntegratedToolPage {
 
         CustomFontRenderer.drawText(context, Type.INVENTORIES.icon(), leftX + 10f * s, py + 9.2f * s,
                 10.5f * s, RenderUtil.withAlpha(MenuScreen.ACCENT_LIGHT, alpha), FontWeight.BOOK);
-        CustomFontRenderer.drawText(context, "Менеджер инвентарей", leftX + 25f * s, py + 9.8f * s,
+        CustomFontRenderer.drawText(context, "Инвентари", leftX + 25f * s, py + 9.8f * s,
                 7.4f * s, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha), FontWeight.SEMIBOLD);
         CustomFontRenderer.drawRightText(context, rows.size() + " сохранений", leftX + leftW - 10f * s,
                 py + 10.5f * s, 5.6f * s, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.92f * alpha), FontWeight.SEMIBOLD);
@@ -528,8 +543,9 @@ public final class IntegratedToolPage {
             case FRIENDS -> ClientLanguage.text("ui.client_tools.friends.editor", "Друг");
             case GPS -> ClientLanguage.text("ui.client_tools.gps.editor", "Метка");
             case MACROS -> ClientLanguage.text("ui.macros.title", "Macros");
-            case INVENTORIES -> "Менеджер инвентарей";
+            case INVENTORIES -> "Инвентари";
             case COSMETICS -> "Косметика";
+            case EVENTS -> "Ивенты";
         };
         CustomFontRenderer.drawText(context, heading, cx, cy, 7.4f * s,
                 RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha), FontWeight.SEMIBOLD);
@@ -683,6 +699,7 @@ public final class IntegratedToolPage {
     public boolean mouseClicked(float mouseX, float mouseY, int button) {
         if (!hit(mouseX, mouseY, x, y, width, height)) return false;
         if (type == Type.COSMETICS) return cosmeticsPage.mouseClicked(mouseX, mouseY, button);
+        if (type == Type.EVENTS) return eventsPage.mouseClicked(mouseX, mouseY, button);
         if (type == Type.MACROS && macroBinding) {
             state().macroKey = BindKeyUtil.mouseButtonToCode(button);
             macroBinding = false;
@@ -777,6 +794,7 @@ public final class IntegratedToolPage {
 
     public boolean mouseScrolled(float mouseX, float mouseY, double amount) {
         if (type == Type.COSMETICS) return cosmeticsPage.mouseScrolled(mouseX, mouseY, amount);
+        if (type == Type.EVENTS) return eventsPage.mouseScrolled(mouseX, mouseY, amount);
         if (!hit(mouseX, mouseY, listX, listY, listW, listH) || listMaxScroll <= 0f) return false;
         listScrollTarget += (float) amount * 20f * scale;
         listScrollTarget = Math.max(-listMaxScroll, Math.min(0f, listScrollTarget));
@@ -869,6 +887,7 @@ public final class IntegratedToolPage {
             case MACROS -> String.valueOf(count);
             case INVENTORIES -> count + " сохранений";
             case COSMETICS -> count + " предметов";
+            case EVENTS -> String.valueOf(count);
         };
     }
 
@@ -880,6 +899,7 @@ public final class IntegratedToolPage {
             case MACROS -> ClientLanguage.text("ui.macros.empty", "Макросов пока нет");
             case INVENTORIES -> "Сохранений пока нет";
             case COSMETICS -> "Косметика не найдена";
+            case EVENTS -> "Ивентов пока нет";
         };
     }
 

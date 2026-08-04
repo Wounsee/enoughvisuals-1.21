@@ -12,6 +12,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.RotationAxis;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
+import org.lwjgl.opengl.GL13;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -1307,8 +1308,7 @@ public class RenderUtil {
             return;
         }
 
-        RenderSystem.setShaderTexture(0, texture);
-        mc.getTextureManager().getTexture(texture).bindTexture();
+        bindTextureUnitZero(texture);
         String shader = ShaderManager.ROUNDED_TEXTURE;
 
         ShaderManager.useProgram(shader);
@@ -1341,8 +1341,7 @@ public class RenderUtil {
             return;
         }
 
-        RenderSystem.setShaderTexture(0, texture);
-        mc.getTextureManager().getTexture(texture).bindTexture();
+        bindTextureUnitZero(texture);
         String shader = ShaderManager.MENU_PREVIEW;
         ShaderManager.useProgram(shader);
         applyCornerStyle(shader);
@@ -1638,6 +1637,12 @@ public class RenderUtil {
         }
 
         BufferRenderer.drawWithGlobalProgram(buffer.end());
+    }
+
+    private static void bindTextureUnitZero(Identifier texture) {
+        RenderSystem.setShaderTexture(0, texture);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        mc.getTextureManager().getTexture(texture).bindTexture();
     }
 
     private static float squircleComponent(float value) {

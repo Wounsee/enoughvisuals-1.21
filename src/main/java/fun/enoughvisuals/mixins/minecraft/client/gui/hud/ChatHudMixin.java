@@ -3,8 +3,6 @@ package fun.enoughvisuals.mixins.minecraft.client.gui.hud;
 import fun.enoughvisuals.systems.modules.modules.visual.Animations;
 import fun.enoughvisuals.systems.modules.modules.client.Globals;
 import fun.enoughvisuals.systems.modules.modules.utils.ChatHelper;
-import fun.enoughvisuals.utils.font.CustomFontRenderer;
-import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.StencilUtil;
 import net.minecraft.client.MinecraftClient;
@@ -59,7 +57,6 @@ public abstract class ChatHudMixin {
     @Unique
     private static final Pattern enough$stackSuffixPattern = Pattern.compile(" \\(x(\\d+)\\)$");
     @Unique
-    private static final float enough$chatLogoSize = 8.5f;
 
     @Inject(
             method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
@@ -281,10 +278,12 @@ public abstract class ChatHudMixin {
         if (!match.found()) return;
 
         float beforeWidth = textRenderer.getWidth(line.substring(0, match.start()));
-        float iconX = beforeWidth - enough$chatLogoSize - 1.5f;
-        float iconY = textY - 1.0f;
+        int iconX = Math.max(0, Math.round(beforeWidth) - textRenderer.getWidth("◆ "));
         int color = RenderUtil.withAlpha(Globals.LOGO_COLOR, textAlpha / 255f);
-        CustomFontRenderer.drawText(context, Globals.LOGO_ICON, iconX, iconY, enough$chatLogoSize, color, FontWeight.LOGO);
+        // Render with Minecraft's text renderer so the marker follows the same
+        // baseline, scaling and opacity as the nickname instead of looking like
+        // a separately pasted image.
+        context.drawTextWithShadow(textRenderer, "◆", iconX, textY, color);
     }
 
     @Unique

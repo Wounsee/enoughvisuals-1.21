@@ -2,6 +2,11 @@ package fun.enoughvisuals.systems.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.annotations.SerializedName;
 import fun.enoughvisuals.systems.hud.DragAndDrop;
 import fun.enoughvisuals.systems.hud.HudElement;
 import fun.enoughvisuals.systems.modules.Module;
@@ -13,10 +18,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Reader;
-import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.text.Normalizer;
 import java.util.Base64;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -357,9 +363,7 @@ public final class ConfigSystem {
             Files.createDirectories(configDir);
             String plainJson = GSON.toJson(snapshot);
             String obfuscated = obfuscate(plainJson);
-            try (Writer writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
-                writer.write(obfuscated);
-            }
+            writeAtomically(file, obfuscated);
             return true;
         } catch (Exception e) {
             LOGGER.error("Failed to write config {}", file, e);
@@ -381,7 +385,14 @@ public final class ConfigSystem {
             if (json == null || json.isBlank()) {
                 json = text;
             }
-            return GSON.fromJson(json, ConfigSnapshot.class);
+            JsonObject root = JsonParser.parseString(json).getAsJsonObject();
+            ConfigSnapshot snapshot = GSON.fromJson(root, ConfigSnapshot.class);
+            if (snapshot != null && snapshot.modules != null && !snapshot.modules.isEmpty()) {
+                return snapshot;
+            }
+
+            ConfigSnapshot migrated = migrateLegacySnapshot(root, file);
+            return migrated != null ? migrated : snapshot;
         } catch (Exception e) {
             LOGGER.error("Failed to read config {}", file, e);
             return null;
@@ -391,7 +402,22 @@ public final class ConfigSystem {
     private ConfigState readState() {
         if (stateFile == null || !Files.exists(stateFile)) return null;
         try (Reader reader = Files.newBufferedReader(stateFile, StandardCharsets.UTF_8)) {
-            return GSON.fromJson(reader, ConfigState.class);
+            JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+            ConfigState state = GSON.fromJson(root, ConfigState.class);
+            if (root.has("lastConfigName") && state != null
+                    && state.lastConfigName != null && !state.lastConfigName.isBlank()) return state;
+            ConfigState migrated = new ConfigState();
+            for (Map.Entry<String, JsonElement> entry : root.entrySet()) {
+                JsonElement value = entry.getValue();
+                if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
+                    migrated.lastConfigName = value.getAsString();
+                } else if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
+                    migrated.updatedAt = value.getAsLong();
+                }
+            }
+            if (migrated.lastConfigName == null || migrated.lastConfigName.isBlank()) return state;
+            writeAtomically(stateFile, GSON.toJson(migrated));
+            return migrated;
         } catch (Exception e) {
             LOGGER.error("Failed to read config state {}", stateFile, e);
             return null;
@@ -405,35 +431,147 @@ public final class ConfigSystem {
             ConfigState state = new ConfigState();
             state.lastConfigName = lastConfigName;
             state.updatedAt = System.currentTimeMillis();
-            try (Writer writer = Files.newBufferedWriter(stateFile, StandardCharsets.UTF_8)) {
-                GSON.toJson(state, writer);
-            }
+            writeAtomically(stateFile, GSON.toJson(state));
         } catch (Exception e) {
             LOGGER.error("Failed to write config state {}", stateFile, e);
         }
     }
 
+    private ConfigSnapshot migrateLegacySnapshot(JsonObject root, Path sourceFile) {
+        JsonArray modules = null;
+        JsonObject hud = null;
+        ConfigSnapshot migrated = new ConfigSnapshot();
+
+        for (Map.Entry<String, JsonElement> entry : root.entrySet()) {
+            JsonElement value = entry.getValue();
+            if (value.isJsonArray()) {
+                modules = value.getAsJsonArray();
+            } else if (value.isJsonObject()) {
+                hud = value.getAsJsonObject();
+            } else if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
+                migrated.name = value.getAsString();
+            } else if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
+                long number = value.getAsLong();
+                if (number > 10_000L) migrated.savedAt = number;
+                else migrated.version = (int) number;
+            }
+        }
+        if (modules == null) return null;
+
+        migrated.modules = new ArrayList<>();
+        for (JsonElement element : modules) {
+            if (!element.isJsonObject()) continue;
+            ModuleSnapshot module = new ModuleSnapshot();
+            for (Map.Entry<String, JsonElement> entry : element.getAsJsonObject().entrySet()) {
+                JsonElement value = entry.getValue();
+                if (value.isJsonObject()) {
+                    module.settings = jsonObjectToMap(value.getAsJsonObject());
+                } else if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
+                    module.id = value.getAsString();
+                } else if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isBoolean()) {
+                    module.enabled = value.getAsBoolean();
+                } else if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
+                    module.keyBind = value.getAsInt();
+                }
+            }
+            if (module.id != null && !module.id.isBlank()) migrated.modules.add(module);
+        }
+        migrated.hud = migrateLegacyHud(hud);
+        if (migrated.modules.isEmpty()) return null;
+
+        try {
+            writeAtomically(sourceFile, obfuscate(GSON.toJson(migrated)));
+            LOGGER.info("Migrated protected config {} to stable schema", sourceFile.getFileName());
+        } catch (Exception error) {
+            LOGGER.warn("Loaded legacy config {}, but could not rewrite it", sourceFile.getFileName(), error);
+        }
+        return migrated;
+    }
+
+    private HudSnapshot migrateLegacyHud(JsonObject source) {
+        HudSnapshot hud = new HudSnapshot();
+        if (source == null) return hud;
+        for (Map.Entry<String, JsonElement> entry : source.entrySet()) {
+            JsonElement value = entry.getValue();
+            if (value.isJsonObject()) {
+                hud.rememberedSettings = jsonObjectToNestedMap(value.getAsJsonObject());
+                continue;
+            }
+            if (!value.isJsonArray()) continue;
+            for (JsonElement element : value.getAsJsonArray()) {
+                if (!element.isJsonObject()) continue;
+                HudElementSnapshot item = new HudElementSnapshot();
+                int coordinate = 0;
+                for (Map.Entry<String, JsonElement> itemEntry : element.getAsJsonObject().entrySet()) {
+                    JsonElement itemValue = itemEntry.getValue();
+                    if (itemValue.isJsonObject()) {
+                        item.settings = jsonObjectToMap(itemValue.getAsJsonObject());
+                    } else if (itemValue.isJsonPrimitive() && itemValue.getAsJsonPrimitive().isString()) {
+                        item.id = itemValue.getAsString();
+                    } else if (itemValue.isJsonPrimitive() && itemValue.getAsJsonPrimitive().isNumber()) {
+                        if (coordinate++ == 0) item.x = itemValue.getAsFloat();
+                        else item.y = itemValue.getAsFloat();
+                    }
+                }
+                if (item.id != null && !item.id.isBlank()) hud.elements.add(item);
+            }
+        }
+        return hud;
+    }
+
+    private Map<String, Object> jsonObjectToMap(JsonObject source) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (Map.Entry<String, JsonElement> entry : source.entrySet()) {
+            result.put(entry.getKey(), GSON.fromJson(entry.getValue(), Object.class));
+        }
+        return result;
+    }
+
+    private Map<String, Map<String, Object>> jsonObjectToNestedMap(JsonObject source) {
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+        for (Map.Entry<String, JsonElement> entry : source.entrySet()) {
+            if (entry.getValue().isJsonObject()) {
+                result.put(entry.getKey(), jsonObjectToMap(entry.getValue().getAsJsonObject()));
+            }
+        }
+        return result;
+    }
+
     private int fingerprint(ConfigSnapshot snapshot) {
-        return GSON.toJson(snapshot).hashCode();
+        int result = Integer.hashCode(snapshot.version);
+        result = 31 * result + GSON.toJson(snapshot.modules).hashCode();
+        result = 31 * result + GSON.toJson(snapshot.hud).hashCode();
+        return result;
     }
 
     private String normalizeName(String raw) {
         if (raw == null) return null;
 
-        String name = raw.trim();
+        String name = Normalizer.normalize(raw.trim(), Normalizer.Form.NFKC);
         if (name.isEmpty()) return null;
-        if (name.endsWith(CONFIG_EXTENSION)) {
+        if (name.toLowerCase(java.util.Locale.ROOT).endsWith(CONFIG_EXTENSION)) {
             name = name.substring(0, name.length() - CONFIG_EXTENSION.length());
         }
 
         name = name.replaceAll("\\s+", "_");
-        name = name.replaceAll("[^a-zA-Z0-9._-]", "");
+        name = name.replaceAll("[\\p{Cntrl}<>:\"/\\\\|?*]", "");
+        name = name.replaceAll("^\\.+|\\.+$", "");
 
         if (name.isBlank()) return null;
         if (name.length() > 64) {
             name = name.substring(0, 64);
         }
         return name;
+    }
+
+    private void writeAtomically(Path target, String contents) throws Exception {
+        Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
+        Files.writeString(temporary, contents, StandardCharsets.UTF_8);
+        try {
+            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
+            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     private String obfuscate(String json) {
@@ -471,34 +609,51 @@ public final class ConfigSystem {
     }
 
     private static final class ConfigState {
+        @SerializedName("lastConfigName")
         private String lastConfigName = "default";
+        @SerializedName("updatedAt")
         private long updatedAt = 0L;
     }
 
     private static final class ConfigSnapshot {
+        @SerializedName("version")
         private int version = CURRENT_VERSION;
+        @SerializedName("name")
         private String name = "default";
+        @SerializedName("savedAt")
         private long savedAt = 0L;
+        @SerializedName("modules")
         private List<ModuleSnapshot> modules = new ArrayList<>();
+        @SerializedName("hud")
         private HudSnapshot hud = new HudSnapshot();
     }
 
     private static final class ModuleSnapshot {
+        @SerializedName("id")
         private String id = "";
+        @SerializedName("enabled")
         private boolean enabled = false;
+        @SerializedName("keyBind")
         private int keyBind = -1;
+        @SerializedName("settings")
         private Map<String, Object> settings = new LinkedHashMap<>();
     }
 
     private static final class HudSnapshot {
+        @SerializedName("elements")
         private List<HudElementSnapshot> elements = new ArrayList<>();
+        @SerializedName("rememberedSettings")
         private Map<String, Map<String, Object>> rememberedSettings = new LinkedHashMap<>();
     }
 
     private static final class HudElementSnapshot {
+        @SerializedName("id")
         private String id = "";
+        @SerializedName("x")
         private float x = 0f;
+        @SerializedName("y")
         private float y = 0f;
+        @SerializedName("settings")
         private Map<String, Object> settings = new LinkedHashMap<>();
     }
 }

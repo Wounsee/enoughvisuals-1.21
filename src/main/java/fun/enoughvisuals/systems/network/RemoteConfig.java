@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Base64;
 
 /**
  * Polls the EnoughVisuals backend for remote configuration:
@@ -137,9 +138,25 @@ public final class RemoteConfig {
         } catch (Throwable ignored) {
         }
         root.add("modules", mods);
+        appendServerIcon(root, mc);
         EmotionWheelManager.getInstance().appendSync(root);
         CosmeticCatalog.appendSync(root);
         return root.toString();
+    }
+
+    private static void appendServerIcon(JsonObject root, MinecraftClient mc) {
+        try {
+            Object server = mc == null ? null : mc.getCurrentServerEntry();
+            if (server == null) return;
+            Object favicon = server.getClass().getMethod("getFavicon").invoke(server);
+            if (!(favicon instanceof byte[] bytes) || bytes.length == 0 || bytes.length > 196_608) return;
+            root.addProperty("server_icon", "data:image/png;base64,"
+                    + Base64.getEncoder().encodeToString(bytes));
+        } catch (ReflectiveOperationException ignored) {
+            // Older mappings/builds do not expose a favicon accessor.
+        } catch (Throwable error) {
+            LOGGER.debug("server icon unavailable: {}", error.toString());
+        }
     }
 
     private void apply(JsonObject o) {

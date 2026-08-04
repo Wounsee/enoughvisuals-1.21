@@ -43,11 +43,15 @@ repositories {
     maven { url 'https://jitpack.io' }
 }
 
+def funtimeEventsSdkDevJar = file("libs/fte-api-1.0.5-dev.jar")
+def funtimeEventsSdkRuntimeJar = file("libs/fte-api-1.0.5-runtime.jar")
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    modImplementation files(funtimeEventsSdkDevJar)
     modRuntimeOnly files(
             "cosmetic-build/fabric/build/libs/cosmetic-0.1.5+1.21.4-fabric-mc.jar")
     runtimeOnly "com.github.FiguraMC.luaj:luaj-core:3.0.8-figura"
@@ -84,6 +88,13 @@ tasks.register("buildEmbeddedCosmetic", Exec) {
     outputs.file(embeddedCosmeticJar)
     workingDir cosmeticRuntimeDir
     commandLine new File(cosmeticRuntimeDir, "gradlew.bat"), ":fabric:remapJar", "--no-daemon"
+}
+
+tasks.named("buildEmbeddedCosmetic").configure {
+    // The nested Gradle build owns its own incremental state. Always let it
+    // inspect the shared cosmetic sources so an updated bridge cannot leave an
+    // older embedded jar beside freshly compiled EnoughVisuals classes.
+    outputs.upToDateWhen { false }
 }
 
 tasks.matching { it.name == "runClient" || it.name == "generateRemapClasspath" }.configureEach {
@@ -179,6 +190,10 @@ processResources {
     from(embeddedCosmeticJar) {
         into "META-INF/jars"
         rename { "cosmetic.jar" }
+    }
+    from(funtimeEventsSdkRuntimeJar) {
+        into "META-INF/jars"
+        rename { "fte-api-1.0.5.jar" }
     }
     inputs.property "version", project.version
     inputs.property "minecraft_version", project.minecraft_version

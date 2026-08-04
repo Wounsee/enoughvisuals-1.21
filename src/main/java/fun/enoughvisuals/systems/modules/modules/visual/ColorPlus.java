@@ -61,7 +61,7 @@ public final class ColorPlus extends Module {
         state.floatValue15 = values.gain()[0];
         state.floatValue16 = values.gain()[1];
         state.floatValue17 = values.gain()[2];
-        state.floatValue18 = 0.0F;
+        state.floatValue18 = values.bloom();
         state.floatValue19 = values.bloomThreshold();
         state.floatValue20 = values.bloomRadius();
         state.floatValue21 = values.sharpness();

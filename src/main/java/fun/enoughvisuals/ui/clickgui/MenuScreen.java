@@ -40,8 +40,6 @@ import java.util.Map;
 import java.util.Set;
 
 public class MenuScreen extends Screen {
-    /** Flip to true to put the experimental Events entry back into the sidebar. */
-    public static boolean SHOW_EVENTS_TAB = false;
     public static final int DEFAULT_ACCENT = 0xFF927BE0;
     public static int ACCENT = DEFAULT_ACCENT;
     public static int ACCENT_LIGHT = 0xFFC0B2F2;
@@ -63,7 +61,6 @@ public class MenuScreen extends Screen {
     public static int SETTING_INPUT_BG = 0xFF100E16;
     public static int PANEL_TINT = 0x121018;
     public static float PANEL_TINT_ALPHA = 0.93f;
-
     public static int WINDOW_BG = 0xFF111018;
     public static int SIDEBAR_BG = 0xFF181521;
     public static int CARD_BG = 0xFF181620;
@@ -74,7 +71,6 @@ public class MenuScreen extends Screen {
     public static int CHIP_TEXT_ON = 0xFFF7F3FF;
     public static int VALUE_DIM = 0xFF958DA6;
     public static int STROKE = 0x12FFFFFF;
-
     private static final float DESIGN_W = 520f;
     private static final float DESIGN_H = 300f;
     private static final float SIDEBAR_W = 122f;
@@ -86,10 +82,9 @@ public class MenuScreen extends Screen {
     private static final float NAV_TOOLS_Y = 139f;
     private static final float NAV_ROW_H = 25f;
     private static final float NAV_TOOL_ROW_H = 21f;
-    private static final long OPEN_MS = 470L;
-    private static final long CLOSE_MS = 285L;
+    private static final long OPEN_MS = 320L;
+    private static final long CLOSE_MS = 240L;
     private static final long CARD_STAGGER_MS = 34L;
-
     private static final String ICON_VISUAL = "\uF00A";
     private static final String ICON_WAYPOINT = "\uF000";
     private static final String ICON_CONFIG = "\uF001";
@@ -101,7 +96,6 @@ public class MenuScreen extends Screen {
     private static final String ICON_PUZZLE = "\uF004";
     private static final String ICON_SEARCH = "\uF008";
     private static final Set<String> TOOL_MODULES = Set.of("configs", "friends", "gps", "macros");
-
     private final Category[] categories = Arrays.stream(Category.values())
             .filter(category -> !HolyWorldFeatureControl.getInstance().isCategoryBlocked(category))
             .toArray(Category[]::new);
@@ -110,7 +104,6 @@ public class MenuScreen extends Screen {
     private final float[] navHover = new float[16];
     private final IntegratedToolPage toolPage = new IntegratedToolPage();
     private final IntegratedToolPage.Type initialTool;
-
     private int activeCategory;
     private float navIndicator;
     private IntegratedToolPage.Type activeTool;
@@ -123,20 +116,17 @@ public class MenuScreen extends Screen {
     private float searchFocus;
     private int typedCharIndex = -1;
     private long typedCharStartMs;
-
     private Module bindingModule;
     private BindSetting bindingSetting;
     private ModuleCard focusedCard;
     private ModuleCard expandedCard;
     private ModuleCard dragCard;
     private ColorPickerPopup picker;
-
     private String hoverDescription;
     private String shownDescription;
     private String descriptionCandidate;
     private long descriptionSince;
     private float descriptionAnimation;
-
     private long openTime;
     private boolean closing;
     private long closeStart;
@@ -358,10 +348,10 @@ public class MenuScreen extends Screen {
         float progress = !closing
                 ? clamp((now - openTime) / (float) OPEN_MS)
                 : 1f - clamp((now - closeStart) / (float) CLOSE_MS);
-        float alpha = closing ? RenderUtil.easeInOutCubic(progress) : RenderUtil.easeOutExpo(progress);
-        float geometry = closing ? RenderUtil.easeInOutCubic(progress) : RenderUtil.easeOutBack(progress);
-        float windowScale = 0.925f + 0.075f * geometry;
-        float yOffset = (1f - RenderUtil.easeOutQuart(progress)) * 11f * scale;
+        float geometry = closing ? RenderUtil.easeInCubic(progress) : RenderUtil.easeOutCubic(progress);
+        float alpha = geometry;
+        float windowScale = 0.76f + 0.24f * geometry;
+        float yOffset = 0f;
 
         float frame = RenderUtil.getFrameDelta();
         scrollOffset = RenderUtil.animate(scrollOffset, scrollTarget, 0.30f, frame);
@@ -490,39 +480,7 @@ public class MenuScreen extends Screen {
             renderSidebarAction(context, mx, my, i + 3, toolsY + i * toolRowH, visibleTool.icon(),
                     visibleTool.title(), visibleTool.iconWeight(), activeTool == visibleTool, alpha);
         }
-        if (SHOW_EVENTS_TAB) {
-            renderSidebarAction(context, mx, my, visibleTools.size() + 3,
-                    toolsY + visibleTools.size() * toolRowH, "\uF000", "Ивенты",
-                    FontWeight.EVENT, false, alpha);
-        }
 
-        float profileH = 25f * scale;
-        float profileX = windowX + 10f * scale;
-        float profileY = windowY + windowH - profileH - 9f * scale;
-        float profileW = sw - 20f * scale;
-        RenderUtil.drawRoundedRect(context, profileX, profileY, profileW, profileH, 7f * scale,
-                RenderUtil.withAlpha(CARD_BG, 0.96f * alpha));
-        float profileRadius = Math.max(0f, 7f * scale - 0.5f * scale);
-        RenderUtil.drawRoundedGradient(context, profileX + 0.5f * scale, profileY + 0.5f * scale,
-                profileW - scale, profileH - scale, profileRadius, profileRadius, 0f, 0f,
-                RenderUtil.withAlpha(0x815FD3, 0.052f * alpha),
-                RenderUtil.withAlpha(0x815FD3, 0.052f * alpha),
-                RenderUtil.withAlpha(0x815FD3, 0f),
-                RenderUtil.withAlpha(0x815FD3, 0f));
-        float avatar = 15f * scale;
-        if (client != null && client.player != null) {
-            Draw.imagePlayerHeadRounded(context, client.player.getSkinTextures().texture(),
-                    profileX + 5f * scale, profileY + 5f * scale, avatar, avatar * 0.5f, alpha);
-        } else {
-            RenderUtil.drawRoundedRect(context, profileX + 5f * scale, profileY + 5f * scale, avatar, avatar,
-                    5f * scale, RenderUtil.withAlpha(ACCENT, 0.35f * alpha));
-        }
-        String username = client == null ? "player" : client.getSession().getUsername();
-        username = CustomFontRenderer.trimToWidth(username, profileW - 43f * scale, 6.5f * scale, FontWeight.SEMIBOLD);
-        CustomFontRenderer.drawText(context, username, profileX + 25f * scale, profileY + 6.8f * scale,
-                6.8f * scale, RenderUtil.withAlpha(TEXT_WHITE, alpha), FontWeight.SEMIBOLD);
-        CustomFontRenderer.drawText(context, "User", profileX + 25f * scale, profileY + 14.5f * scale,
-                5.7f * scale, RenderUtil.withAlpha(TEXT_DIM, 0.92f * alpha), FontWeight.REGULAR);
     }
 
     private void renderSidebarAction(DrawContext context, int mx, int my, int hoverIndex, float y,
@@ -851,6 +809,7 @@ public class MenuScreen extends Screen {
 
     @Override
     public void removed() {
+        toolPage.close();
         StencilUtil.resetRenderState();
         super.removed();
     }
@@ -971,7 +930,7 @@ public class MenuScreen extends Screen {
             float toolsY = windowY + NAV_TOOLS_Y * scale;
             float toolRowH = NAV_TOOL_ROW_H * scale;
             List<IntegratedToolPage.Type> types = visibleTools();
-            int visibleToolCount = SHOW_EVENTS_TAB ? types.size() + 1 : types.size();
+            int visibleToolCount = types.size();
             for (int i = 0; i < visibleToolCount; i++) {
                 if (hit(mx, my, windowX + 8f * scale, toolsY + i * toolRowH, sw - 16f * scale, toolRowH)) {
                     if (i < types.size()) selectTool(types.get(i));

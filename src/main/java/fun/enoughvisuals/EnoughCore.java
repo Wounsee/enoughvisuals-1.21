@@ -16,6 +16,7 @@ import fun.enoughvisuals.systems.modules.modules.utils.*;
 import fun.enoughvisuals.systems.modules.modules.visual.*;
 
 import fun.enoughvisuals.systems.network.RemoteConfig;
+import fun.enoughvisuals.systems.events.EventFeedService;
 import fun.enoughvisuals.systems.network.HolyWorldFeatureControl;
 
 import fun.enoughvisuals.ui.gate.GateScreen;
@@ -44,6 +45,7 @@ import fun.enoughvisuals.utils.sound.CombatSoundService;
 import fun.enoughvisuals.utils.system.FuntimeEventSystem;
 
 import fun.enoughvisuals.utils.system.NowPlayingService;
+import fun.enoughvisuals.utils.system.TitleBarHelper;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 
@@ -99,6 +101,8 @@ public final class EnoughCore {
         initCustomFontRendererCompat();
         applyFirstLaunchDisplayDefaults();
         RemoteConfig.getInstance().start();
+        ClientTickEvents.END_CLIENT_TICK.register(EventFeedService.getInstance()::onClientTick);
+        ClientTickEvents.END_CLIENT_TICK.register(TitleBarHelper::applyOnce);
         new CustomTab();
         ModuleManager manager = ModuleManager.getInstance();
         manager.register(

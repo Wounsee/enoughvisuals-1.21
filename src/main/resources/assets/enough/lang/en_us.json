@@ -216,7 +216,7 @@
   "ui.client_tools.friends.removed": "Friend removed",
   "ui.client_tools.friends.missing": "Friend not found",
   "ui.client_tools.configs.title": "Configs",
-  "ui.inventory_manager.title": "Inventory Manager",
+  "ui.inventory_manager.title": "Inventories",
   "ui.client_tools.cosmetics.title": "Cosmetics",
   "ui.client_tools.configs.status": "%d shown - active: %s",
   "ui.client_tools.configs.empty": "No configs found",

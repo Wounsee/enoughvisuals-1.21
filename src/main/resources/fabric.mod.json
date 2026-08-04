@@ -13,8 +13,7 @@
   "environment": "client",
   "entrypoints": {
     "client": [
-      "fun.enoughvisuals.Enough",
-      "punchy.fabric.PunchyFabricClient"
+      "fun.enoughvisuals.Enough"
     ]
   },
   "mixins": [
@@ -25,6 +24,9 @@
   "jars": [
     {
       "file": "META-INF/jars/cosmetic.jar"
+    },
+    {
+      "file": "META-INF/jars/fte-api-1.0.5.jar"
     }
   ],
   "depends": {

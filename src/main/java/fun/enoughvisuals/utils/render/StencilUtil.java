@@ -68,6 +68,17 @@ public class StencilUtil {
         GlStateManager._disableScissorTest();
     }
 
+    public static void reapplyScissor() {
+        if (scissorStack.isEmpty()) {
+            GlStateManager._disableScissorTest();
+            return;
+        }
+        float[] current = scissorStack.peek();
+        GlStateManager._enableScissorTest();
+        GlStateManager._scissorBox((int) current[0], (int) current[1],
+                (int) current[2], (int) current[3]);
+    }
+
     public static void resetRenderState() {
         resetScissors();
         GL11.glDisable(GL11.GL_STENCIL_TEST);
