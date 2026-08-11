@@ -5,10 +5,8 @@ import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BindSetting;
 import fun.enoughvisuals.utils.player.ClientActionUtil;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.util.Hand;
 
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -19,12 +17,11 @@ public class ClickPearl extends Module {
 
     private final BindSetting bind = add(new BindSetting("Клавиша", "bind", -1));
 
-    // Состояние пошагового броска
-    private int step = -1; // -1=неактивен, 0=свап в active, 1=бросок, 2=возврат
+    // Обычный видимый выбор слота -> использование -> возврат. Никаких inventory-click свапов.
+    private int step = -1;
     private int stepDelay;
     private int originalSlot;
-    private int targetSlot; // слот с перлом (хотбар) или куда свапаем (инвентарь)
-    private int invSlot = -1; // слот перла в инвентаре (-1 если в хотбаре)
+    private int targetSlot;
 
     public ClickPearl() {
         INSTANCE = this;
@@ -43,25 +40,14 @@ public class ClickPearl extends Module {
         originalSlot = mc.player.getInventory().selectedSlot;
 
         Optional<Integer> hotbar = ClientActionUtil.findHotbar(predicate);
-        if (hotbar.isPresent()) {
-            targetSlot = hotbar.get();
-            invSlot = -1;
-            step = 0;
-            stepDelay = 2;
+        if (hotbar.isEmpty()) {
+            ClientActionUtil.clientMessage("Нет §cэндер-пёрла §fв хотбаре");
             return;
         }
 
-        Optional<Integer> inventory = ClientActionUtil.findInventory(predicate);
-        if (inventory.isPresent()) {
-            int slot = inventory.get();
-            if (slot < 9 || slot > 35) return;
-            invSlot = slot;
-            targetSlot = originalSlot; // переносим в текущий active slot
-            step = 0;
-            stepDelay = 3;
-        } else {
-            ClientActionUtil.clientMessage("Нет §cэндер-пёрла §fв инвентаре");
-        }
+        targetSlot = hotbar.get();
+        step = 0;
+        stepDelay = 0;
     }
 
     @Override
@@ -72,47 +58,24 @@ public class ClickPearl extends Module {
         }
 
         if (step < 0) return;
-        stopMovement();
         if (stepDelay-- > 0) return;
 
         switch (step) {
             case 0:
-                // Шаг 0: перенести перл в targetSlot (если из инвентаря)
-                if (invSlot >= 0) {
-                    if (!(mc.currentScreen instanceof InventoryScreen)) {
-                        ClientActionUtil.setSilentInventory(true);
-                        mc.setScreen(new InventoryScreen(mc.player));
-                    }
-                    if (ClientActionUtil.swapToHotbar(invSlot, targetSlot)) {
-                        ClientActionUtil.setSilentInventory(false);
-                        mc.setScreen(null);
-                    }
-                }
-                mc.player.getInventory().selectedSlot = targetSlot;
+                ClientActionUtil.selectHotbar(targetSlot);
                 step = 1;
-                stepDelay = 2;
+                stepDelay = 1;
                 break;
             case 1:
-                // Шаг 1: бросок
-                if (mc.interactionManager != null) {
-                    mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+                ItemStack selected = mc.player.getInventory().getStack(targetSlot);
+                if (mc.player.getInventory().selectedSlot == targetSlot && selected.isOf(Items.ENDER_PEARL)) {
+                    ClientActionUtil.useSelected();
                 }
                 step = 2;
-                stepDelay = 2;
+                stepDelay = 1;
                 break;
             case 2:
-                // Шаг 2: вернуть старый предмет обратно (если перл был в инвентаре)
-                if (invSlot >= 0) {
-                    if (!(mc.currentScreen instanceof InventoryScreen)) {
-                        ClientActionUtil.setSilentInventory(true);
-                        mc.setScreen(new InventoryScreen(mc.player));
-                    }
-                    if (ClientActionUtil.swapToHotbar(invSlot, targetSlot)) {
-                        ClientActionUtil.setSilentInventory(false);
-                        mc.setScreen(null);
-                    }
-                }
-                mc.player.getInventory().selectedSlot = originalSlot;
+                ClientActionUtil.selectHotbar(originalSlot);
                 step = -1;
                 break;
         }
@@ -124,15 +87,10 @@ public class ClickPearl extends Module {
     }
 
     private void clearAll() {
+        if (step >= 0 && ClientActionUtil.inGame()) {
+            ClientActionUtil.selectHotbar(originalSlot);
+        }
         step = -1;
         stepDelay = 0;
-        invSlot = -1;
-        ClientActionUtil.setSilentInventory(false);
-    }
-
-    private void stopMovement() {
-        if (mc.player == null || mc.player.input == null) return;
-        mc.player.input.movementForward = 0;
-        mc.player.input.movementSideways = 0;
     }
 }

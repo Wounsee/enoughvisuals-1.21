@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.mixins.accessors.ShaderProgramAccessor;
 import fun.enoughvisuals.systems.modules.modules.utils.NameProtect;
+import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Defines;
 import net.minecraft.client.gl.GlUniform;
@@ -22,6 +23,7 @@ import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.util.Identifier;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
+import org.lwjgl.opengl.GL13;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -34,23 +36,15 @@ public class CustomFontRenderer {
 
     public enum FontWeight {
         REGULAR("regular"),
-        BOLD("bold"),
-        LIGHT("comfortaa_light"),
+        MEDIUM("medium"),
         SEMIBOLD("semibold"),
-        MARK("mark"),
-        EVENT("event"),
-        DRAG("drag"),
-        POTIONS("potions"),
-        BINDS("binds"),
-        HEART("heart"),
-        CLIENT("client"),
-        WP("wp"),
-        VC("vc"),
+        BOLD("bold"),
+        EXTRABOLD("extrabold"),
+        SOLAR_ICONS("solar_icons"),
+        HUD_ICONS("hud_icons"),
         LOGO("logo"),
         MENU("menu"),
-        CLICK_GUI("click_gui"),
-        BOOK("book"),
-        TIME("time");
+        CLICK_GUI("click_gui");
 
 
         final String atlasName;
@@ -306,7 +300,7 @@ public class CustomFontRenderer {
                                          float size, int color, FontWeight weight,
                                          boolean clipped, float clipX, float clipWidth,
                                          float leftFade, float rightFade) {
-        text = NameProtect.protect(text);
+        text = NameProtect.protect(ClientLanguage.localizeLiteral(text));
         if (text == null || text.isEmpty()) return;
 
         if (!initialized || failedInit || msdfShaderKey == null) {
@@ -345,10 +339,14 @@ public class CustomFontRenderer {
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         RenderSystem.setShaderTexture(0, atlas.textureId);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        MinecraftClient.getInstance().getTextureManager().getTexture(atlas.textureId).bindTexture();
 
         setUniform(shader, "uColor", r, g, b, a);
         setUniform(shader, "uPxRange", atlas.distanceRange);
         setUniform(shader, "uMtsdf", atlas.mtsdf ? 1f : 0f);
+        setUniform(shader, "uIconAtlas",
+                weight == FontWeight.SOLAR_ICONS || weight == FontWeight.HUD_ICONS ? 1f : 0f);
 
         Matrix4f matrix = ctx.getMatrices().peek().getPositionMatrix();
         if (clipped && clipWidth > 0f) {
@@ -468,7 +466,7 @@ public class CustomFontRenderer {
     }
 
     public static float getTextWidth(String text, float size, FontWeight weight) {
-        text = NameProtect.protect(text);
+        text = NameProtect.protect(ClientLanguage.localizeLiteral(text));
         if (text == null || text.isEmpty()) return 0f;
 
         if (!initialized || failedInit) {
@@ -532,7 +530,7 @@ public class CustomFontRenderer {
     }
 
     public static String trimToWidth(String text, float maxWidth, float size, FontWeight weight) {
-        text = NameProtect.protect(text);
+        text = NameProtect.protect(ClientLanguage.localizeLiteral(text));
         if (text == null || text.isEmpty()) return "";
         if (getTextWidth(text, size, weight) <= maxWidth) return text;
 

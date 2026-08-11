@@ -2,13 +2,16 @@ package fun.enoughvisuals.ui.screen;
 
 import fun.enoughvisuals.systems.animations.AnimatedFloat;
 import fun.enoughvisuals.systems.animations.Easing;
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.ui.mainmenu.MenuBackgroundManager;
 import fun.enoughvisuals.ui.mainmenu.MenuBackgroundManager.Entry;
 import fun.enoughvisuals.ui.mainmenu.MenuBackgroundPreviewCache;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.SolarIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.sound.EnoughSoundPlayer;
+import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
@@ -21,7 +24,7 @@ import java.util.Map;
 
 public final class BackgroundPickerScreen extends Screen {
     private static final int PANEL = 0xFF151519;
-    private static final int ACCENT = 0xFFA884FF;
+    private static final int ACCENT = 0xFF7F94DD;
     private static final int TEXT = 0xFFFFFFFF;
     private static final int MUTED = 0xFFA7A2AE;
     private static final float FOOTER_HEIGHT = 34f;
@@ -31,6 +34,7 @@ public final class BackgroundPickerScreen extends Screen {
 
     private final CustomMainMenuScreen parent;
     private final Map<Entry, AnimatedFloat> hover = new IdentityHashMap<>();
+    private final AnimatedFloat closeHover = new AnimatedFloat(0f, 210L, Easing.OUT_QUART);
     private float targetScroll;
     private float scrollPosition;
     private long lastScrollFrameNanos;
@@ -40,7 +44,7 @@ public final class BackgroundPickerScreen extends Screen {
     private float closeFrom = 1f;
 
     public BackgroundPickerScreen(CustomMainMenuScreen parent) {
-        super(Text.literal("Выбор фона"));
+        super(Text.literal(ClientLanguage.text("ui.background.title", "Выбор фона")));
         this.parent = parent;
         for (Entry entry : MenuBackgroundManager.ENTRIES) {
             hover.put(entry, new AnimatedFloat(0f, 280L, Easing.OUT_QUART));
@@ -75,13 +79,20 @@ public final class BackgroundPickerScreen extends Screen {
         float scroll = updateScrollPosition();
         float panelAlpha = reveal;
 
-        RenderUtil.drawRoundedRect(ctx, l.x + 1.5f, l.y + 5f, l.w, l.h, 13f,
-                RenderUtil.withAlpha(0xFF000000, panelAlpha * 0.48f));
-        RenderUtil.drawRoundedRect(ctx, l.x, l.y, l.w, l.h, 13f,
-                RenderUtil.withAlpha(PANEL, panelAlpha));
+        float previousExponent = RenderUtil.pushSquircleExponent(3.4f);
+        try {
+            RenderUtil.drawRoundedRect(ctx, l.x + 1.5f, l.y + 5f, l.w, l.h, 18f,
+                    RenderUtil.withAlpha(0xFF000000, panelAlpha * 0.48f));
+            RenderUtil.drawRoundedRect(ctx, l.x, l.y, l.w, l.h, 18f,
+                    RenderUtil.withAlpha(PANEL, panelAlpha));
+        } finally {
+            RenderUtil.restoreSquircleExponent(previousExponent);
+        }
         renderHeader(ctx, l, mouseX, mouseY, panelAlpha);
 
-        RenderUtil.enableScissor(l.listX, l.listY, l.listW, l.listH);
+        ctx.draw();
+        ctx.enableScissor(Math.round(l.listX), Math.round(l.listY),
+                Math.round(l.listX + l.listW), Math.round(l.listY + l.listH));
         List<Entry> entries = MenuBackgroundManager.ENTRIES;
         for (int i = 0; i < entries.size(); i++) {
             Entry entry = entries.get(i);
@@ -102,23 +113,35 @@ public final class BackgroundPickerScreen extends Screen {
                     hover.get(entry).value(), stagger * panelAlpha);
         }
         renderFooter(ctx, l, scroll, panelAlpha);
-        RenderUtil.disableScissor();
+        ctx.draw();
+        ctx.disableScissor();
         renderScrollbar(ctx, l, scroll, panelAlpha);
     }
 
     private void renderHeader(DrawContext ctx, Layout l, int mouseX, int mouseY, float alpha) {
-        CustomFontRenderer.drawText(ctx, "Галерея фонов", l.x + 16, l.y + 12, 9.4f,
-                RenderUtil.withAlpha(TEXT, alpha), FontWeight.BOLD);
-        CustomFontRenderer.drawText(ctx, "Выберите фон, который вам по душе",
-                l.x + 16, l.y + 25, 7.2f, RenderUtil.withAlpha(MUTED, alpha), FontWeight.REGULAR);
+        CustomFontRenderer.drawText(ctx, ClientLanguage.text("ui.background.gallery", "Галерея фонов"), l.x + 16, l.y + 12, 9.4f,
+                RenderUtil.withAlpha(TEXT, alpha), FontWeight.SEMIBOLD);
+        CustomFontRenderer.drawText(ctx, ClientLanguage.text("ui.background.subtitle", "Выберите фон, который вам по душе"),
+                l.x + 16, l.y + 25, 7.2f, RenderUtil.withAlpha(MUTED, alpha), FontWeight.SEMIBOLD);
 
         float bx = l.x + l.w - 29;
-        float by = l.y + 12;
-        boolean over = inside(mouseX, mouseY, bx, by, 16, 16);
-        RenderUtil.drawRoundedRect(ctx, bx, by, 16, 16, 6,
-                RenderUtil.withAlpha(over ? 0xFF302E36 : 0xFF222126, alpha));
-        CustomFontRenderer.drawCenteredText(ctx, "X", bx + 8, by + 3.8f, 7.0f,
-                RenderUtil.withAlpha(TEXT, alpha), FontWeight.SEMIBOLD);
+        float by = l.y + 11.5f;
+        float size = 17f;
+        boolean over = !closing && inside(mouseX, mouseY, bx, by, size, size);
+        closeHover.setTarget(over ? 1f : 0f);
+        float hoverValue = closeHover.value();
+        float grow = 1f + hoverValue * 0.045f;
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(bx + size * 0.5f, by + size * 0.5f, 0f);
+        ctx.getMatrices().scale(grow, grow, 1f);
+        ctx.getMatrices().translate(-(bx + size * 0.5f), -(by + size * 0.5f), 0f);
+        RenderUtil.drawRoundedRect(ctx, bx, by, size, size, size * 0.5f,
+                RenderUtil.withAlpha(RenderUtil.lerpColor(0xFF222126, 0xFF302E36, hoverValue), alpha));
+        float iconSize = 7.5f;
+        float iconY = by + (size - CustomFontRenderer.getTextHeight(iconSize, FontWeight.SOLAR_ICONS)) * 0.5f;
+        CustomFontRenderer.drawCenteredText(ctx, SolarIcons.CLOSE, bx + size * 0.5f, iconY, iconSize,
+                RenderUtil.withAlpha(TEXT, alpha * (0.82f + hoverValue * 0.18f)), FontWeight.SOLAR_ICONS);
+        ctx.getMatrices().pop();
     }
 
     private void renderCard(DrawContext ctx, Entry entry, int index, float x, float y, float w, float h,
@@ -146,7 +169,7 @@ public final class BackgroundPickerScreen extends Screen {
 
         String status = null;
         if (MenuBackgroundManager.pending() == entry) status = Math.round(MenuBackgroundManager.progress() * 100f) + "%";
-        else if (MenuBackgroundManager.selected() == entry) status = "Активен";
+        else if (MenuBackgroundManager.selected() == entry) status = ClientLanguage.text("ui.background.active", "Активен");
 
         if (status != null) {
             float chipW = CustomFontRenderer.getTextWidth(status, 6.7f, FontWeight.SEMIBOLD) + 12f;
@@ -157,11 +180,11 @@ public final class BackgroundPickerScreen extends Screen {
         }
 
         float titleY = y + h - 13.5f - hoverValue * 5.4f;
-        CustomFontRenderer.drawText(ctx, entry.title(), x + 9f, titleY, 7.2f,
+        CustomFontRenderer.drawText(ctx, entry.displayTitle(), x + 9f, titleY, 7.2f,
                 RenderUtil.withAlpha(TEXT, alpha), FontWeight.SEMIBOLD);
         if (hoverValue > 0.01f) {
-            CustomFontRenderer.drawText(ctx, "Нажмите чтобы выбрать", x + 9f, y + h - 10.5f, 6.8f,
-                    RenderUtil.withAlpha(0xFFD3CDD8, alpha * hoverValue), FontWeight.REGULAR);
+            CustomFontRenderer.drawText(ctx, ClientLanguage.text("ui.background.choose", "Нажмите, чтобы выбрать"), x + 9f, y + h - 10.5f, 6.8f,
+                    RenderUtil.withAlpha(0xFFD3CDD8, alpha * hoverValue), FontWeight.SEMIBOLD);
         }
 
     }
@@ -188,9 +211,9 @@ public final class BackgroundPickerScreen extends Screen {
         if (y > l.listY + l.listH || y + 20f < l.listY) return;
         RenderUtil.drawRoundedRect(ctx, l.listX + l.listW * 0.5f - 18f, y, 36f, 1f, 0.5f,
                 RenderUtil.withAlpha(0xFF514C59, alpha * 0.62f));
-        CustomFontRenderer.drawCenteredText(ctx, "Фоны взяты из t.me/BeatifulMinecraft",
+        CustomFontRenderer.drawCenteredText(ctx, ClientLanguage.text("ui.background.source", "Фоны взяты из t.me/BeatifulMinecraft"),
                 l.listX + l.listW * 0.5f, y + 9f, 6.8f,
-                RenderUtil.withAlpha(MUTED, alpha), FontWeight.REGULAR);
+                RenderUtil.withAlpha(MUTED, alpha), FontWeight.SEMIBOLD);
     }
 
     private void renderSkeleton(DrawContext ctx, float x, float y, float w, float h, int index, float alpha) {
@@ -205,17 +228,18 @@ public final class BackgroundPickerScreen extends Screen {
         float trackX = l.x + l.w - 6.5f;
         float thumbH = Math.max(24f, l.listH * l.listH / (l.listH + max));
         float thumbY = l.listY + (l.listH - thumbH) * (scroll / max);
+        int accent = CustomTheme.guiAccent();
         RenderUtil.drawRoundedRect(ctx, trackX, l.listY, 1.5f, l.listH, 0.75f,
-                RenderUtil.withAlpha(0xFF2B2930, alpha));
+                RenderUtil.withAlpha(accent, alpha * 0.18f));
         RenderUtil.drawRoundedRect(ctx, trackX, thumbY, 1.5f, thumbH, 0.75f,
-                RenderUtil.withAlpha(ACCENT, alpha * 0.75f));
+                RenderUtil.withAlpha(accent, alpha * 0.86f));
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0 || closing) return true;
         Layout l = layout().offsetY((1f - reveal()) * 11f);
-        if (inside(mouseX, mouseY, l.x + l.w - 29, l.y + 12, 16, 16)) {
+        if (inside(mouseX, mouseY, l.x + l.w - 29, l.y + 11.5f, 17, 17)) {
             close();
             return true;
         }

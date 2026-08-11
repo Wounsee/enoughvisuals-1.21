@@ -149,6 +149,12 @@ public abstract class ChatScreenMixin extends Screen {
         DragAndDrop dad = DragAndDrop.getInstance();
         dad.updateHover(mx, my);
 
+        if (button == 0 && dad.getHovered() != null && !enough$isOverChatInput(my)
+                && dad.clickHovered(mx, my, button)) {
+            cir.setReturnValue(true);
+            return;
+        }
+
         if (button == 0 && dad.getHovered() != null && !enough$isOverChatInput(my)) {
             if (dad.startDrag(mx, my)) {
                 enough$dragging = true;

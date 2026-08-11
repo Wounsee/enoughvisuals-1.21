@@ -17,11 +17,19 @@ import net.minecraft.client.MinecraftClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.Reader;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.text.Normalizer;
 import java.util.Base64;
 import java.util.ArrayList;
@@ -37,18 +45,28 @@ public final class ConfigSystem {
     private static final Logger LOGGER = LoggerFactory.getLogger("EnoughVisuals/Config");
     private static final ConfigSystem INSTANCE = new ConfigSystem();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final int CURRENT_VERSION = 1;
-    private static final long AUTOSAVE_INTERVAL_MS = 12_000L;
+    private static final int CURRENT_VERSION = 2;
+    private static final long AUTOSAVE_POLL_MS = 1_000L;
+    private static final long AUTOSAVE_DEBOUNCE_MS = 1_250L;
+    private static final long AUTOSAVE_MAX_DELAY_MS = 10_000L;
     private static final String CONFIG_EXTENSION = ".enough";
-    private static final String OBFUSCATION_HEADER = "EV1:";
+    private static final String LEGACY_HEADER = "EV1:";
+    private static final String ENCRYPTION_HEADER = "EV2:";
+    private static final String ENCRYPTION_ALGORITHM = "AES/GCM/NoPadding";
+    private static final byte[] ENCRYPTION_CONTEXT =
+            "EnoughVisuals/config/portable/v2".getBytes(StandardCharsets.UTF_8);
     private static final byte[] OBFUSCATION_KEY = "enoughvisuals".getBytes(StandardCharsets.UTF_8);
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private Path configDir;
     private Path stateFile;
     private boolean initialized = false;
 
     private String lastConfigName = "default";
-    private long lastAutosaveMs = 0L;
+    private long lastAutosavePollMs = 0L;
+    private long dirtySinceMs = 0L;
+    private long lastChangeMs = 0L;
+    private int pendingFingerprint = 0;
     private int lastSavedFingerprint = 0;
 
     private ConfigSystem() {}
@@ -115,8 +133,17 @@ public final class ConfigSystem {
         if (snapshot == null) return false;
 
         applySnapshot(snapshot);
+        boolean needsRewrite = !hasCurrentHeader(file) || snapshot.version < CURRENT_VERSION;
+        snapshot.version = CURRENT_VERSION;
+        snapshot.name = normalized;
+        if (needsRewrite) {
+            writeConfig(snapshot);
+        }
         setLastConfigName(normalized);
         lastSavedFingerprint = fingerprint(snapshot);
+        pendingFingerprint = lastSavedFingerprint;
+        dirtySinceMs = 0L;
+        lastChangeMs = 0L;
         return true;
     }
 
@@ -136,6 +163,9 @@ public final class ConfigSystem {
 
         setLastConfigName(normalized);
         lastSavedFingerprint = fingerprint(snapshot);
+        pendingFingerprint = lastSavedFingerprint;
+        dirtySinceMs = 0L;
+        lastChangeMs = 0L;
         return true;
     }
 
@@ -158,6 +188,11 @@ public final class ConfigSystem {
         } catch (Exception e) {
             LOGGER.error("Failed to delete config {}", file, e);
             return false;
+        }
+        try {
+            Files.deleteIfExists(backupPath(file));
+        } catch (Exception e) {
+            LOGGER.warn("Deleted config {}, but could not delete its backup", file, e);
         }
 
         if (resolved.equalsIgnoreCase(lastConfigName)) {
@@ -208,6 +243,7 @@ public final class ConfigSystem {
     public synchronized void setLastConfigName(String name) {
         String normalized = normalizeName(name);
         if (normalized == null) normalized = "default";
+        if (normalized.equals(this.lastConfigName) && stateFile != null && Files.exists(stateFile)) return;
         this.lastConfigName = normalized;
         writeState();
     }
@@ -223,11 +259,11 @@ public final class ConfigSystem {
 
     public synchronized void onClientTick(MinecraftClient client) {
         if (!initialized) return;
-        if (client == null || client.player == null) return;
+        if (client == null) return;
 
         long now = System.currentTimeMillis();
-        if (now - lastAutosaveMs < AUTOSAVE_INTERVAL_MS) return;
-        lastAutosaveMs = now;
+        if (now - lastAutosavePollMs < AUTOSAVE_POLL_MS) return;
+        lastAutosavePollMs = now;
 
         String current = normalizeName(lastConfigName);
         if (current == null) current = "default";
@@ -235,11 +271,30 @@ public final class ConfigSystem {
         ConfigSnapshot snapshot = captureSnapshot(current);
         int fp = fingerprint(snapshot);
         if (fp == lastSavedFingerprint) {
+            dirtySinceMs = 0L;
+            lastChangeMs = 0L;
+            pendingFingerprint = fp;
             return;
         }
 
+        if (dirtySinceMs == 0L) {
+            dirtySinceMs = now;
+            lastChangeMs = now;
+            pendingFingerprint = fp;
+            return;
+        }
+        if (fp != pendingFingerprint) {
+            pendingFingerprint = fp;
+            lastChangeMs = now;
+        }
+        if (now - lastChangeMs < AUTOSAVE_DEBOUNCE_MS
+                && now - dirtySinceMs < AUTOSAVE_MAX_DELAY_MS) return;
+
         if (writeConfig(snapshot)) {
             lastSavedFingerprint = fp;
+            pendingFingerprint = fp;
+            dirtySinceMs = 0L;
+            lastChangeMs = 0L;
             setLastConfigName(current);
         }
     }
@@ -362,8 +417,10 @@ public final class ConfigSystem {
         try {
             Files.createDirectories(configDir);
             String plainJson = GSON.toJson(snapshot);
-            String obfuscated = obfuscate(plainJson);
-            writeAtomically(file, obfuscated);
+            if (Files.exists(file) && readConfigFile(file, false) != null) {
+                writeAtomically(backupPath(file), Files.readString(file, StandardCharsets.UTF_8));
+            }
+            writeAtomically(file, encrypt(plainJson));
             return true;
         } catch (Exception e) {
             LOGGER.error("Failed to write config {}", file, e);
@@ -372,6 +429,28 @@ public final class ConfigSystem {
     }
 
     private ConfigSnapshot readConfig(Path file) {
+        ConfigSnapshot snapshot = readConfigFile(file, true);
+        if (snapshot != null) return snapshot;
+
+        Path recovery = temporaryPath(file);
+        snapshot = readConfigFile(recovery, false);
+        if (snapshot == null) {
+            recovery = backupPath(file);
+            snapshot = readConfigFile(recovery, false);
+        }
+        if (snapshot != null) {
+            LOGGER.warn("Recovered config {} from {}", file.getFileName(), recovery.getFileName());
+            try {
+                writeAtomically(file, encrypt(GSON.toJson(snapshot)));
+            } catch (Exception error) {
+                LOGGER.warn("Recovered {}, but could not repair the primary file", file.getFileName(), error);
+            }
+        }
+        return snapshot;
+    }
+
+    private ConfigSnapshot readConfigFile(Path file, boolean logFailure) {
+        if (file == null || !Files.exists(file)) return null;
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             StringBuilder raw = new StringBuilder();
             char[] buf = new char[4096];
@@ -381,7 +460,8 @@ public final class ConfigSystem {
             }
 
             String text = raw.toString();
-            String json = deobfuscate(text);
+            String json = decrypt(text);
+            if (json == null) json = deobfuscateLegacy(text);
             if (json == null || json.isBlank()) {
                 json = text;
             }
@@ -394,7 +474,8 @@ public final class ConfigSystem {
             ConfigSnapshot migrated = migrateLegacySnapshot(root, file);
             return migrated != null ? migrated : snapshot;
         } catch (Exception e) {
-            LOGGER.error("Failed to read config {}", file, e);
+            if (logFailure) LOGGER.error("Failed to read config {}", file, e);
+            else LOGGER.debug("Could not read config candidate {}", file, e);
             return null;
         }
     }
@@ -480,7 +561,7 @@ public final class ConfigSystem {
         if (migrated.modules.isEmpty()) return null;
 
         try {
-            writeAtomically(sourceFile, obfuscate(GSON.toJson(migrated)));
+            writeAtomically(sourceFile, encrypt(GSON.toJson(migrated)));
             LOGGER.info("Migrated protected config {} to stable schema", sourceFile.getFileName());
         } catch (Exception error) {
             LOGGER.warn("Loaded legacy config {}, but could not rewrite it", sourceFile.getFileName(), error);
@@ -565,8 +646,14 @@ public final class ConfigSystem {
     }
 
     private void writeAtomically(Path target, String contents) throws Exception {
-        Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
-        Files.writeString(temporary, contents, StandardCharsets.UTF_8);
+        Path temporary = temporaryPath(target);
+        byte[] bytes = contents.getBytes(StandardCharsets.UTF_8);
+        try (FileChannel channel = FileChannel.open(temporary,
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+            ByteBuffer buffer = ByteBuffer.wrap(bytes);
+            while (buffer.hasRemaining()) channel.write(buffer);
+            channel.force(true);
+        }
         try {
             Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
@@ -574,27 +661,81 @@ public final class ConfigSystem {
         }
     }
 
-    private String obfuscate(String json) {
-        if (json == null) return "";
-        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-        byte[] out = new byte[bytes.length];
-        for (int i = 0; i < bytes.length; i++) {
-            int key = OBFUSCATION_KEY[i % OBFUSCATION_KEY.length] & 0xFF;
-            int salt = (i * 31 + 17) & 0x7F;
-            out[i] = (byte) (bytes[i] ^ key ^ salt);
-        }
-        return OBFUSCATION_HEADER + Base64.getEncoder().encodeToString(out);
+    private Path backupPath(Path target) {
+        return target.resolveSibling(target.getFileName() + ".bak");
     }
 
-    private String deobfuscate(String text) {
+    private Path temporaryPath(Path target) {
+        return target.resolveSibling(target.getFileName() + ".tmp");
+    }
+
+    private boolean hasCurrentHeader(Path target) {
+        if (target == null || !Files.exists(target)) return false;
+        try (Reader reader = Files.newBufferedReader(target, StandardCharsets.UTF_8)) {
+            char[] prefix = new char[ENCRYPTION_HEADER.length()];
+            return reader.read(prefix) == prefix.length
+                    && ENCRYPTION_HEADER.equals(new String(prefix));
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private String encrypt(String json) throws Exception {
+        if (json == null) return "";
+        byte[] nonce = new byte[12];
+        SECURE_RANDOM.nextBytes(nonce);
+        Cipher cipher = Cipher.getInstance(ENCRYPTION_ALGORITHM);
+        cipher.init(Cipher.ENCRYPT_MODE, portableKey(), new GCMParameterSpec(128, nonce));
+        cipher.updateAAD(ENCRYPTION_CONTEXT);
+        byte[] ciphertext = cipher.doFinal(json.getBytes(StandardCharsets.UTF_8));
+
+        EncryptedEnvelope envelope = new EncryptedEnvelope();
+        envelope.version = CURRENT_VERSION;
+        envelope.algorithm = "AES-256-GCM";
+        envelope.nonce = Base64.getEncoder().encodeToString(nonce);
+        envelope.payload = Base64.getEncoder().encodeToString(ciphertext);
+        return ENCRYPTION_HEADER + Base64.getEncoder().encodeToString(
+                GSON.toJson(envelope).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String decrypt(String text) {
         if (text == null) return null;
         String trimmed = text.trim();
-        if (!trimmed.startsWith(OBFUSCATION_HEADER)) {
+        if (!trimmed.startsWith(ENCRYPTION_HEADER)) return null;
+        try {
+            byte[] envelopeBytes = Base64.getDecoder().decode(trimmed.substring(ENCRYPTION_HEADER.length()));
+            EncryptedEnvelope envelope = GSON.fromJson(
+                    new String(envelopeBytes, StandardCharsets.UTF_8), EncryptedEnvelope.class);
+            if (envelope == null || envelope.nonce == null || envelope.payload == null) return null;
+            Cipher cipher = Cipher.getInstance(ENCRYPTION_ALGORITHM);
+            cipher.init(Cipher.DECRYPT_MODE, portableKey(),
+                    new GCMParameterSpec(128, Base64.getDecoder().decode(envelope.nonce)));
+            cipher.updateAAD(ENCRYPTION_CONTEXT);
+            return new String(cipher.doFinal(Base64.getDecoder().decode(envelope.payload)), StandardCharsets.UTF_8);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private SecretKeySpec portableKey() throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        digest.update("EV".getBytes(StandardCharsets.UTF_8));
+        digest.update((byte) 0x2A);
+        digest.update("portable-config".getBytes(StandardCharsets.UTF_8));
+        digest.update((byte) 0x71);
+        digest.update("enough.visuals".getBytes(StandardCharsets.UTF_8));
+        return new SecretKeySpec(digest.digest(), "AES");
+    }
+
+    private String deobfuscateLegacy(String text) {
+        if (text == null) return null;
+        String trimmed = text.trim();
+        if (!trimmed.startsWith(LEGACY_HEADER)) {
             return null;
         }
 
         try {
-            String payload = trimmed.substring(OBFUSCATION_HEADER.length());
+            String payload = trimmed.substring(LEGACY_HEADER.length());
             byte[] encoded = Base64.getDecoder().decode(payload);
             byte[] out = new byte[encoded.length];
             for (int i = 0; i < encoded.length; i++) {
@@ -606,6 +747,17 @@ public final class ConfigSystem {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    private static final class EncryptedEnvelope {
+        @SerializedName("version")
+        private int version = CURRENT_VERSION;
+        @SerializedName("algorithm")
+        private String algorithm = "AES-256-GCM";
+        @SerializedName("nonce")
+        private String nonce = "";
+        @SerializedName("payload")
+        private String payload = "";
     }
 
     private static final class ConfigState {

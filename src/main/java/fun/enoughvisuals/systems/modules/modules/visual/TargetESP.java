@@ -72,7 +72,7 @@ public class TargetESP extends Module {
             "Color 2", "color_b", "Second crystal color", 0xFF5CA0FF
     ));
     public final ColorSetting squareColor = add(new ColorSetting(
-            "Square Color", "square_color", "Square texture color", 0xFFFFFFFF
+            "Square Color", "square_color", "Square texture color", 0xFFFFFFFF, false
     ));
     public final SliderSetting squareSize = add(new SliderSetting(
             "Square Size", "square_size", "Square texture size", 0.85, 0.35, 1.60, 0.05, "x"
@@ -374,7 +374,7 @@ public class TargetESP extends Module {
         float baseR = ((color >> 16) & 0xFF) / 255f;
         float baseG = ((color >> 8) & 0xFF) / 255f;
         float baseB = (color & 0xFF) / 255f;
-        float baseA = ((color >> 24) & 0xFF) / 255f;
+        float baseA = Math.max(1f / 255f, ((color >> 24) & 0xFF) / 255f);
         float r = MathHelper.lerp(redMix, baseR, 1f);
         float g = MathHelper.lerp(redMix, baseG, 0.12f);
         float b = MathHelper.lerp(redMix, baseB, 0.12f);
@@ -557,7 +557,7 @@ public class TargetESP extends Module {
         float baseR = ((color >> 16) & 0xFF) / 255f;
         float baseG = ((color >> 8) & 0xFF) / 255f;
         float baseB = (color & 0xFF) / 255f;
-        float baseA = ((color >> 24) & 0xFF) / 255f;
+        float baseA = Math.max(1f / 255f, ((color >> 24) & 0xFF) / 255f);
         float r = MathHelper.lerp(redMix, MathHelper.lerp(0.34f, baseR, 0.74f), 1f);
         float g = MathHelper.lerp(redMix, MathHelper.lerp(0.34f, baseG, 0.54f), 0.20f);
         float b = MathHelper.lerp(redMix, MathHelper.lerp(0.34f, baseB, 1.0f), 0.26f);

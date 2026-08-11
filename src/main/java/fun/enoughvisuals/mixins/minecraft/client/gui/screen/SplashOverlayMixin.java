@@ -1,6 +1,7 @@
 package fun.enoughvisuals.mixins.minecraft.client.gui.screen;
 
 import com.mojang.blaze3d.platform.GlStateManager;
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.SplashOverlay;
@@ -25,11 +26,8 @@ import java.util.function.Function;
 
 @Mixin(SplashOverlay.class)
 public abstract class SplashOverlayMixin {
-    private static final int BACKGROUND = 0xFF0E0F12;
-    private static final int TRACK = 0xFF242329;
-    private static final int ACCENT = 0xFFB99BEA;
-    private static final int ACCENT_HEAD = 0xFFE7D9FF;
-    private static final int SPLASH_LOGO_SIZE = 256;
+    private static final int BACKGROUND = 0xFF0C0D10;
+    private static final int SPLASH_LOGO_SIZE = 512;
     private static final Identifier SPLASH_LOGO = Identifier.of("enough", "splash/logo_glyph");
 
     @Shadow private float progress;
@@ -58,7 +56,9 @@ public abstract class SplashOverlayMixin {
                         glyph.setColorArgb(x, y, (alpha << 24) | 0x00FFFFFF);
                     }
                 }
-                textureManager.registerTexture(SPLASH_LOGO, new NativeImageBackedTexture(glyph));
+                NativeImageBackedTexture texture = new NativeImageBackedTexture(glyph);
+                texture.setFilter(true, false);
+                textureManager.registerTexture(SPLASH_LOGO, texture);
             }
         } catch (IOException exception) {
             System.err.println("[EnoughVisuals] Failed to prepare splash logo: " + exception.getMessage());
@@ -140,57 +140,59 @@ public abstract class SplashOverlayMixin {
         int drawnSize = Math.round(logoSize);
         int logoX = (width - drawnSize) / 2;
         int drawnY = Math.round(logoY);
+        int accent = enoughvisuals$accent();
+        int accentHead = RenderUtil.lighten(accent, 0.30f);
         context.drawTexture(RenderLayer::getGuiTextured, SPLASH_LOGO,
                 logoX, drawnY, 0.0f, 0.0f,
                 drawnSize, drawnSize, SPLASH_LOGO_SIZE, SPLASH_LOGO_SIZE,
                 SPLASH_LOGO_SIZE, SPLASH_LOGO_SIZE,
-                enoughvisuals$withAlpha(ACCENT_HEAD, logoAlpha));
+                enoughvisuals$withAlpha(accentHead, logoAlpha));
 
         float targetProgress = MathHelper.clamp(progress, 0.0f, 1.0f);
         if (enoughvisuals$lastFrameTime < 0L) {
             enoughvisuals$displayedProgress = targetProgress;
         } else {
             float elapsed = MathHelper.clamp(now - enoughvisuals$lastFrameTime, 0L, 100L);
-            float response = 1.0f - (float) Math.exp(-elapsed / 105.0f);
+            float response = 1.0f - (float) Math.exp(-elapsed / 175.0f);
             enoughvisuals$displayedProgress = MathHelper.lerp(response,
                     enoughvisuals$displayedProgress, targetProgress);
             if (targetProgress >= 1.0f) {
-                enoughvisuals$displayedProgress = Math.max(enoughvisuals$displayedProgress, 0.995f);
+                enoughvisuals$displayedProgress = Math.max(enoughvisuals$displayedProgress, 0.998f);
             }
         }
         enoughvisuals$lastFrameTime = now;
         enoughvisuals$displayedProgress = Math.max(0.0f,
                 Math.min(targetProgress, enoughvisuals$displayedProgress));
 
-        float eased = enoughvisuals$smoothstep(0.0f, 1.0f, enoughvisuals$displayedProgress);
+        float eased = enoughvisuals$displayedProgress;
         int barWidth = MathHelper.clamp(Math.round(width * 0.20f), 118, 238);
         int barX = (width - barWidth) / 2;
-        int barY = Math.round(height * 0.5f + 48.0f + contentOutro * 5.0f);
+        int barY = Math.round(height * 0.5f + 38.0f + contentOutro * 5.0f);
         int fillWidth = MathHelper.clamp(Math.round(barWidth * eased), 0, barWidth);
-        int barHeight = 5;
+        int barHeight = 3;
         int contentAlpha = MathHelper.clamp(Math.round(contentOpacity * 255.0f), 0, 255);
 
         RenderUtil.drawRoundedRect(context, barX, barY, barWidth, barHeight, barHeight * 0.5f,
-                enoughvisuals$withAlpha(TRACK, Math.round(contentAlpha * 0.72f)));
+                enoughvisuals$withAlpha(accent, Math.round(contentAlpha * 0.17f)));
         if (fillWidth > 0) {
             RenderUtil.drawRoundedRect(context, barX, barY, fillWidth, barHeight,
                     Math.min(barHeight * 0.5f, fillWidth * 0.5f),
-                    enoughvisuals$withAlpha(ACCENT, contentAlpha));
-            int highlightWidth = Math.min(22, fillWidth);
-            float shimmerPhase = (now % 1350L) / 1350.0f;
-            float shimmerEase = enoughvisuals$smoothstep(0.0f, 1.0f, shimmerPhase);
-            float highlightX = barX + Math.max(0, fillWidth - highlightWidth) * shimmerEase;
-            float shimmerAlpha = (float) Math.sin(shimmerPhase * Math.PI);
-            RenderUtil.drawRoundedRect(context, highlightX, barY + 0.75f,
-                    highlightWidth, barHeight - 1.5f, (barHeight - 1.5f) * 0.5f,
-                    enoughvisuals$withAlpha(ACCENT_HEAD,
-                            Math.round(contentAlpha * shimmerAlpha * 0.58f)));
+                    enoughvisuals$withAlpha(accent, contentAlpha));
         }
         context.draw();
     }
 
     private static int enoughvisuals$withAlpha(int color, int alpha) {
         return (color & 0x00FFFFFF) | (MathHelper.clamp(alpha, 0, 255) << 24);
+    }
+
+    @Unique
+    private static int enoughvisuals$accent() {
+        try {
+            return CustomTheme.guiAccent();
+        } catch (Throwable ignored) {
+            return 0xFF7F94DD;
+        }
     }
 
     private static float enoughvisuals$smoothstep(float edge0, float edge1, float value) {

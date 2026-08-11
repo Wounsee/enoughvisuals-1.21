@@ -6,6 +6,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import fun.enoughvisuals.mixins.accessors.GameRendererAccessor;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
+import fun.enoughvisuals.utils.font.SolarIcons;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.Camera;
@@ -287,7 +288,7 @@ public final class GpsSystem {
 
         float ry = y - 20f;
 
-        drawCenteredShadow(ctx, "\uF000", x, ry + 2, iconSize, 0xFF8B5CFF, CustomFontRenderer.FontWeight.MARK);
+        drawCenteredShadow(ctx, SolarIcons.WAYPOINT, x, ry + 2, iconSize, 0xFF8B5CFF, CustomFontRenderer.FontWeight.SOLAR_ICONS);
         drawCenteredShadow(ctx, name, x, ry + 22, nameSize, 0xFFFFFFFF, CustomFontRenderer.FontWeight.SEMIBOLD);
         drawCenteredShadow(ctx, distText, x, ry + 31, distSize, 0xFFFFFFFF, CustomFontRenderer.FontWeight.REGULAR);
     }

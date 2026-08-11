@@ -47,6 +47,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class ShaderEspRenderer {
@@ -145,8 +146,8 @@ public final class ShaderEspRenderer {
             RenderSystem.defaultBlendFunc();
             RenderSystem.disableCull();
 
-            try (BufferAllocator allocator = new BufferAllocator(RenderLayer.DEFAULT_BUFFER_SIZE)) {
-                VertexConsumerProvider.Immediate consumers = VertexConsumerProvider.immediate(allocator);
+            try (IsolatedEntityBuffers buffers = new IsolatedEntityBuffers()) {
+                VertexConsumerProvider.Immediate consumers = buffers.consumers();
                 VertexConsumer consumer = consumers.getBuffer(RenderLayer.getEntityCutoutNoCull(texture));
                 model.render(
                         matrices,
@@ -329,8 +330,8 @@ public final class ShaderEspRenderer {
             mainFramebufferSwapped = true;
             mask.beginWrite(false);
 
-            try (BufferAllocator allocator = new BufferAllocator(RenderLayer.DEFAULT_BUFFER_SIZE)) {
-                VertexConsumerProvider.Immediate consumers = VertexConsumerProvider.immediate(allocator);
+            try (IsolatedEntityBuffers buffers = new IsolatedEntityBuffers()) {
+                VertexConsumerProvider.Immediate consumers = buffers.consumers();
                 float tickDelta = context.tickCounter() != null ? context.tickCounter().getTickDelta(true) : 1.0F;
                 Vec3d cameraPos = context.camera().getPos();
                 MatrixStack matrices = context.matrixStack();
@@ -365,6 +366,44 @@ public final class ShaderEspRenderer {
             GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDraw);
             GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
             stateSnapshot.restore();
+        }
+    }
+
+    /**
+     * A one-buffer Immediate is unsafe for entity features: armor glint returns a
+     * dual consumer and requests two layers before either one is written. The
+     * fallback-only provider closes the first builder when the second layer is
+     * requested, producing "BufferBuilder: Not building" on the next vertex.
+     * Keep the glint layers on dedicated allocators just like vanilla's entity
+     * buffer storage while retaining an isolated fallback for dynamic textures.
+     */
+    private static final class IsolatedEntityBuffers implements AutoCloseable {
+        private final BufferAllocator fallback = new BufferAllocator(RenderLayer.DEFAULT_BUFFER_SIZE);
+        private final LinkedHashMap<RenderLayer, BufferAllocator> fixed = new LinkedHashMap<>();
+        private final VertexConsumerProvider.Immediate consumers;
+
+        private IsolatedEntityBuffers() {
+            add(RenderLayer.getArmorEntityGlint());
+            add(RenderLayer.getGlint());
+            add(RenderLayer.getGlintTranslucent());
+            add(RenderLayer.getEntityGlint());
+            consumers = VertexConsumerProvider.immediate(fixed, fallback);
+        }
+
+        private void add(RenderLayer layer) {
+            fixed.put(layer, new BufferAllocator(layer.getExpectedBufferSize()));
+        }
+
+        private VertexConsumerProvider.Immediate consumers() {
+            return consumers;
+        }
+
+        @Override
+        public void close() {
+            for (BufferAllocator allocator : fixed.values()) {
+                allocator.close();
+            }
+            fallback.close();
         }
     }
 

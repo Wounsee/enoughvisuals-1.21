@@ -1,7 +1,12 @@
 package fun.enoughvisuals.mixins.minecraft.client.gui.hud;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import fun.enoughvisuals.systems.gps.GpsSystem;
+import fun.enoughvisuals.systems.hud.CustomHotbarRenderer;
 import fun.enoughvisuals.systems.hud.DragAndDrop;
+import fun.enoughvisuals.systems.hud.HudBottomInset;
+import fun.enoughvisuals.systems.hud.HudTopInset;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.modules.utils.LockSlot;
 import fun.enoughvisuals.systems.modules.modules.visual.Animations;
@@ -9,7 +14,6 @@ import fun.enoughvisuals.systems.modules.modules.visual.Cooldowns;
 import fun.enoughvisuals.systems.modules.modules.visual.ColorPlus;
 import fun.enoughvisuals.systems.modules.modules.visual.MotionBlur;
 import fun.enoughvisuals.systems.modules.modules.visual.Crosshair;
-import fun.enoughvisuals.systems.modules.modules.visual.CustomTab;
 import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.modules.visual.ItemLight;
 import fun.enoughvisuals.systems.modules.modules.visual.MouseParticles;
@@ -58,6 +62,9 @@ public abstract class InGameHudMixin {
         MotionBlur.renderExact();
         ColorPlus.renderExact();
         RenderUtil.beginFrame();
+        HudBottomInset.beginFrame(client.currentScreen instanceof ChatScreen,
+                RenderUtil.getFrameDelta());
+        HudTopInset.beginFrame();
         // Safety reset: prevents leaked scissor state from clipping vanilla HUD
         // (scoreboard/effect icons) after custom tab/watermark animations.
         StencilUtil.resetRenderState();
@@ -80,9 +87,6 @@ public abstract class InGameHudMixin {
         if (NoRender.INSTANCE != null && NoRender.INSTANCE.isEnabled() && NoRender.INSTANCE.scoreboard.get()) {
             ci.cancel();
             return;
-        }
-        if (DragAndDrop.getInstance().getActiveElementByTypeId("custom_scoreboard") != null) {
-            ci.cancel();
         }
     }
 
@@ -149,6 +153,43 @@ public abstract class InGameHudMixin {
         context.getMatrices().pop();
     }
 
+    @Inject(method = "renderHotbar", at = @At("HEAD"), cancellable = true)
+    private void enough$renderCustomHotbar(DrawContext context, RenderTickCounter tickCounter,
+                                           CallbackInfo ci) {
+        if (!CustomHotbarRenderer.shouldRender()) return;
+        CustomHotbarRenderer.render(context, tickCounter);
+        ci.cancel();
+    }
+
+    @WrapOperation(
+            method = "renderMainHud",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/gui/hud/InGameHud;renderHotbar(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V"
+            )
+    )
+    private void enough$renderVanillaHotbarAboveChat(
+            InGameHud instance,
+            DrawContext context,
+            RenderTickCounter tickCounter,
+            Operation<Void> original
+    ) {
+        // The custom renderer consumes the same shared inset in its baseY.
+        // Wrap only vanilla here so neither implementation is translated twice.
+        if (CustomHotbarRenderer.shouldRender() || HudBottomInset.current() <= 0.01f) {
+            original.call(instance, context, tickCounter);
+            return;
+        }
+
+        context.getMatrices().push();
+        try {
+            context.getMatrices().translate(0f, -HudBottomInset.current(), 0f);
+            original.call(instance, context, tickCounter);
+        } finally {
+            context.getMatrices().pop();
+        }
+    }
+
     @Inject(method = "renderOverlay", at = @At("HEAD"), cancellable = true)
     private void onRenderOverlay(DrawContext context, Identifier texture, float opacity, CallbackInfo ci) {
         if (texture.getPath().contains("pumpkinblur") && NoRender.INSTANCE != null && NoRender.INSTANCE.isEnabled() && NoRender.INSTANCE.pumpkin.get()) {
@@ -176,7 +217,6 @@ public abstract class InGameHudMixin {
         }
         GpsSystem.getInstance().renderOverlay(ctx, counter.getTickDelta(true));
         Cooldowns.renderHotbarOverlay(ctx, counter.getTickDelta(true));
-        CustomTab.tickAnimation(counter.getTickDelta(true));
         // Vanilla chat preview and scoreboard queue text in DrawContext. Flush it
         // before any later overlay work.
         ctx.draw();
@@ -188,7 +228,7 @@ public abstract class InGameHudMixin {
     @Inject(method = "renderPlayerList", at = @At("HEAD"), cancellable = true)
     private void enough$renderAnimatedVanillaPlayerList(DrawContext ctx, RenderTickCounter counter, CallbackInfo ci) {
         Animations animations = Animations.active();
-        if (animations == null || !animations.vanillaTabAnimation.get() || CustomTab.shouldRenderCustomTab()) {
+        if (animations == null || !animations.vanillaTabAnimation.get()) {
             return;
         }
         if (client == null || client.world == null || client.player == null || client.options == null) {
@@ -222,13 +262,16 @@ public abstract class InGameHudMixin {
 
         float centerX = ctx.getScaledWindowWidth() * 0.5f;
         float tabOffsetY = 24f;
+        float originY = tabOffsetY - (1f - progress) * 8f;
         ctx.getMatrices().push();
+        HudTopInset.setPlayerListTransform(originY, progress);
         try {
-            ctx.getMatrices().translate(centerX, tabOffsetY - (1f - progress) * 8f, 0f);
+            ctx.getMatrices().translate(centerX, originY, 0f);
             ctx.getMatrices().scale(progress, progress, 1f);
             ctx.getMatrices().translate(-centerX, 0f, 0f);
             playerListHud.render(ctx, ctx.getScaledWindowWidth(), scoreboard, objective);
         } finally {
+            HudTopInset.clearPlayerListTransform();
             ctx.getMatrices().pop();
         }
 
@@ -262,27 +305,73 @@ public abstract class InGameHudMixin {
         context.getMatrices().push();
         context.getMatrices().scale(fixedScale, fixedScale, 1f);
 
+        float rawProgress = client.player.getAttackCooldownProgress(0.0f);
+        float follow = Math.min(1f, 0.18f + tickCounter.getTickDelta(true) * 0.28f);
+        enough$smoothCooldown += (rawProgress - enough$smoothCooldown) * follow;
+        float progress = enough$smoothCooldown;
+
         if ("Орбиз".equals(type)) {
-            RenderUtil.drawCircle(context, x, y, 1.2f, color);
+            RenderUtil.drawCrispCircle(context, x, y, 1.35f, color);
             context.getMatrices().pop();
             return;
         }
 
         if ("Круг".equals(type)) {
-            float rawProgress = client.player.getAttackCooldownProgress(0.0f);
-            float follow = Math.min(1f, 0.18f + tickCounter.getTickDelta(true) * 0.28f);
-            enough$smoothCooldown += (rawProgress - enough$smoothCooldown) * follow;
-            float progress = enough$smoothCooldown;
-
             float radius = 3.35f;
             float lineWidth = 0.95f;
 
             if (progress >= 1.0f) {
-                RenderUtil.drawCircleOutline(context, x, y, radius, lineWidth, color);
+                RenderUtil.drawCrispCircleOutline(context, x, y, radius, lineWidth, color);
             } else if (progress > 0.001f) {
-                RenderUtil.drawArc(context, x, y, radius, lineWidth, color, progress);
+                RenderUtil.drawCrispArc(context, x, y, radius, lineWidth, color, progress);
             }
+        } else if ("Крест".equals(type)) {
+            enough$drawCsCrosshair(context, module, x, y, progress);
         }
         context.getMatrices().pop();
+    }
+
+    @Unique
+    private static void enough$drawCsCrosshair(DrawContext context, Crosshair module,
+                                                float centerX, float centerY, float progress) {
+        float gap = module.crossGap.get().floatValue();
+        if (module.crossDynamic.get()) {
+            gap += (1f - progress) * module.crossDynamicAmount.get().floatValue();
+        }
+        float length = module.crossLength.get().floatValue();
+        float thickness = module.crossThickness.get().floatValue();
+        float half = thickness * 0.5f;
+        boolean outline = module.crossOutline.get();
+        float outlineWidth = module.crossOutlineWidth.get().floatValue();
+        int outlineColor = module.crossOutlineColor.get();
+        int color = module.color.get();
+
+        enough$drawCrossArm(context, centerX - gap - length, centerY - half,
+                length, thickness, outline, outlineWidth, outlineColor, color);
+        enough$drawCrossArm(context, centerX + gap, centerY - half,
+                length, thickness, outline, outlineWidth, outlineColor, color);
+        if (module.crossTop.get()) {
+            enough$drawCrossArm(context, centerX - half, centerY - gap - length,
+                    thickness, length, outline, outlineWidth, outlineColor, color);
+        }
+        enough$drawCrossArm(context, centerX - half, centerY + gap,
+                thickness, length, outline, outlineWidth, outlineColor, color);
+
+        if (module.crossDot.get()) {
+            float size = module.crossDotSize.get().floatValue();
+            enough$drawCrossArm(context, centerX - size * 0.5f, centerY - size * 0.5f,
+                    size, size, outline, outlineWidth, outlineColor, color);
+        }
+    }
+
+    @Unique
+    private static void enough$drawCrossArm(DrawContext context, float x, float y,
+                                             float width, float height, boolean outline,
+                                             float outlineWidth, int outlineColor, int color) {
+        if (outline && outlineWidth > 0f) {
+            RenderUtil.drawRect(context, x - outlineWidth, y - outlineWidth,
+                    width + outlineWidth * 2f, height + outlineWidth * 2f, outlineColor);
+        }
+        RenderUtil.drawRect(context, x, y, width, height, color);
     }
 }

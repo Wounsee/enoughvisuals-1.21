@@ -3,7 +3,6 @@ package fun.wounsee.cosmetic.mixin.fabric;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -24,6 +23,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.ItemStack;
@@ -122,7 +122,9 @@ public abstract class HumanoidArmorLayerMixinFabric<S extends HumanoidRenderStat
         if (slot == null) return; // ?
         Integer id = state instanceof PlayerRenderState playerRenderState ? playerRenderState.id : ((FiguraEntityRenderStateExtension)state).figura$getEntityId();
         if (id == null) return;
-        ItemStack itemStack = ((LivingEntity)(Minecraft.getInstance().level.getEntity(id))).getItemBySlot(slot);
+        Entity entity = AvatarManager.getEntity(state);
+        if (!(entity instanceof LivingEntity livingEntity)) return;
+        ItemStack itemStack = livingEntity.getItemBySlot(slot);
 
         // Make sure the item in the equipment slot is actually a piece of armor
         if ((itemStack.getItem() instanceof ArmorItem armorItem && armorItem.components().has(DataComponents.EQUIPPABLE) && armorItem.components().get(DataComponents.EQUIPPABLE).slot() == slot)) {

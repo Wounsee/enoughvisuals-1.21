@@ -1,7 +1,6 @@
 package fun.enoughvisuals.utils.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import fun.enoughvisuals.systems.modules.modules.client.CornerStyle;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import net.minecraft.client.MinecraftClient;
@@ -20,11 +19,13 @@ public class RenderUtil {
 
     private static final MinecraftClient mc = MinecraftClient.getInstance();
     private static final float EDGE_SMOOTHING = 0.65f;
+    private static final float DEFAULT_SQUIRCLE_EXPONENT = 3.35f;
+    private static float activeSquircleExponent = DEFAULT_SQUIRCLE_EXPONENT;
     private static long lastFrameTimeNs = System.nanoTime();
     private static float cachedFrameDelta = 1.0f;
 
-    private static void applyCornerStyle(String shader) {
-        ShaderManager.setUniform1f(shader, "uExponent", CornerStyle.exponent());
+    private static void applySquircleShape(String shader) {
+        ShaderManager.setUniform1f(shader, "uExponent", activeSquircleExponent);
     }
 
 
@@ -231,6 +232,63 @@ public class RenderUtil {
         }
     }
 
+    /** Anti-aliased clockwise squircle outline, starting at the top center. */
+    public static void drawSquircleProgressOutline(DrawContext ctx, float x, float y,
+                                                   float width, float height, float radius,
+                                                   float lineWidth, float progress, int color) {
+        drawSquircleProgressOutlineInternal(ctx, x, y, width, height, radius,
+                lineWidth, progress, color, EDGE_SMOOTHING);
+    }
+
+    public static void drawCrispSquircleProgressOutline(DrawContext ctx, float x, float y,
+                                                        float width, float height, float radius,
+                                                        float lineWidth, float progress, int color) {
+        drawSquircleProgressOutlineInternal(ctx, x, y, width, height, radius,
+                lineWidth, progress, color, 0.24f);
+    }
+
+    private static void drawSquircleProgressOutlineInternal(DrawContext ctx, float x, float y,
+                                                             float width, float height, float radius,
+                                                             float lineWidth, float progress, int color,
+                                                             float smoothing) {
+        progress = Math.max(0f, Math.min(1f, progress));
+        if (width <= 0f || height <= 0f || progress <= 0.001f) return;
+        float a = ((color >>> 24) & 0xFF) / 255f;
+        if (a <= 0.003f) return;
+        float r = ((color >>> 16) & 0xFF) / 255f;
+        float g = ((color >>> 8) & 0xFF) / 255f;
+        float b = (color & 0xFF) / 255f;
+        radius = clampRadius(radius, Math.min(width, height) * 0.5f);
+
+        Matrix4f matrix = ctx.getMatrices().peek().getPositionMatrix();
+        if (!hasComplex2DTransform(matrix)
+                && ShaderManager.hasProgram(ShaderManager.ROUNDED_RECT_PROGRESS)) {
+            beginShaderDraw();
+            ShaderRect rect = toShaderRect(ctx, x, y, width, height);
+            float radiusScale = Math.max(Math.min(rect.scaleXPx, rect.scaleYPx), 0.0001f);
+            String name = ShaderManager.ROUNDED_RECT_PROGRESS;
+            ShaderManager.useProgram(name);
+            applySquircleShape(name);
+            ShaderManager.setUniform4f(name, "uRect", rect.xPx, rect.yPx, rect.wPx, rect.hPx);
+            ShaderManager.setUniform4f(name, "uRadii", radius * radiusScale, radius * radiusScale,
+                    radius * radiusScale, radius * radiusScale);
+            ShaderManager.setUniform4f(name, "uColor", r, g, b, a);
+            ShaderManager.setUniform1f(name, "uSmoothing", smoothing * radiusScale);
+            ShaderManager.setUniform1f(name, "uLineWidth", lineWidth * radiusScale);
+            ShaderManager.setUniform1f(name, "uProgress", progress);
+            ShaderManager.drawQuad(name, ctx, x, y, width, height,
+                    lineWidth + smoothing + 1f);
+            ShaderManager.stopProgram();
+            endShaderDraw();
+            return;
+        }
+
+        // Safe fallback for unsupported GPUs. Full outlines stay smooth and avoid
+        // the former segmented/pixelated CPU path.
+        drawRoundedOutline(ctx, x, y, width, height, radius, lineWidth,
+                withAlpha(color, a * progress));
+    }
+
     
     
     
@@ -348,6 +406,35 @@ public class RenderUtil {
         drawEllipse(ctx, cx, cy, radius, radius, color);
     }
 
+    public static void drawCrispCircle(DrawContext ctx, float cx, float cy, float radius, int color) {
+        drawCircleInternal(ctx, cx, cy, radius, 0f, color, 0.24f);
+    }
+
+    public static void drawCrispCircleOutline(DrawContext ctx, float cx, float cy, float radius,
+                                              float lineWidth, int color) {
+        drawCircleInternal(ctx, cx, cy, radius, lineWidth, color, 0.24f);
+    }
+
+    private static void drawCircleInternal(DrawContext ctx, float cx, float cy, float radius,
+                                           float lineWidth, int color, float smoothing) {
+        float a = ((color >> 24) & 0xFF) / 255f;
+        float r = ((color >> 16) & 0xFF) / 255f;
+        float g = ((color >> 8) & 0xFF) / 255f;
+        float b = (color & 0xFF) / 255f;
+        if (a <= 0.003f) return;
+
+        Matrix4f matrix = ctx.getMatrices().peek().getPositionMatrix();
+        if (ShaderManager.isAvailable() && !hasComplex2DTransform(matrix)) {
+            beginShaderDraw();
+            drawCircleShader(ctx, cx, cy, radius, radius, lineWidth, smoothing, r, g, b, a);
+            endShaderDraw();
+        } else if (lineWidth > 0f) {
+            drawCircleOutlineCPU(ctx, cx, cy, radius, lineWidth, r, g, b, a);
+        } else {
+            drawEllipseCPU(ctx, cx, cy, radius, radius, r, g, b, a);
+        }
+    }
+
     public static void drawEllipse(DrawContext ctx, float cx, float cy, float rx, float ry, int color) {
         float a = ((color >> 24) & 0xFF) / 255f;
         float r = ((color >> 16) & 0xFF) / 255f;
@@ -361,7 +448,7 @@ public class RenderUtil {
 
         if (ShaderManager.isAvailable() && !transformed) {
             beginShaderDraw();
-            drawCircleShader(ctx, cx, cy, rx, ry, 0, r, g, b, a);
+            drawCircleShader(ctx, cx, cy, rx, ry, 0, EDGE_SMOOTHING, r, g, b, a);
             endShaderDraw();
         } else {
             drawEllipseCPU(ctx, cx, cy, rx, ry, r, g, b, a);
@@ -382,7 +469,7 @@ public class RenderUtil {
 
         if (ShaderManager.isAvailable() && !transformed) {
             beginShaderDraw();
-            drawCircleShader(ctx, cx, cy, radius, radius, lineWidth, r, g, b, a);
+            drawCircleShader(ctx, cx, cy, radius, radius, lineWidth, EDGE_SMOOTHING, r, g, b, a);
             endShaderDraw();
         } else {
             drawCircleOutlineCPU(ctx, cx, cy, radius, lineWidth, r, g, b, a);
@@ -398,6 +485,35 @@ public class RenderUtil {
 
         if (a <= 0.003f) return;
         drawSemiCircleCPU(ctx, cx, cy, radius, startAngle, endAngle, r, g, b, a);
+    }
+
+    /** Draws one filled annular sector. Angles are degrees in screen space. */
+    public static void drawRingSector(DrawContext ctx, float cx, float cy,
+                                      float innerRadius, float outerRadius,
+                                      float startAngle, float endAngle, int color) {
+        float a = ((color >> 24) & 0xFF) / 255f;
+        float r = ((color >> 16) & 0xFF) / 255f;
+        float g = ((color >> 8) & 0xFF) / 255f;
+        float b = (color & 0xFF) / 255f;
+        if (a <= 0.003f || outerRadius <= 0f || outerRadius <= innerRadius || endAngle <= startAngle) return;
+
+        Matrix4f matrix = ctx.getMatrices().peek().getPositionMatrix();
+        int segments = Math.max(8, (int) Math.ceil((endAngle - startAngle) * outerRadius / 90f));
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+
+        BufferBuilder buffer = Tessellator.getInstance()
+                .begin(VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
+        for (int i = 0; i <= segments; i++) {
+            float angle = (float) Math.toRadians(startAngle + (endAngle - startAngle) * i / segments);
+            float cos = (float) Math.cos(angle);
+            float sin = (float) Math.sin(angle);
+            buffer.vertex(matrix, cx + cos * innerRadius, cy + sin * innerRadius, 0).color(r, g, b, a);
+            buffer.vertex(matrix, cx + cos * outerRadius, cy + sin * outerRadius, 0).color(r, g, b, a);
+        }
+        BufferRenderer.drawWithGlobalProgram(buffer.end());
+        RenderSystem.disableBlend();
     }
 
     
@@ -541,7 +657,7 @@ public class RenderUtil {
         float pxScale = Math.max(Math.min(rect.scaleXPx, rect.scaleYPx), 0.0001f);
         String shader = ShaderManager.ROUNDED_CHECKERBOARD;
         ShaderManager.useProgram(shader);
-        applyCornerStyle(shader);
+        applySquircleShape(shader);
         ShaderManager.setUniform4f(shader, "uRect", rect.xPx, rect.yPx, rect.wPx, rect.hPx);
         ShaderManager.setUniform1f(shader, "uRadius", radius * pxScale);
         ShaderManager.setUniform1f(shader, "uCellSize", cellSize * pxScale);
@@ -617,16 +733,22 @@ public class RenderUtil {
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+        RenderSystem.setShaderTexture(0, texture);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
-        ctx.drawTexture(
-                RenderLayer::getGuiTextured,
-                texture,
-                (int) x, (int) y,
-                u, v,
-                (int) width, (int) height,
-                texWidth, texHeight
-        );
+        float u0 = u / texWidth;
+        float u1 = (u + uWidth) / texWidth;
+        float v0 = v / texHeight;
+        float v1 = (v + vHeight) / texHeight;
+        Matrix4f matrix = ctx.getMatrices().peek().getPositionMatrix();
+        BufferBuilder buffer = Tessellator.getInstance().begin(
+                VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+        buffer.vertex(matrix, x, y, 0f).texture(u0, v0).color(1f, 1f, 1f, alpha);
+        buffer.vertex(matrix, x, y + height, 0f).texture(u0, v1).color(1f, 1f, 1f, alpha);
+        buffer.vertex(matrix, x + width, y + height, 0f).texture(u1, v1).color(1f, 1f, 1f, alpha);
+        buffer.vertex(matrix, x + width, y, 0f).texture(u1, v0).color(1f, 1f, 1f, alpha);
+        BufferRenderer.drawWithGlobalProgram(buffer.end());
 
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         RenderSystem.disableBlend();
@@ -974,7 +1096,7 @@ public class RenderUtil {
         String name = ShaderManager.ROUNDED_RECT;
 
         ShaderManager.useProgram(name);
-        applyCornerStyle(name);
+        applySquircleShape(name);
         ShaderManager.setUniform4f(name, "uRect", rect.xPx, rect.yPx, rect.wPx, rect.hPx);
         ShaderManager.setUniform4f(name, "uRadii", tl * radiusScale, tr * radiusScale, br * radiusScale, bl * radiusScale);
         ShaderManager.setUniform4f(name, "uColor", r, g, b, a);
@@ -992,7 +1114,7 @@ public class RenderUtil {
         String name = ShaderManager.ROUNDED_RECT_OUTLINE;
 
         ShaderManager.useProgram(name);
-        applyCornerStyle(name);
+        applySquircleShape(name);
         ShaderManager.setUniform4f(name, "uRect", rect.xPx, rect.yPx, rect.wPx, rect.hPx);
         ShaderManager.setUniform4f(name, "uRadii", tl * radiusScale, tr * radiusScale, br * radiusScale, bl * radiusScale);
         ShaderManager.setUniform4f(name, "uColor", r, g, b, a);
@@ -1010,7 +1132,7 @@ public class RenderUtil {
         String name = ShaderManager.ROUNDED_RECT_GRADIENT;
 
         ShaderManager.useProgram(name);
-        applyCornerStyle(name);
+        applySquircleShape(name);
         ShaderManager.setUniform4f(name, "uRect", rect.xPx, rect.yPx, rect.wPx, rect.hPx);
         ShaderManager.setUniform4f(name, "uRadii", tl * radiusScale, tr * radiusScale, br * radiusScale, bl * radiusScale);
         ShaderManager.setUniform1f(name, "uSmoothing", EDGE_SMOOTHING * radiusScale);
@@ -1023,7 +1145,8 @@ public class RenderUtil {
     }
 
     private static void drawCircleShader(DrawContext ctx, float cx, float cy, float rx, float ry,
-                                         float lineWidth, float r, float g, float b, float a) {
+                                         float lineWidth, float smoothing,
+                                         float r, float g, float b, float a) {
         ShaderEllipse ellipse = toShaderEllipse(ctx, cx, cy, rx, ry);
         String name = ShaderManager.CIRCLE;
 
@@ -1031,7 +1154,7 @@ public class RenderUtil {
         ShaderManager.setUniform2f(name, "uCenter", ellipse.cxPx, ellipse.cyPx);
         ShaderManager.setUniform2f(name, "uRadius", ellipse.rxPx, ellipse.ryPx);
         ShaderManager.setUniform4f(name, "uColor", r, g, b, a);
-        ShaderManager.setUniform1f(name, "uSmoothing", EDGE_SMOOTHING * ellipse.scalePx);
+        ShaderManager.setUniform1f(name, "uSmoothing", smoothing * ellipse.scalePx);
         ShaderManager.setUniform1f(name, "uLineWidth", lineWidth * ellipse.scalePx);
         ShaderManager.setUniform1f(name, "uProgress", 1.0f);                     
 
@@ -1042,6 +1165,16 @@ public class RenderUtil {
     }
 
     public static void drawArc(DrawContext ctx, float cx, float cy, float radius, float lineWidth, int color, float progress) {
+        drawArcInternal(ctx, cx, cy, radius, lineWidth, color, progress, EDGE_SMOOTHING);
+    }
+
+    public static void drawCrispArc(DrawContext ctx, float cx, float cy, float radius,
+                                    float lineWidth, int color, float progress) {
+        drawArcInternal(ctx, cx, cy, radius, lineWidth, color, progress, 0.24f);
+    }
+
+    private static void drawArcInternal(DrawContext ctx, float cx, float cy, float radius,
+                                        float lineWidth, int color, float progress, float smoothing) {
         float a = ((color >> 24) & 0xFF) / 255f;
         if (a <= 0.003f) return;
         float r = ((color >> 16) & 0xFF) / 255f;
@@ -1060,7 +1193,7 @@ public class RenderUtil {
             ShaderManager.setUniform2f(name, "uCenter", ellipse.cxPx, ellipse.cyPx);
             ShaderManager.setUniform2f(name, "uRadius", ellipse.rxPx, ellipse.ryPx);
             ShaderManager.setUniform4f(name, "uColor", r, g, b, a);
-            ShaderManager.setUniform1f(name, "uSmoothing", EDGE_SMOOTHING * ellipse.scalePx);
+            ShaderManager.setUniform1f(name, "uSmoothing", smoothing * ellipse.scalePx);
             ShaderManager.setUniform1f(name, "uLineWidth", lineWidth * ellipse.scalePx);
             ShaderManager.setUniform1f(name, "uProgress", progress);                     
 
@@ -1081,7 +1214,7 @@ public class RenderUtil {
         String name = ShaderManager.SHADOW;
 
         ShaderManager.useProgram(name);
-        applyCornerStyle(name);
+        applySquircleShape(name);
         ShaderManager.setUniform4f(name, "uRect", rect.xPx, rect.yPx, rect.wPx, rect.hPx);
         ShaderManager.setUniform4f(name, "uRadii", radius * pxScale, radius * pxScale, radius * pxScale, radius * pxScale);
         ShaderManager.setUniform4f(name, "uShadowColor", r, g, b, a);
@@ -1312,7 +1445,7 @@ public class RenderUtil {
         String shader = ShaderManager.ROUNDED_TEXTURE;
 
         ShaderManager.useProgram(shader);
-        applyCornerStyle(shader);
+        applySquircleShape(shader);
         ShaderManager.setUniform2f(shader, "uSize", w, h);
         ShaderManager.setUniform4f(shader, "uRadii", radius, radius, radius, radius);
         ShaderManager.setUniform1f(shader, "uSmoothing", 0.543f); // Сглаживание
@@ -1344,7 +1477,7 @@ public class RenderUtil {
         bindTextureUnitZero(texture);
         String shader = ShaderManager.MENU_PREVIEW;
         ShaderManager.useProgram(shader);
-        applyCornerStyle(shader);
+        applySquircleShape(shader);
         ShaderManager.setUniform2f(shader, "uSize", w, h);
         ShaderManager.setUniform4f(shader, "uRadii", radius, radius, radius, radius);
         ShaderManager.setUniform1f(shader, "uSmoothing", 0.62f);
@@ -1646,8 +1779,22 @@ public class RenderUtil {
     }
 
     private static float squircleComponent(float value) {
-        float exponent = 2f / CornerStyle.exponent();
+        float exponent = 2f / activeSquircleExponent;
         return Math.copySign((float) Math.pow(Math.abs(value), exponent), value);
+    }
+
+    public static float squircleExponent() {
+        return activeSquircleExponent;
+    }
+
+    public static float pushSquircleExponent(float exponent) {
+        float previous = activeSquircleExponent;
+        activeSquircleExponent = Math.max(2f, Math.min(6f, exponent));
+        return previous;
+    }
+
+    public static void restoreSquircleExponent(float exponent) {
+        activeSquircleExponent = Math.max(2f, Math.min(6f, exponent));
     }
 
     private static void fillQuad(Matrix4f matrix, float x1, float y1, float x2, float y2,

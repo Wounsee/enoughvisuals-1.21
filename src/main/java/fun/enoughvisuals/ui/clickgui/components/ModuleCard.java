@@ -18,6 +18,7 @@ import fun.enoughvisuals.systems.modules.settings.StringSetting;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.SolarIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.StencilUtil;
 import fun.enoughvisuals.utils.sound.EnoughSoundPlayer;
@@ -25,6 +26,7 @@ import fun.enoughvisuals.utils.system.BindKeyUtil;
 import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.RotationAxis;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -34,6 +36,17 @@ import java.util.Map;
 
 public final class ModuleCard {
     private static final float HEADER_H = 41f;
+    private static final float DROPDOWN_LABEL_H = 12.5f;
+    private static final float DROPDOWN_CLOSED_H = 31f;
+    private static final float DROPDOWN_HEADER_H = 16.5f;
+    private static final float DROPDOWN_OPTION_H = 13.5f;
+    private static final float CHOICE_LABEL_H = 12.5f;
+    private static final float CHOICE_HEADER_H = 16.5f;
+    private static final float CHOICE_CLOSED_H = 31f;
+    private static final float CHOICE_SEARCH_H = 17f;
+    private static final float CHOICE_OPTION_H = 15f;
+    private static final float SLIDER_TRACK_X = 4f;
+    private static final float SLIDER_TRACK_RIGHT = 4f;
     private static final String ICON_GEAR = "\uF007";
     private static final String ICON_BIND = "\uF005";
 
@@ -43,6 +56,9 @@ public final class ModuleCard {
     private final Map<Setting<?>, Float> valueAnimations = new HashMap<>();
     private final Map<Setting<?>, Float> secondaryAnimations = new HashMap<>();
     private final Map<Setting<?>, Float> choiceAnimations = new HashMap<>();
+    private final Map<Setting<?>, Float> dropdownAnimations = new HashMap<>();
+    private final Map<Setting<?>, Boolean> booleanStates = new HashMap<>();
+    private final Map<Setting<?>, Long> booleanChangedAt = new HashMap<>();
     private final Map<String, Float> controlAnimations = new HashMap<>();
     private final Map<Setting<?>, Integer> optionScroll = new HashMap<>();
     private final Map<Setting<?>, Float> smoothOptionScroll = new HashMap<>();
@@ -167,9 +183,10 @@ public final class ModuleCard {
         drawX = x;
         drawY = y + (1f - RenderUtil.easeOutQuart(reveal)) * 11f * scale;
         float alpha = parentAlpha * RenderUtil.easeOutExpo(reveal);
+        float frame = RenderUtil.getFrameDelta();
+        updateDropdownAnimations(frame);
         float height = currentHeight(scale);
         boolean hovered = contains(mouseX, mouseY, scale);
-        float frame = RenderUtil.getFrameDelta();
         hover = RenderUtil.animate(hover, hovered ? 1f : 0f, 0.28f, frame);
         if (lastEnabled != module.isEnabled()) {
             lastEnabled = module.isEnabled();
@@ -192,18 +209,51 @@ public final class ModuleCard {
                     width - 1.4f * scale, height - 1.4f * scale, 7.8f * scale,
                     RenderUtil.withAlpha(MenuScreen.CARD_HOVER, 0.18f * highlight * alpha));
         }
+        if ("optimization".equals(module.getId())) {
+            renderPremiumShimmer(context, height, scale, alpha, now);
+        }
 
         renderHeader(context, scale, mouseX, mouseY, alpha, now);
         float expand = clamp(expansionValue());
         if (expand > 0.005f) renderSettings(context, scale, mouseX, mouseY, alpha * RenderUtil.easeOutQuad(expand), expand);
     }
 
+    private void renderPremiumShimmer(DrawContext context, float height, float scale, float alpha, long now) {
+        float phase = (now % 2_800L) / 2_800f;
+        float travel = width + 76f * scale;
+        float centerX = drawX - 38f * scale + travel * RenderUtil.easeInOutCubic(phase);
+        float stripeWidth = 18f * scale;
+
+        context.draw();
+        StencilUtil.enableScissor(drawX, drawY, width, height);
+        context.getMatrices().push();
+        context.getMatrices().translate(centerX, drawY + height * 0.5f, 0f);
+        context.getMatrices().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-17f));
+        float stripeHeight = height + 52f * scale;
+        RenderUtil.drawRoundedGradientH(context, -stripeWidth, -stripeHeight * 0.5f,
+                stripeWidth, stripeHeight, 3f * scale,
+                RenderUtil.withAlpha(0xFFFFFF, 0f),
+                RenderUtil.withAlpha(0xFFFFFF, 0.115f * alpha));
+        RenderUtil.drawRoundedGradientH(context, 0f, -stripeHeight * 0.5f,
+                stripeWidth, stripeHeight, 3f * scale,
+                RenderUtil.withAlpha(0xFFFFFF, 0.115f * alpha),
+                RenderUtil.withAlpha(0xFFFFFF, 0f));
+        context.getMatrices().pop();
+        context.draw();
+        StencilUtil.disableScissor();
+
+        float pulse = 0.5f + 0.5f * (float) Math.sin(now / 430.0);
+        RenderUtil.drawRoundedOutline(context, drawX + 0.55f * scale, drawY + 0.55f * scale,
+                width - 1.1f * scale, height - 1.1f * scale, 8f * scale, 0.65f * scale,
+                RenderUtil.withAlpha(MenuScreen.ACCENT_LIGHT, alpha * (0.13f + pulse * 0.07f)));
+    }
+
     private void renderHeader(DrawContext context, float scale, int mouseX, int mouseY, float alpha, long now) {
         boolean blocked = ModuleManager.getInstance().isBlocked(module);
         boolean available = !blocked && module.isAvailable();
         float headerH = HEADER_H * scale;
-        float toggleW = 17f * scale;
-        float toggleH = 10.2f * scale;
+        float toggleW = 18f * scale;
+        float toggleH = 9f * scale;
         float toggleX = drawX + width - 9f * scale - toggleW;
         float toggleY = drawY + (HEADER_H * scale - toggleH) * 0.5f;
         boolean hasSettings = !displaySettings().isEmpty();
@@ -253,19 +303,8 @@ public final class ModuleCard {
                             Math.max(gearHover, expanded ? 0.72f : 0f)), FontWeight.CLICK_GUI);
         }
 
-        int track = RenderUtil.lerpColor(
-                RenderUtil.withAlpha(MenuScreen.TOGGLE_OFF, 0.95f * alpha),
-                RenderUtil.withAlpha(MenuScreen.TOGGLE_ON, alpha), toggleAnimation);
-        float switchProgress = clamp((System.currentTimeMillis() - toggleChangedAt) / 280f);
-        float pulse = toggleChangedAt == 0L ? 0f : (float) Math.sin(switchProgress * Math.PI) * (1f - switchProgress);
-        float motion = clamp(Math.abs((module.isEnabled() ? 1f : 0f) - toggleAnimation) * 4.5f);
-        RenderUtil.drawRoundedRect(context, toggleX - pulse * 0.25f * scale, toggleY,
-                toggleW + pulse * 0.5f * scale, toggleH, toggleH * 0.5f, track);
-        float knobX = toggleX + 5f * scale + toggleAnimation * (toggleW - 10f * scale);
-        float knobRx = (3.75f + motion * 1.05f + pulse * 0.28f) * scale;
-        float knobRy = (3.75f - motion * 0.24f) * scale;
-        RenderUtil.drawEllipse(context, knobX, toggleY + toggleH * 0.5f, knobRx, knobRy,
-                RenderUtil.withAlpha(MenuScreen.TOGGLE_KNOB, alpha));
+        renderAnimatedToggle(context, toggleX, toggleY, toggleW, toggleH, toggleAnimation,
+                module.isEnabled(), toggleChangedAt, scale, alpha);
     }
 
     private void renderDescription(DrawContext context, String description, float x, float y, float available,
@@ -358,37 +397,103 @@ public final class ModuleCard {
 
     private void renderBoolean(DrawContext context, BooleanSetting setting, float x, float y, float w, float s, float alpha) {
         label(context, setting.getName(), x + 4f * s, y + 8f * s, s, alpha);
+        boolean previous = booleanStates.getOrDefault(setting, setting.get());
+        if (previous != setting.get()) {
+            booleanStates.put(setting, setting.get());
+            booleanChangedAt.put(setting, System.currentTimeMillis());
+        } else {
+            booleanStates.putIfAbsent(setting, setting.get());
+        }
         float animation = RenderUtil.animate(valueAnimations.getOrDefault(setting, setting.get() ? 1f : 0f),
-                setting.get() ? 1f : 0f, 0.25f, RenderUtil.getFrameDelta());
+                setting.get() ? 1f : 0f, 0.22f, RenderUtil.getFrameDelta());
         valueAnimations.put(setting, animation);
-        float tw = 17f * s, th = 10.2f * s;
-        float tx = x + w - tw - 4f * s, ty = y + 5.5f * s;
-        RenderUtil.drawRoundedRect(context, tx, ty, tw, th, th * 0.5f,
-                RenderUtil.lerpColor(RenderUtil.withAlpha(MenuScreen.TOGGLE_OFF, alpha),
-                        RenderUtil.withAlpha(MenuScreen.ACCENT, alpha), animation));
-        float motion = clamp(Math.abs((setting.get() ? 1f : 0f) - animation) * 4.5f);
-        RenderUtil.drawEllipse(context, tx + 5f * s + animation * (tw - 10f * s), ty + th * 0.5f,
-                (3.75f + motion * 1.0f) * s, (3.75f - motion * 0.24f) * s,
-                RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha));
+        float tw = 18f * s, th = 9f * s;
+        float tx = x + w - tw - 4f * s, ty = y + 8f * s;
+        renderAnimatedToggle(context, tx, ty, tw, th, animation, setting.get(),
+                booleanChangedAt.getOrDefault(setting, 0L), s, alpha);
+    }
+
+    private static void drawCapsule(DrawContext context, float x, float y,
+                                    float width, float height, int color) {
+        float previousExponent = RenderUtil.pushSquircleExponent(2f);
+        try {
+            RenderUtil.drawRoundedRect(context, x, y, width, height,
+                    Math.min(width, height) * 0.5f, color);
+        } finally {
+            RenderUtil.restoreSquircleExponent(previousExponent);
+        }
+    }
+
+    private static void drawCapsuleOutline(DrawContext context, float x, float y,
+                                           float width, float height, float lineWidth, int color) {
+        float previousExponent = RenderUtil.pushSquircleExponent(2f);
+        try {
+            RenderUtil.drawRoundedOutline(context, x, y, width, height,
+                    Math.min(width, height) * 0.5f, lineWidth, color);
+        } finally {
+            RenderUtil.restoreSquircleExponent(previousExponent);
+        }
+    }
+
+    private static void renderAnimatedToggle(DrawContext context, float x, float y, float width, float height,
+                                             float animation, boolean enabled, long changedAt,
+                                             float scale, float alpha) {
+        float progress = RenderUtil.easeInOutCubic(clamp(animation));
+        float switchProgress = changedAt == 0L ? 1f : clamp((System.currentTimeMillis() - changedAt) / 310f);
+        float pulse = changedAt == 0L ? 0f
+                : (float) Math.sin(switchProgress * Math.PI) * (1f - switchProgress);
+        float motion = clamp(Math.abs((enabled ? 1f : 0f) - animation) * 4.2f);
+        float trackX = x - pulse * 0.22f * scale;
+        float trackW = width + pulse * 0.44f * scale;
+        int track = RenderUtil.lerpColor(
+                RenderUtil.withAlpha(MenuScreen.TOGGLE_OFF, 0.90f * alpha),
+                RenderUtil.withAlpha(MenuScreen.TOGGLE_ON, 0.92f * alpha), progress);
+        drawCapsule(context, trackX, y, trackW, height, track);
+        drawCapsuleOutline(context, trackX, y, trackW, height, 0.45f * scale,
+                RenderUtil.withAlpha(0xFFFFFF, 0.065f * alpha));
+
+        float knobW = (7.25f + motion * 1.05f + pulse * 0.35f) * scale;
+        float knobH = (5.25f - motion * 0.24f + pulse * 0.10f) * scale;
+        float inset = 1.25f * scale;
+        float left = trackX + inset;
+        float right = trackX + trackW - inset - knobW;
+        float knobX = left + (right - left) * progress;
+        float knobY = y + (height - knobH) * 0.5f;
+        drawCapsule(context, knobX, knobY, knobW, knobH,
+                RenderUtil.withAlpha(MenuScreen.TOGGLE_KNOB, alpha * (0.78f + progress * 0.20f)));
     }
 
     private void renderSlider(DrawContext context, SliderSetting setting, float x, float y, float w, float s,
                               float alpha, float hover) {
-        label(context, setting.getName(), x + 4f * s, y + 5f * s, s, alpha);
-        CustomFontRenderer.drawRightText(context, setting.getDisplayValue(), x + w - 4f * s, y + 5.2f * s,
-                5.5f * s, RenderUtil.withAlpha(MenuScreen.VALUE_DIM, alpha), FontWeight.SEMIBOLD);
-        float sx = x + 4f * s, sw = w - 8f * s, sy = y + 16.5f * s;
         float progress = RenderUtil.animate(valueAnimations.getOrDefault(setting, setting.getProgress()),
                 setting.getProgress(), activeDrag == setting ? 0.48f : 0.24f, RenderUtil.getFrameDelta());
         valueAnimations.put(setting, progress);
-        RenderUtil.drawRoundedRect(context, sx, sy, sw, 3f * s, 1.5f * s,
-                RenderUtil.withAlpha(MenuScreen.SLIDER_BG, 0.92f * alpha));
-        if (progress > 0.001f) RenderUtil.drawRoundedRect(context, sx, sy, sw * progress, 3f * s, 1.5f * s,
-                RenderUtil.withAlpha(MenuScreen.ACCENT, alpha));
-        float movement = clamp(Math.abs(setting.getProgress() - progress) * 9f);
-        RenderUtil.drawCircle(context, sx + sw * progress, sy + 1.5f * s,
-                (3.5f + hover * 0.45f + movement * 0.65f) * s,
-                RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha));
+        double animatedValue = setting.getMin() + (setting.getMax() - setting.getMin()) * progress;
+        String value = format(animatedValue, setting.getStep()) + setting.getSuffix();
+        float textSize = 5.8f * s;
+        value = CustomFontRenderer.trimToWidth(value, 34f * s, textSize, FontWeight.SEMIBOLD);
+        float valueWidth = CustomFontRenderer.getTextWidth(value, textSize, FontWeight.SEMIBOLD);
+        String settingName = CustomFontRenderer.trimToWidth(setting.getName(),
+                Math.max(12f * s, w - valueWidth - 16f * s), 6.4f * s, FontWeight.SEMIBOLD);
+        CustomFontRenderer.drawText(context, settingName, x + 4f * s, y + 5f * s, 6.4f * s,
+                RenderUtil.withAlpha(MenuScreen.TEXT_GRAY, 0.94f * alpha), FontWeight.SEMIBOLD);
+        CustomFontRenderer.drawRightText(context, value, x + w - 4f * s, y + 5.2f * s, textSize,
+                RenderUtil.withAlpha(MenuScreen.VALUE_DIM, alpha), FontWeight.SEMIBOLD);
+
+        float sx = x + SLIDER_TRACK_X * s;
+        float sw = Math.max(12f * s, w - (SLIDER_TRACK_X + SLIDER_TRACK_RIGHT) * s);
+        float movement = clamp(Math.abs(setting.getProgress() - progress) * 8f);
+        float trackH = (2.6f + hover * 0.10f + movement * 0.08f) * s;
+        float sy = y + 18.5f * s;
+        int track = RenderUtil.lerpColor(
+                RenderUtil.withAlpha(MenuScreen.SLIDER_BG, 0.92f * alpha),
+                RenderUtil.withAlpha(RenderUtil.lighten(MenuScreen.SLIDER_BG, 0.10f), alpha), hover);
+        drawCapsule(context, sx, sy, sw, trackH, track);
+        if (progress > 0.001f) {
+            int fill = RenderUtil.lerpColor(RenderUtil.withAlpha(MenuScreen.ACCENT, 0.88f * alpha),
+                    RenderUtil.withAlpha(MenuScreen.ACCENT_LIGHT, alpha), hover * 0.28f);
+            drawCapsule(context, sx, sy, Math.max(trackH, sw * progress), trackH, fill);
+        }
     }
 
     private void renderRange(DrawContext context, RangeSetting setting, float x, float y, float w, float s,
@@ -418,51 +523,144 @@ public final class ModuleCard {
 
     private void renderMode(DrawContext context, ModeSetting setting, float x, float y, float w, float s,
                             int mouseX, int mouseY, float alpha) {
-        label(context, setting.getName(), x + 4f * s, y + 5f * s, s, alpha);
-        for (Chip chip : modeChips(setting, w / s - 8f)) {
-            boolean selected = setting.is(chip.value);
-            float cx = x + (4f + chip.x) * s, cy = y + (16f + chip.y) * s;
-            boolean hovered = hit(mouseX, mouseY, cx, cy, chip.w * s, 14f * s);
-            float selectedAnim = control(setting, chip.value, "selected", selected ? 1f : 0f, 0.24f);
-            float hoverAnim = control(setting, chip.value, "hover", hovered ? 1f : 0f, 0.38f);
-            int background = RenderUtil.lerpColor(
-                    RenderUtil.lerpColor(RenderUtil.withAlpha(MenuScreen.CHIP_BG, 0.84f * alpha),
-                            RenderUtil.withAlpha(RenderUtil.lighten(MenuScreen.CHIP_BG, 0.09f), 0.84f * alpha), hoverAnim),
-                    RenderUtil.withAlpha(MenuScreen.ACCENT, 0.94f * alpha), selectedAnim);
-            RenderUtil.drawRoundedRect(context, cx, cy, chip.w * s, 14f * s, 4.5f * s, background);
-            int text = RenderUtil.lerpColor(RenderUtil.withAlpha(MenuScreen.CHIP_TEXT, alpha),
-                    RenderUtil.withAlpha(MenuScreen.CHIP_TEXT_ON, alpha), selectedAnim);
-            CustomFontRenderer.drawCenteredText(context, chip.label, cx + chip.w * s * 0.5f,
-                    cy + 4.1f * s, 5.8f * s, text, FontWeight.SEMIBOLD);
-        }
+        label(context, setting.getName(), x + 4f * s, y + 2.9f * s, s, alpha);
+        float progress = dropdownProgress(setting);
+        List<String> options = setting.getModes();
+        renderDropdownFrame(context, setting, setting.getDisplayValue(), options.size(),
+                x, y, w, s, mouseX, mouseY, alpha, progress);
+        renderDropdownOptions(context, setting, options, true, x, y, w, s,
+                mouseX, mouseY, alpha, progress);
     }
 
     private void renderSelect(DrawContext context, SelectSetting setting, float x, float y, float w, float s,
                               int mouseX, int mouseY, float alpha) {
-        label(context, setting.getName(), x + 4f * s, y + 5f * s, s, alpha);
-        for (Chip chip : selectChips(setting, w / s - 8f)) {
-            boolean selected = setting.isSelected(chip.value);
-            float cx = x + (4f + chip.x) * s, cy = y + (16f + chip.y) * s;
-            boolean hovered = hit(mouseX, mouseY, cx, cy, chip.w * s, 14f * s);
-            float selectedAnim = control(setting, chip.value, "selected", selected ? 1f : 0f, 0.24f);
-            float hoverAnim = control(setting, chip.value, "hover", hovered ? 1f : 0f, 0.30f);
-            int background = RenderUtil.lerpColor(
-                    RenderUtil.lerpColor(RenderUtil.withAlpha(MenuScreen.CHIP_BG, 0.84f * alpha),
-                            RenderUtil.withAlpha(RenderUtil.lighten(MenuScreen.CHIP_BG, 0.09f), 0.84f * alpha), hoverAnim),
-                    RenderUtil.withAlpha(MenuScreen.ACCENT, 0.91f * alpha), selectedAnim);
-            RenderUtil.drawRoundedRect(context, cx, cy, chip.w * s, 14f * s, 4f * s, background);
-            int text = RenderUtil.lerpColor(RenderUtil.withAlpha(MenuScreen.CHIP_TEXT, alpha),
-                    RenderUtil.withAlpha(MenuScreen.CHIP_TEXT_ON, alpha), selectedAnim);
-            CustomFontRenderer.drawCenteredText(context, chip.label, cx + chip.w * s * 0.5f, cy + 4.5f * s,
-                    5.8f * s, text, FontWeight.SEMIBOLD);
+        label(context, setting.getName(), x + 4f * s, y + 2.9f * s, s, alpha);
+        float progress = dropdownProgress(setting);
+        List<String> options = setting.getOptions();
+        String summary = selectSummary(setting);
+        renderDropdownFrame(context, setting, summary, options.size(),
+                x, y, w, s, mouseX, mouseY, alpha, progress);
+        renderDropdownOptions(context, setting, options, false, x, y, w, s,
+                mouseX, mouseY, alpha, progress);
+    }
+
+    private void renderDropdownFrame(DrawContext context, Setting<?> setting, String summary, int optionCount,
+                                     float x, float y, float w, float s, int mouseX, int mouseY,
+                                     float alpha, float progress) {
+        float panelX = x + 4f * s;
+        float panelY = y + DROPDOWN_LABEL_H * s;
+        float panelW = w - 8f * s;
+        float panelH = (DROPDOWN_HEADER_H + dropdownExtraHeight(optionCount) * progress) * s;
+        boolean headerHovered = hit(mouseX, mouseY, panelX, panelY, panelW, DROPDOWN_HEADER_H * s);
+        float hover = control(setting, "dropdown", "header-hover", headerHovered ? 1f : 0f, 0.28f);
+        int background = RenderUtil.lerpColor(
+                RenderUtil.withAlpha(MenuScreen.INSET_BG, 0.93f * alpha),
+                RenderUtil.withAlpha(RenderUtil.lighten(MenuScreen.INSET_BG, 0.025f), 0.96f * alpha), hover);
+        background = RenderUtil.lerpColor(background,
+                RenderUtil.withAlpha(RenderUtil.lighten(MenuScreen.INSET_BG, 0.05f), 0.97f * alpha), progress * 0.28f);
+        RenderUtil.drawRoundedRect(context, panelX, panelY, panelW, panelH, 6.8f * s, background);
+
+        String display = CustomFontRenderer.trimToWidth(summary, panelW - 29f * s,
+                6.1f * s, FontWeight.SEMIBOLD);
+        int summaryColor = RenderUtil.lerpColor(
+                RenderUtil.withAlpha(MenuScreen.TEXT_DIM, alpha * (0.94f + hover * 0.06f)),
+                RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha), Math.max(progress, hover * 0.42f));
+        CustomFontRenderer.drawText(context, display, panelX + 7f * s, panelY + 4.25f * s,
+                6.1f * s, summaryColor, FontWeight.SEMIBOLD);
+
+        int arrowColor = RenderUtil.lerpColor(RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.92f * alpha),
+                RenderUtil.withAlpha(MenuScreen.TEXT_GRAY, alpha), Math.max(progress, hover));
+        drawDropdownChevron(context, panelX + panelW - 9f * s,
+                panelY + DROPDOWN_HEADER_H * 0.5f * s, 6.5f * s, progress, arrowColor);
+
+        if (progress > 0.01f) {
+            float dividerY = panelY + DROPDOWN_HEADER_H * s;
+            RenderUtil.drawRoundedRect(context, panelX + 7f * s, dividerY,
+                    panelW - 14f * s, 0.6f * s, 0.3f * s,
+                    RenderUtil.withAlpha(0xFFFFFF, 0.075f * alpha * progress));
         }
+    }
+
+    private void renderDropdownOptions(DrawContext context, Setting<?> setting, List<String> options, boolean single,
+                                       float x, float y, float w, float s, int mouseX, int mouseY,
+                                       float alpha, float progress) {
+        if (progress <= 0.01f || options.isEmpty()) return;
+
+        float panelX = x + 4f * s;
+        float panelY = y + DROPDOWN_LABEL_H * s;
+        float panelW = w - 8f * s;
+        float panelH = (DROPDOWN_HEADER_H + dropdownExtraHeight(options.size()) * progress) * s;
+        context.draw();
+        StencilUtil.enableScissor(panelX, panelY, panelW, panelH);
+        for (int i = 0; i < options.size(); i++) {
+            String option = options.get(i);
+            float reveal = clamp(progress * 1.22f - i * 0.055f);
+            if (reveal <= 0.001f) continue;
+            float rowY = y + (DROPDOWN_CLOSED_H + i * DROPDOWN_OPTION_H) * s;
+            float rowH = DROPDOWN_OPTION_H * s;
+            boolean hovered = hit(mouseX, mouseY, panelX + 4f * s, rowY,
+                    panelW - 8f * s, rowH) && mouseY <= panelY + panelH;
+            boolean selected = single ? ((ModeSetting) setting).is(option)
+                    : ((SelectSetting) setting).isSelected(option);
+            float selectedAnim = control(setting, option, "dropdown-selected", selected ? 1f : 0f, 0.23f);
+            float hoverAnim = control(setting, option, "dropdown-hover", hovered ? 1f : 0f, 0.31f);
+            float shift = (1f - RenderUtil.easeOutQuart(reveal)) * 4f * s;
+            float rowEmphasis = Math.max(selectedAnim * 0.72f, hoverAnim);
+            if (rowEmphasis > 0.01f) {
+                RenderUtil.drawRoundedRect(context, panelX + 4f * s, rowY + 1f * s,
+                        panelW - 8f * s, rowH - 2f * s, 5f * s,
+                        RenderUtil.withAlpha(0xFFFFFF, 0.026f * alpha * reveal * rowEmphasis));
+            }
+            int textColor = RenderUtil.lerpColor(
+                    RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.92f * alpha * reveal),
+                    RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * reveal),
+                    Math.max(selectedAnim, hoverAnim * 0.55f));
+            String display = dropdownOptionLabel(setting, option);
+            display = CustomFontRenderer.trimToWidth(display, panelW - 18f * s,
+                    5.8f * s, FontWeight.SEMIBOLD);
+            CustomFontRenderer.drawText(context, display, panelX + (7f * s) + shift,
+                    rowY + 3.55f * s, 5.8f * s, textColor, FontWeight.SEMIBOLD);
+        }
+        context.draw();
+        StencilUtil.disableScissor();
+    }
+
+    private static float dropdownExtraHeight(int optionCount) {
+        return 2f + Math.max(0, optionCount) * DROPDOWN_OPTION_H;
+    }
+
+    private static String dropdownOptionLabel(Setting<?> setting, String option) {
+        if (setting instanceof ModeSetting mode) return mode.getDisplayMode(option);
+        return ((SelectSetting) setting).getDisplayOption(option);
+    }
+
+    private static String selectSummary(SelectSetting setting) {
+        List<String> selected = new ArrayList<>();
+        for (String option : setting.getOptions()) {
+            if (setting.isSelected(option)) selected.add(setting.getDisplayOption(option));
+        }
+        return selected.isEmpty()
+                ? ClientLanguage.text("ui.none_selected", "Не выбрано")
+                : String.join(", ", selected);
+    }
+
+    private static void drawDropdownChevron(DrawContext context, float centerX, float centerY,
+                                            float size, float progress, int color) {
+        context.getMatrices().push();
+        context.getMatrices().translate(centerX, centerY, 0f);
+        context.getMatrices().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(
+                90f - 180f * RenderUtil.easeInOutCubic(clamp(progress))));
+        float textY = -CustomFontRenderer.getTextHeight(size, FontWeight.SOLAR_ICONS) * 0.5f;
+        CustomFontRenderer.drawCenteredText(context, SolarIcons.CHEVRON_RIGHT, 0f, textY,
+                size, color, FontWeight.SOLAR_ICONS);
+        context.getMatrices().pop();
     }
 
     private void renderItem(DrawContext context, ItemSelectSetting setting, float x, float y, float w, float s,
                             int mouseX, int mouseY, float alpha) {
         float progress = choiceProgress(setting);
         renderChoiceHeader(context, setting, setting.getSelectedLabel(), x, y, w, s, alpha, progress);
-        if (progress > 0.01f) renderItemOptions(context, setting, false, x, y + 31f * s, w, s,
+        if (progress > 0.01f) renderItemOptions(context, setting, false, x, y + CHOICE_CLOSED_H * s, w, s,
                 mouseX, mouseY, alpha * RenderUtil.easeOutCubic(progress), progress);
     }
 
@@ -471,24 +669,24 @@ public final class ModuleCard {
         String value = String.format(ClientLanguage.text("ui.selected_count", "Выбрано: %d"), setting.get().size());
         float progress = choiceProgress(setting);
         renderChoiceHeader(context, setting, value, x, y, w, s, alpha, progress);
-        if (progress > 0.01f) renderItemOptions(context, setting, true, x, y + 31f * s, w, s,
+        if (progress > 0.01f) renderItemOptions(context, setting, true, x, y + CHOICE_CLOSED_H * s, w, s,
                 mouseX, mouseY, alpha * RenderUtil.easeOutCubic(progress), progress);
     }
 
     private void renderChoiceHeader(DrawContext context, Setting<?> setting, String value, float x, float y, float w,
                                     float s, float alpha, float progress) {
-        label(context, setting.getName(), x + 4f * s, y + 4f * s, s, alpha);
-        float fy = y + 14f * s;
-        RenderUtil.drawRoundedRect(context, x + 4f * s, fy, w - 8f * s, 16f * s, 4.5f * s,
+        label(context, setting.getName(), x + 4f * s, y + 2.9f * s, s, alpha);
+        float fy = y + CHOICE_LABEL_H * s;
+        RenderUtil.drawRoundedRect(context, x + 4f * s, fy, w - 8f * s, CHOICE_HEADER_H * s, 6.8f * s,
                 RenderUtil.lerpColor(RenderUtil.withAlpha(MenuScreen.INSET_BG, 0.90f * alpha),
-                        RenderUtil.withAlpha(MenuScreen.ACCENT, 0.13f * alpha), progress));
+                        RenderUtil.withAlpha(RenderUtil.lighten(MenuScreen.INSET_BG, 0.05f), 0.96f * alpha), progress * 0.45f));
         float valueX = x + 9f * s;
         if (setting instanceof ItemSelectSetting item) {
             ItemStack selectedStack = item.getItemStack(item.get());
             if (!selectedStack.isEmpty()) {
                 context.getMatrices().push();
-                float itemScale = 0.68f * s;
-                context.getMatrices().translate(x + 7f * s, fy + 1.8f * s, 20f);
+                float itemScale = 0.61f * s;
+                context.getMatrices().translate(x + 7f * s, fy + 2.5f * s, 20f);
                 context.getMatrices().scale(itemScale, itemScale, 1f);
                 context.drawItem(selectedStack, 0, 0);
                 context.getMatrices().pop();
@@ -496,25 +694,24 @@ public final class ModuleCard {
             }
         }
         value = CustomFontRenderer.trimToWidth(value, w - (valueX - x) - 19f * s, 5.6f * s, FontWeight.SEMIBOLD);
-        CustomFontRenderer.drawText(context, value, valueX, fy + 5.1f * s, 5.6f * s,
+        CustomFontRenderer.drawText(context, value, valueX, fy + 5f * s, 5.6f * s,
                 RenderUtil.withAlpha(MenuScreen.TEXT_GRAY, alpha), FontWeight.SEMIBOLD);
-        CustomFontRenderer.drawRightText(context, progress > 0.5f ? "−" : "+", x + w - 9f * s,
-                fy + 4.4f * s, (6f + progress * 0.7f) * s,
-                RenderUtil.withAlpha(MenuScreen.ACCENT_LIGHT, alpha), FontWeight.SEMIBOLD);
+        drawDropdownChevron(context, x + w - 10f * s, fy + CHOICE_HEADER_H * 0.5f * s,
+                6.5f * s, progress, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.94f * alpha));
     }
 
     private void renderItemOptions(DrawContext context, Setting<?> setting, boolean multi, float x, float y, float w, float s,
                                    int mouseX, int mouseY, float alpha, float progress) {
         y -= (1f - RenderUtil.easeOutCubic(progress)) * 6f * s;
         String query = multi ? ((MultiItemSelectSetting) setting).getSearchQuery() : ((ItemSelectSetting) setting).getSearchQuery();
-        RenderUtil.drawRoundedRect(context, x + 4f * s, y, w - 8f * s, 18f * s, 4.5f * s,
+        RenderUtil.drawRoundedRect(context, x + 4f * s, y, w - 8f * s, CHOICE_SEARCH_H * s, 6f * s,
                 RenderUtil.withAlpha(MenuScreen.SETTING_INPUT_BG, 0.96f * alpha));
         String display = query.isEmpty() ? ClientLanguage.text("ui.search", "Поиск...") : query;
         if (query.isEmpty()) {
-            CustomFontRenderer.drawText(context, display, x + 9f * s, y + 5.8f * s, 5.5f * s,
+            CustomFontRenderer.drawText(context, display, x + 9f * s, y + 5.3f * s, 5.5f * s,
                     RenderUtil.withAlpha(MenuScreen.TEXT_DIM, alpha), FontWeight.SEMIBOLD);
         } else {
-            RenderUtil.drawAnimatedInputText(context, display, x + 9f * s, y + 5.8f * s, 5.5f * s,
+            RenderUtil.drawAnimatedInputText(context, display, x + 9f * s, y + 5.3f * s, 5.5f * s,
                     RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha), FontWeight.SEMIBOLD,
                     typedIndices.getOrDefault(setting, -1), typedAt.getOrDefault(setting, 0L));
         }
@@ -528,18 +725,20 @@ public final class ModuleCard {
         int count = Math.min(visibleOptions(setting) + 1, options.size() - start);
         for (int i = 0; i < count; i++) {
             Option option = options.get(start + i);
-            float oy = y + (20f + (i - fraction) * 17f) * s;
-            if (oy < y + 18f * s || oy > y + (20f + visibleOptions(setting) * 17f) * s) continue;
+            float oy = y + (CHOICE_SEARCH_H + 2f + (i - fraction) * CHOICE_OPTION_H) * s;
+            if (oy < y + CHOICE_SEARCH_H * s
+                    || oy > y + (CHOICE_SEARCH_H + 2f + visibleOptions(setting) * CHOICE_OPTION_H) * s) continue;
             float rowReveal = clamp(progress * 1.35f - i * 0.055f);
             float rowShift = (1f - RenderUtil.easeOutQuart(rowReveal)) * 7f * s;
             float rowAlpha = alpha * RenderUtil.easeOutCubic(rowReveal);
             boolean selected = multi ? ((MultiItemSelectSetting) setting).isSelected(option.id)
                     : option.id.equals(((ItemSelectSetting) setting).get());
-            boolean hovered = hit(mouseX, mouseY, x + 4f * s, oy, w - 8f * s, 16f * s);
+            boolean hovered = hit(mouseX, mouseY, x + 4f * s, oy, w - 8f * s, (CHOICE_OPTION_H - 1f) * s);
             float selectedAnim = control(setting, option.id, "item-selected", selected ? 1f : 0f, 0.23f);
             float hoverAnim = control(setting, option.id, "item-hover", hovered ? 1f : 0f, 0.29f);
             if (selectedAnim > 0.01f || hoverAnim > 0.01f) {
-                RenderUtil.drawRoundedRect(context, x + 4f * s + rowShift, oy, w - 8f * s, 16f * s, 4f * s,
+                RenderUtil.drawRoundedRect(context, x + 4f * s + rowShift, oy, w - 8f * s,
+                        (CHOICE_OPTION_H - 1f) * s, 5f * s,
                         RenderUtil.lerpColor(RenderUtil.withAlpha(0xFFFFFF, rowAlpha * 0.04f * hoverAnim),
                                 RenderUtil.withAlpha(MenuScreen.ACCENT, rowAlpha * 0.20f), selectedAnim));
             }
@@ -547,8 +746,8 @@ public final class ModuleCard {
             float textX = x + 9f * s;
             if (!stack.isEmpty()) {
                 context.getMatrices().push();
-                float itemScale = 0.68f * s;
-                context.getMatrices().translate(x + 7f * s + rowShift, oy + 2.2f * s, 20f);
+                float itemScale = 0.56f * s;
+                context.getMatrices().translate(x + 7f * s + rowShift, oy + 2f * s, 20f);
                 context.getMatrices().scale(itemScale, itemScale, 1f);
                 context.drawItem(stack, 0, 0);
                 context.getMatrices().pop();
@@ -557,10 +756,11 @@ public final class ModuleCard {
                 textX += rowShift;
             }
             String label = CustomFontRenderer.trimToWidth(option.label, w - (textX - x) - 18f * s, 5.5f * s, FontWeight.SEMIBOLD);
-            CustomFontRenderer.drawText(context, label, textX, oy + 5.3f * s, 5.5f * s,
+            CustomFontRenderer.drawText(context, label, textX, oy + 4.2f * s, 5.5f * s,
                     RenderUtil.lerpColor(RenderUtil.withAlpha(MenuScreen.TEXT_GRAY, rowAlpha),
                             RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, rowAlpha), selectedAnim), FontWeight.SEMIBOLD);
-            if (selectedAnim > 0.01f) RenderUtil.drawCircle(context, x + w - 11f * s + rowShift, oy + 8f * s,
+            if (selectedAnim > 0.01f) RenderUtil.drawCircle(context, x + w - 11f * s + rowShift,
+                    oy + (CHOICE_OPTION_H - 1f) * 0.5f * s,
                     (1.4f + selectedAnim * 1.2f) * s, RenderUtil.withAlpha(MenuScreen.ACCENT_LIGHT, rowAlpha * selectedAnim));
         }
     }
@@ -660,7 +860,7 @@ public final class ModuleCard {
         if (!contains(mouseX, mouseY, scale)) return false;
         float headerH = HEADER_H * scale;
         if (mouseY <= drawY + headerH) {
-            float toggleX = drawX + width - 26f * scale;
+            float toggleX = drawX + width - 9f * scale - 18f * scale;
             float gearX = toggleX - 11f * scale;
             if (button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE
                     || hit(mouseX, mouseY, bindIconX - 6f * scale, drawY + 2f * scale, bindHitW, 21f * scale)) {
@@ -698,11 +898,14 @@ public final class ModuleCard {
         float localX = (mouseX - hit.x) / scale;
         float localY = (mouseY - hit.y) / scale;
         float baseW = hit.w / scale;
-        if (setting instanceof BooleanSetting value) value.toggle();
+        if (setting instanceof BooleanSetting value) {
+            value.toggle();
+            return false;
+        }
         else if (setting instanceof SliderSetting value) {
+            if (localX < SLIDER_TRACK_X - 2f || localX > baseW - SLIDER_TRACK_RIGHT + 2f) return false;
             activeDrag = setting;
             updateSlider(value, localX, baseW);
-            EnoughSoundPlayer.playSlider();
             return true;
         } else if (setting instanceof RangeSetting value) {
             activeDrag = setting;
@@ -711,12 +914,35 @@ public final class ModuleCard {
             updateRange(value, localX, baseW);
             return true;
         } else if (setting instanceof ModeSetting value) {
-            for (Chip chip : modeChips(value, baseW - 8f)) {
-                if (hit(localX, localY, 4f + chip.x, 16f + chip.y, chip.w, 14f)) value.set(chip.value);
+            if (localX >= 4f && localX <= baseW - 4f
+                    && localY >= DROPDOWN_LABEL_H
+                    && localY <= DROPDOWN_LABEL_H + DROPDOWN_HEADER_H) {
+                toggleDropdown(value);
+                return false;
+            }
+            if (openChoice == value && localX >= 4f && localX <= baseW - 4f) {
+                int index = dropdownOptionIndex(localY, value.getModes().size());
+                if (index >= 0) {
+                    value.set(value.getModes().get(index));
+                    openChoice = null;
+                    EnoughSoundPlayer.playScroll();
+                    return false;
+                }
             }
         } else if (setting instanceof SelectSetting value) {
-            for (Chip chip : selectChips(value, baseW - 8f)) {
-                if (hit(localX, localY, 4f + chip.x, 16f + chip.y, chip.w, 14f)) value.toggle(chip.value);
+            if (localX >= 4f && localX <= baseW - 4f
+                    && localY >= DROPDOWN_LABEL_H
+                    && localY <= DROPDOWN_LABEL_H + DROPDOWN_HEADER_H) {
+                toggleDropdown(value);
+                return false;
+            }
+            if (openChoice == value && localX >= 4f && localX <= baseW - 4f) {
+                int index = dropdownOptionIndex(localY, value.getOptions().size());
+                if (index >= 0) {
+                    value.toggle(value.getOptions().get(index));
+                    EnoughSoundPlayer.playScroll();
+                    return false;
+                }
             }
         } else if (setting instanceof ItemSelectSetting value) {
             if (handleItemClick(value, false, localX, localY, baseW)) return false;
@@ -744,19 +970,31 @@ public final class ModuleCard {
         return false;
     }
 
+    private void toggleDropdown(Setting<?> setting) {
+        dropdownAnimations.putIfAbsent(setting, 0f);
+        openChoice = openChoice == setting ? null : setting;
+        editingChoice = null;
+        EnoughSoundPlayer.playScroll();
+    }
+
+    private static int dropdownOptionIndex(float localY, int optionCount) {
+        int index = (int) Math.floor((localY - DROPDOWN_CLOSED_H) / DROPDOWN_OPTION_H);
+        return index >= 0 && index < optionCount ? index : -1;
+    }
+
     private boolean handleItemClick(Setting<?> setting, boolean multi, float x, float y, float w) {
-        if (y >= 13f && y <= 31f) {
+        if (y >= CHOICE_LABEL_H && y <= CHOICE_LABEL_H + CHOICE_HEADER_H) {
             choiceAnimations.putIfAbsent(setting, 0f);
             openChoice = openChoice == setting ? null : setting;
             editingChoice = openChoice;
             return true;
         }
         if (openChoice != setting) return false;
-        if (y >= 31f && y <= 51f) {
+        if (y >= CHOICE_CLOSED_H && y <= CHOICE_CLOSED_H + CHOICE_SEARCH_H + 2f) {
             editingChoice = setting;
             return true;
         }
-        int row = (int) ((y - 51f) / 17f);
+        int row = (int) ((y - CHOICE_CLOSED_H - CHOICE_SEARCH_H - 2f) / CHOICE_OPTION_H);
         List<Option> options = itemOptions(setting, multi);
         int start = Math.min(optionScroll.getOrDefault(setting, 0), Math.max(0, options.size() - visibleOptions(setting)));
         if (row >= 0 && row < visibleOptions(setting) && start + row < options.size()) {
@@ -858,9 +1096,8 @@ public final class ModuleCard {
     }
 
     private void updateSlider(SliderSetting setting, float localX, float w) {
-        float before = setting.getProgress();
-        setting.setFromProgress(clamp((localX - 4f) / (w - 8f)));
-        if (Math.abs(setting.getProgress() - before) >= 0.008f) EnoughSoundPlayer.playSlider();
+        setting.setFromProgress(clamp((localX - SLIDER_TRACK_X) /
+                Math.max(1f, w - SLIDER_TRACK_X - SLIDER_TRACK_RIGHT)));
     }
 
     private void updateRange(RangeSetting setting, float localX, float w) {
@@ -942,11 +1179,15 @@ public final class ModuleCard {
         if (setting instanceof StringSetting) return 35f;
         if (setting instanceof ClickSetting) return 29f;
         if (setting instanceof BezierSetting) return 72f;
-        if (setting instanceof ModeSetting value) return 19f + chipRows(modeChips(value, width - 8f)) * 17f;
-        if (setting instanceof SelectSetting value) return 19f + chipRows(selectChips(value, width - 8f)) * 17f;
+        if (setting instanceof ModeSetting value) {
+            return DROPDOWN_CLOSED_H + dropdownExtraHeight(value.getModes().size()) * dropdownProgress(value);
+        }
+        if (setting instanceof SelectSetting value) {
+            return DROPDOWN_CLOSED_H + dropdownExtraHeight(value.getOptions().size()) * dropdownProgress(value);
+        }
         if (setting instanceof ItemSelectSetting || setting instanceof MultiItemSelectSetting) {
             int count = Math.min(visibleOptions(setting), itemOptions(setting, setting instanceof MultiItemSelectSetting).size());
-            return 35f + (19f + count * 17f) * choiceProgress(setting);
+            return CHOICE_CLOSED_H + (CHOICE_SEARCH_H + 2f + count * CHOICE_OPTION_H) * choiceProgress(setting);
         }
         return 25f;
     }
@@ -1053,6 +1294,20 @@ public final class ModuleCard {
                 target > 0f ? 0.24f : 0.18f, RenderUtil.getFrameDelta());
         choiceAnimations.put(setting, animation);
         return animation;
+    }
+
+    private void updateDropdownAnimations(float frameDelta) {
+        for (Setting<?> setting : displaySettings()) {
+            if (!(setting instanceof ModeSetting) && !(setting instanceof SelectSetting)) continue;
+            float target = openChoice == setting ? 1f : 0f;
+            float current = dropdownAnimations.getOrDefault(setting, target);
+            dropdownAnimations.put(setting, RenderUtil.animate(current, target,
+                    target > 0f ? 0.22f : 0.18f, frameDelta));
+        }
+    }
+
+    private float dropdownProgress(Setting<?> setting) {
+        return clamp(dropdownAnimations.getOrDefault(setting, openChoice == setting ? 1f : 0f));
     }
 
     private static void label(DrawContext context, String text, float x, float y, float scale, float alpha) {

@@ -1,11 +1,13 @@
 package fun.enoughvisuals.mixins.minecraft.client.render;
 
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
+import fun.enoughvisuals.systems.modules.modules.utils.Optimization;
 import fun.enoughvisuals.systems.modules.modules.visual.AspectRatio;
 import fun.enoughvisuals.systems.modules.modules.visual.NoRender;
 import fun.enoughvisuals.systems.modules.modules.visual.Zoom;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.util.math.MatrixStack;
 import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,6 +23,11 @@ public abstract class GameRendererMixin {
                                                    
     @Shadow
     public abstract float getFarPlaneDistance();
+
+    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    private void enough$skipOptimizedFrame(RenderTickCounter tickCounter, boolean tick, CallbackInfo ci) {
+        if (!Optimization.shouldRenderFrame()) ci.cancel();
+    }
 
     @Inject(method = "tiltViewWhenHurt", at = @At("HEAD"), cancellable = true)
     private void onTiltViewWhenHurt(MatrixStack matrices, float tickDelta, CallbackInfo ci) {

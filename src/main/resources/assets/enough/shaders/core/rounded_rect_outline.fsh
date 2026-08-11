@@ -33,13 +33,7 @@ void main() {
     float dist = roundedBoxSDF(p, halfSize, uRadii);
 
     float halfLine = uLineWidth * 0.5;
-    float outer = 1.0 - smoothstep(-uSmoothing, uSmoothing, dist - halfLine);
-    float inner = 1.0 - smoothstep(-uSmoothing, uSmoothing, dist + halfLine);
-    float alpha = outer - (1.0 - inner);
-
-    // Альтернативный расчёт: кольцо
-    float ring = smoothstep(-uSmoothing, uSmoothing, abs(dist) - halfLine);
-    alpha = 1.0 - ring;
+    float alpha = 1.0 - smoothstep(-uSmoothing, uSmoothing, abs(dist) - halfLine);
 
     fragColor = uColor * vec4(1.0, 1.0, 1.0, alpha);
 }

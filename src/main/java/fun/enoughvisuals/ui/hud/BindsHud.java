@@ -1,208 +1,143 @@
 package fun.enoughvisuals.ui.hud;
 
-import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
-
+import fun.enoughvisuals.systems.hud.HudDesign;
 import fun.enoughvisuals.systems.hud.HudElement;
+import fun.enoughvisuals.systems.hud.HudListAnimator;
+import fun.enoughvisuals.systems.hud.HudMotion;
 import fun.enoughvisuals.systems.modules.Module;
-import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.HudIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
-import fun.enoughvisuals.utils.render.images.Draw;
+import fun.enoughvisuals.utils.system.ClientLanguage;
 import fun.enoughvisuals.utils.system.BindKeyUtil;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
-public class BindsHud extends HudElement {
+public final class BindsHud extends HudElement {
+    private static final float FIGMA_WIDTH = 237f;
+    private static final float FIGMA_BASE_HEIGHT = 97f;
+    private static final float FIGMA_ROW_STEP = 28f;
+    private static final float FIGMA_TO_HUD = 1.8f;
 
-    public final SliderSetting scale = addSetting(new SliderSetting("Масштаб", "scale", 1.0, 0.5, 1.5, 0.05));
+    public final SliderSetting scale = addSetting(HudDesign.scaleSetting());
+
+    private final HudListAnimator rows = new HudListAnimator();
+    private final Map<String, BindLine> lines = new LinkedHashMap<>();
+    private float stableVisibleHeight = 76.5f;
 
     public BindsHud(float x, float y) {
-        super(x, y, 100f, 16f);
-    }
-
-    @Override
-    protected boolean usesSplitAppearanceAnimation() {
-        return true;
-    }
-
-    private List<Module> getBoundModules() {
-        List<Module> list = new ArrayList<>();
-        for (Module m : ModuleManager.getInstance().getModules()) {
-            // Исправлено: метод называется getKeyBind()
-            if (m.isEnabled() && m.getKeyBind() != BindKeyUtil.NONE) {
-                list.add(m);
-            }
-        }
-        return list;
+        super(x, y, 118.5f, 76.5f);
     }
 
     @Override
     protected void update(float delta) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player == null) return;
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+
         float frameDelta = RenderUtil.getFrameDelta();
+        float s = HudDesign.scale(scale, 0.90f);
+        float u = s / FIGMA_TO_HUD;
+        boolean editing = client.currentScreen instanceof ChatScreen;
 
-        float s = scale.get().floatValue();
-        float headerH = 16f * s;
-        float rowH = 14f * s;
-        float minW = 100f * s;
-
-        List<Module> boundModules = getBoundModules();
-        boolean isEditing = mc.currentScreen instanceof ChatScreen;
-        boolean visible = !boundModules.isEmpty() || isEditing;
-        setContentVisibleTarget(visible);
-
-        // Схлопываем, если пусто и мы не в чате
-        if (!visible) {
-            float targetH = getContentAnim() <= 0.01f ? 0f : headerH;
-            setHeight(RenderUtil.animate(getHeight(), targetH, 0.2f, frameDelta));
-            setWidth(RenderUtil.animate(getWidth(), minW, 0.2f, frameDelta));
-            return;
-        }
-
-        float targetH = headerH;
-        if (boundModules.isEmpty() && isEditing) {
-            targetH += rowH + (4f * s);
-        } else if (!boundModules.isEmpty()) {
-            targetH += (boundModules.size() * rowH) + (4f * s);
-        }
-
-        float maxRowW = 0f;
-        if (boundModules.isEmpty() && isEditing) {
-            maxRowW = CustomFontRenderer.getTextWidth("Нет биндов", 6.0f * s, FontWeight.SEMIBOLD);
-        } else {
-            for (Module m : boundModules) {
-                String name = m.getName();
-                String keyName = BindKeyUtil.getBindName(m.getKeyBind());
-
-                // 15f (место под иконку) + Имя + 10f (пробел) + Кнопка
-                float currentW = 15f * s +
-                        CustomFontRenderer.getTextWidth(name, 6.0f * s, FontWeight.SEMIBOLD) +
-                        10f * s +
-                        CustomFontRenderer.getTextWidth(keyName, 6.0f * s, FontWeight.SEMIBOLD);
-                maxRowW = Math.max(maxRowW, currentW);
+        Map<String, BindLine> next = new LinkedHashMap<>();
+        for (Module module : ModuleManager.getInstance().getModules()) {
+            if (module.isEnabled() && module.getKeyBind() != BindKeyUtil.NONE) {
+                next.put(module.getId(), new BindLine(module.getName(),
+                        BindKeyUtil.getBindName(module.getKeyBind())));
             }
         }
+        if (next.isEmpty() && editing) {
+            next.put("preview-fthelper", new BindLine("FTHelper", "V"));
+            next.put("preview-sprint", new BindLine("Auto Sprint", "Z"));
+            next.put("preview-swap", new BindLine("Item Swap", "X"));
+        }
 
-        float targetW = Math.max(minW, (5f + 5f) * s + maxRowW);
+        lines.putAll(next);
+        List<String> keys = new ArrayList<>(next.keySet());
+        rows.update(keys, FIGMA_ROW_STEP * u, frameDelta);
+        List<HudListAnimator.Row> animatedRows = rows.rows();
+        lines.keySet().removeIf(key -> animatedRows.stream().noneMatch(row -> row.key().equals(key)));
+        boolean visible = !animatedRows.isEmpty();
+        setContentVisibleTarget(visible);
 
-        setHeight(RenderUtil.animate(getHeight(), targetH, 0.2f, frameDelta));
-        setWidth(RenderUtil.animate(getWidth(), targetW, 0.2f, frameDelta));
+        float targetH = stableVisibleHeight;
+        if (visible) {
+            targetH = FIGMA_BASE_HEIGHT * u
+                    + animatedRows.get(animatedRows.size() - 1).position();
+            stableVisibleHeight = targetH;
+        }
+        setWidth(HudMotion.damp(getWidth(), FIGMA_WIDTH * u, 0.22f, frameDelta));
+        setHeight(HudMotion.damp(getHeight(), targetH, 0.22f, frameDelta));
     }
 
     @Override
-    protected void renderContent(DrawContext ctx, float x, float y, float w, float h, float delta, float alpha) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player == null || h < 5f) return;
+    protected void renderContent(DrawContext ctx, float x, float y, float w, float h,
+                                 float delta, float alpha) {
+        if (h <= 0.5f) return;
+        float s = HudDesign.scale(scale, 0.90f);
+        float u = s / FIGMA_TO_HUD;
 
-        float s = scale.get().floatValue();
-        float headerH = 16f * s;
-        float rowH = 14f * s;
-
-        drawMenuStyleBackground(ctx, x, y, w, h, 6f * s, alpha);
+        HudDesign.drawRounderPanel(ctx, x, y, w, h, 23f * u, alpha);
         RenderUtil.enableScissor(x, y, w, h);
+        CustomFontRenderer.drawText(ctx, HudIcons.KEYBOARD, x + 16f * u, y + 6f * u,
+                30f * u, RenderUtil.withAlpha(HudDesign.ACCENT, alpha), FontWeight.HUD_ICONS);
+        CustomFontRenderer.drawText(ctx, ClientLanguage.text("ui.hud.binds", "Бинды"), x + 55f * u, y + 11f * u,
+                16f * u, RenderUtil.withAlpha(HudDesign.TEXT, alpha), FontWeight.MEDIUM);
+        RenderUtil.drawRoundedRect(ctx, x, y + 41f * u, w, 2f * u, 1f * u,
+                RenderUtil.withAlpha(0xFF1B1B1C, alpha * 0.89f));
 
-        float headerAlpha = Math.min(1f, h / headerH) * alpha * getHeaderRenderAlpha();
-        RenderUtil.drawRoundedRect(ctx, x, y, w, Math.min(h, headerH), 6f * s, 6f * s, 0f, 0f,
-                RenderUtil.withAlpha(0x000000, headerAlpha * 0.18f));
+        float bodyStart = y + 57f * u;
+        for (HudListAnimator.Row row : rows.rows()) {
+            BindLine line = lines.get(row.key());
+            if (line == null) continue;
+            float panelReveal = clamp01((getContentAnim() - 0.18f) / 0.82f);
+            float rowAlpha = alpha * RenderUtil.easeOutQuad(row.visibility())
+                    * RenderUtil.easeOutQuad(panelReveal);
+            float rowY = bodyStart + row.position();
+            if (rowAlpha <= 0.01f || rowY > y + h) continue;
 
-        // Заголовок
-        CustomFontRenderer.drawText(ctx, "\uF003", x + 5f * s, y + 4.2f * s, 8.5f * s, RenderUtil.withAlpha(CustomTheme.hudAccentLight(), headerAlpha), FontWeight.BINDS);
-        CustomFontRenderer.drawText(ctx, "Бинды", x + 18f * s, y + 4.8f * s, 6.5f * s, RenderUtil.withAlpha(0xFFFFFF, headerAlpha), FontWeight.SEMIBOLD);
+            float rowScale = 0.94f + 0.06f * row.visibility();
+            float centerY = rowY + 11f * u;
+            ctx.getMatrices().push();
+            ctx.getMatrices().translate(x + w * 0.5f, centerY, 0f);
+            ctx.getMatrices().scale(rowScale, rowScale, 1f);
+            ctx.getMatrices().translate(-(x + w * 0.5f), -centerY, 0f);
 
-        if (h <= headerH + 2f) {
-            RenderUtil.disableScissor();
-            return;
+            float rightEdge = x + w - 13f * u;
+            float textWidth = CustomFontRenderer.getTextWidth(line.key(), 14f * u, FontWeight.MEDIUM);
+            float capW = Math.max(22f * u, textWidth + 8f * u);
+            float capH = 22f * u;
+            float capX = rightEdge - capW;
+            String name = CustomFontRenderer.trimToWidth(line.name(),
+                    Math.max(10f * u, capX - (x + 20f * u) - 8f * u),
+                    14f * u, FontWeight.MEDIUM);
+            CustomFontRenderer.drawText(ctx, name, x + 20f * u, rowY,
+                    14f * u, RenderUtil.withAlpha(HudDesign.TEXT, rowAlpha), FontWeight.MEDIUM);
+
+            RenderUtil.drawRoundedRect(ctx, capX, rowY, capW, capH,
+                    6f * u, RenderUtil.withAlpha(HudDesign.ACCENT, rowAlpha * 0.20f));
+            CustomFontRenderer.drawCenteredText(ctx, line.key(), capX + capW * 0.5f,
+                    rowY + 2f * u, 14f * u,
+                    RenderUtil.withAlpha(HudDesign.ACCENT, rowAlpha), FontWeight.MEDIUM);
+            ctx.getMatrices().pop();
         }
-
-        float bodyReveal = getBodyRevealProgress();
-        if (bodyReveal <= 0.01f) {
-            RenderUtil.disableScissor();
-            return;
-        }
-        float bodyAlpha = alpha * getBodyRenderAlpha();
-        RenderUtil.enableScissor(x, y + headerH, w, Math.max(0f, h - headerH) * bodyReveal);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(0f, getBodySlideOffset() * s, 0f);
-
-        float currentY = y + headerH + 2f * s;
-        List<Module> boundModules = getBoundModules();
-        boolean isEditing = mc.currentScreen instanceof ChatScreen;
-
-        if (boundModules.isEmpty() && isEditing) {
-            CustomFontRenderer.drawCenteredText(ctx, "Нет биндов", x + w / 2f, currentY + 3.5f * s, 6.0f * s, RenderUtil.withAlpha(0xFFAAAAAA, bodyAlpha), FontWeight.SEMIBOLD);
-        } else {
-            for (Module m : boundModules) {
-                if (currentY > y + h) break;
-
-                // 1. Иконка категории через Draw.image
-                String icon = "";
-                FontWeight font = FontWeight.VC;
-                float iconSize = 9f * s;
-
-                switch (m.getCategory()) {
-                    case CLIENT -> {
-                        icon = "\uF001";
-                        font = FontWeight.CLIENT;
-                        iconSize = 9f * s;
-                    }
-
-                    /* case WORLD -> {
-                        icon = "\uF002";
-                        font = FontWeight.WP;
-                        iconSize = 11f * s;
-                    }
-
-                    case PLAYER -> {
-                        icon = "\uF001";
-                        font = FontWeight.WP;
-                        iconSize = 10f * s;
-                    } */
-
-                    case VISUAL -> {
-                        icon = "\uF001";
-                        font = FontWeight.VC;
-                        iconSize = 10f * s;
-                    }
-
-                    case UTILS -> {
-                        icon = "\uF000";
-                        font = FontWeight.VC;
-                        iconSize = 9f * s;
-                    }
-                }
-
-                CustomFontRenderer.drawText(
-                        ctx,
-                        icon,
-                        x + 5f * s,
-                        currentY + (rowH - iconSize) * 0.5f,
-                        iconSize,
-                        RenderUtil.withAlpha(0xFFFFFF, bodyAlpha),
-                        font
-                );
-
-                // 2. Название модуля (сдвинуто на x + 16f, чтобы не налезть на иконку)
-                CustomFontRenderer.drawText(ctx, m.getName(), x + 16f * s, currentY + 3.5f * s, 6.0f * s, RenderUtil.withAlpha(0xFFFFFF, bodyAlpha), FontWeight.SEMIBOLD);
-
-                // 3. Клавиша бинда
-                String keyName = BindKeyUtil.getBindName(m.getKeyBind());
-                CustomFontRenderer.drawRightText(ctx, keyName, x + w - 5f * s, currentY + 3.5f * s, 6.0f * s, RenderUtil.withAlpha(0xFFAAAAAA, bodyAlpha), FontWeight.SEMIBOLD);
-
-                currentY += rowH;
-            }
-        }
-
-        ctx.getMatrices().pop();
         RenderUtil.disableScissor();
-        RenderUtil.disableScissor();
+    }
+
+    private record BindLine(String name, String key) {
+    }
+
+    @Override
+    protected float getHiddenContentScale() {
+        return 0.84f;
     }
 }

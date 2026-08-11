@@ -10,9 +10,11 @@ import fun.enoughvisuals.systems.animations.TimeAnimation;
 import fun.enoughvisuals.ui.mainmenu.MenuBackgroundManager;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.SolarIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.ScreenScaleUtil;
 import fun.enoughvisuals.utils.sound.EnoughSoundPlayer;
+import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -28,7 +30,7 @@ import java.util.List;
 import java.util.UUID;
 
 public final class AccountSwitcherScreen extends Screen {
-    private static final int ACCENT = 0xFFA884FF;
+    private static final int ACCENT = 0xFF7F94DD;
     private static final int NORMAL = 0xE8151515;
     private static final int HOVER = 0xF01F1F1F;
     private static final int FIELD = 0xE3121218;
@@ -38,10 +40,6 @@ public final class AccountSwitcherScreen extends Screen {
     private static final int DELETE = 0xFFFF6E67;
     private static final int VISIBLE_ROWS = 5;
 
-    private static final String TITLE = "\u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432";
-    private static final String PLACEHOLDER = "\u041d\u0438\u043a 3-16";
-    private static final String ADD = "\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c";
-    private static final String CURRENT = "\u0442\u0435\u043a\u0443\u0449\u0438\u0439";
 
     private final Screen parent;
     private final TimeAnimation openAnimation = new TimeAnimation(420L, Easing.OUT_CUBIC);
@@ -81,7 +79,7 @@ public final class AccountSwitcherScreen extends Screen {
     private long removedCharStartMs;
 
     public AccountSwitcherScreen(Screen parent) {
-        super(Text.literal("Account Switcher"));
+        super(Text.literal(ClientLanguage.text("ui.account.title", "Менеджер аккаунтов")));
         this.parent = parent;
     }
 
@@ -92,7 +90,7 @@ public final class AccountSwitcherScreen extends Screen {
         accounts.addAll(AccountRepository.load());
         ensureCurrentAccount();
         rebuildRows();
-        status = "\u0412\u044b\u0431\u0440\u0430\u043d: " + currentName();
+        status = ClientLanguage.text("ui.account.selected", "Выбран: %s").formatted(currentName());
         updateVirtualScreen();
         layout();
     }
@@ -144,7 +142,7 @@ public final class AccountSwitcherScreen extends Screen {
         float scale = layoutScale();
         renderScaled(ctx, panelX, panelY - 4f * scale, panelW, 20f * scale,
                 1.3f - 0.3f * open, () -> {
-                    CustomFontRenderer.drawCenteredText(ctx, TITLE, panelX + panelW * 0.5f, panelY, 12.0f * scale,
+                    CustomFontRenderer.drawCenteredText(ctx, ClientLanguage.text("ui.account.title", "Менеджер аккаунтов"), panelX + panelW * 0.5f, panelY, 12.0f * scale,
                             RenderUtil.withAlpha(TEXT, alpha), FontWeight.BOLD);
                 });
 
@@ -165,7 +163,7 @@ public final class AccountSwitcherScreen extends Screen {
 
         float addAppear = itemProgress(1);
         renderScaled(ctx, addX, inputY, addW, inputH, 1.3f - 0.3f * addAppear,
-                () -> renderSmallButton(ctx, ADD, addX, inputY, addW, inputH, alpha * addAppear, addHover.value(), true));
+                () -> renderSmallButton(ctx, ClientLanguage.text("ui.account.add", "Добавить"), addX, inputY, addW, inputH, alpha * addAppear, addHover.value(), true));
         enableRowsScissor(scale);
         renderRows(ctx, alpha, scale);
         RenderUtil.disableScissor();
@@ -179,7 +177,7 @@ public final class AccountSwitcherScreen extends Screen {
 
     private void renderInputText(DrawContext ctx, float alpha, float scale) {
         boolean placeholder = input.isBlank() && !inputActive;
-        String display = placeholder ? PLACEHOLDER : input;
+        String display = placeholder ? ClientLanguage.text("ui.account.placeholder", "Ник 3-16") : input;
         if (display.isEmpty()) {
             drawAnimatedRemovedChar(ctx, inputX + 8f * scale, inputY + 6.2f * scale, 6.0f * scale, alpha);
             return;
@@ -263,14 +261,14 @@ public final class AccountSwitcherScreen extends Screen {
 
             float currentAlpha = rowAlpha * selectedProgress;
             if (currentAlpha > 0.004f) {
-                CustomFontRenderer.drawText(ctx, CURRENT, rowX + 8f * scale, y + 13.4f * scale,
+                CustomFontRenderer.drawText(ctx, ClientLanguage.text("ui.account.current", "текущий"), rowX + 8f * scale, y + 13.4f * scale,
                         currentSize, RenderUtil.withAlpha(TEXT, currentAlpha * 0.78f), FontWeight.SEMIBOLD);
             }
 
             float deleteSize = 6.6f * scale;
-            float deleteY = y + (rowH - CustomFontRenderer.getTextHeight(deleteSize, FontWeight.BOLD)) * 0.5f - 0.2f * scale;
-            CustomFontRenderer.drawCenteredText(ctx, "x", rowX + rowW - 12.5f * scale, deleteY,
-                    6.6f * scale, RenderUtil.withAlpha(DELETE, rowAlpha * (0.82f + hover * 0.18f)), FontWeight.BOLD);
+            float deleteY = y + (rowH - CustomFontRenderer.getTextHeight(deleteSize, FontWeight.SOLAR_ICONS)) * 0.5f - 0.2f * scale;
+            CustomFontRenderer.drawCenteredText(ctx, SolarIcons.CLOSE, rowX + rowW - 12.5f * scale, deleteY,
+                    deleteSize, RenderUtil.withAlpha(DELETE, rowAlpha * (0.82f + hover * 0.18f)), FontWeight.SOLAR_ICONS);
             ctx.getMatrices().pop();
         }
     }
@@ -409,7 +407,7 @@ public final class AccountSwitcherScreen extends Screen {
     private void switchAccount(AccountProfile profile) {
         if (profile == null) return;
         AccountSessionManager.switchTo(profile);
-        status = "\u0412\u044b\u0431\u0440\u0430\u043d: " + profile.name();
+        status = ClientLanguage.text("ui.account.selected", "Выбран: %s").formatted(profile.name());
         EnoughSoundPlayer.playScroll();
     }
 

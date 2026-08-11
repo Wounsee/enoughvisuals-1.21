@@ -10,8 +10,10 @@ import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
 
-@Register(name = "Theme", id = "custom_theme", description = "Меняет цвета, прозрачность и блюр интерфейса", category = Category.CLIENT)
+@Register(name = "Theme", id = "custom_theme", description = "Меняет оформление ClickGUI и подсветки предметов", category = Category.CLIENT)
 public class CustomTheme extends Module {
+    private static final int LEGACY_PURPLE_ACCENT = 0xFF927BE0;
+    private static final int PREVIOUS_DEFAULT_ACCENT = 0xFF6F73E1;
     private static final float DEFAULT_HUD_BLUR = 1.5f;
     private static final float DEFAULT_CLICK_GUI_BLUR = 1.5f;
     private static final float DEFAULT_HUD_OPACITY = 0.90f;
@@ -24,13 +26,6 @@ public class CustomTheme extends Module {
             true
     ));
 
-    public final BooleanSetting hud = add(new BooleanSetting(
-            "Интерфейс",
-            "hud",
-            "Менять цвет интерфейса HUD",
-            false
-    ));
-
     public final BooleanSetting item = add(new BooleanSetting(
             "Предметы",
             "item",
@@ -41,20 +36,13 @@ public class CustomTheme extends Module {
     public final ColorSetting accent = add(new ColorSetting(
             "Акцент",
             "accent",
-            "Акцентный цвет ClickGUI и HUD",
+            "Акцентный цвет ClickGUI и модулей",
             MenuScreen.DEFAULT_ACCENT,
             false
     ));
 
     public final SliderSetting clickGuiRadius = add(new SliderSetting(
             "Закругление ClickGUI", "click_gui_radius", 14.0, 3.0, 28.0, 0.5));
-    public final SliderSetting hudRadius = add(new SliderSetting(
-            "Закругление HUD", "hud_radius", 8.0, 2.0, 20.0, 0.5));
-    public final SliderSetting squircleCurvature = add(new SliderSetting(
-            "Мягкость сквиркла", "squircle_curvature",
-            "Меньшее значение делает углы мягче и круглее",
-            2.35, 2.05, 2.85, 0.05));
-
     public final ColorSetting itemColor = add(new ColorSetting(
             "Цвет предметов",
             "item_color",
@@ -89,6 +77,9 @@ public class CustomTheme extends Module {
     public void onTick() {
         if (!isEnabled()) enableSilent();
         if (!menu.get()) menu.set(true);
+        if (accent.get() == LEGACY_PURPLE_ACCENT || accent.get() == PREVIOUS_DEFAULT_ACCENT) {
+            accent.set(MenuScreen.DEFAULT_ACCENT);
+        }
         MenuScreen.syncTheme();
         if (disableBlur.get()) {
             GlassUtil.cleanup();
@@ -106,8 +97,7 @@ public class CustomTheme extends Module {
     }
 
     public static int hudPanelTint() {
-        CustomTheme theme = activeTheme();
-        return theme != null && theme.hud.get() ? hudAccent() : 0x000000;
+        return 0x121214;
     }
 
     public static float hudPanelTintAlpha() {
@@ -175,10 +165,6 @@ public class CustomTheme extends Module {
         return 0xFF000000 | (accent.get() & 0x00FFFFFF);
     }
 
-    public int hudAccentColor() {
-        return guiAccentColor();
-    }
-
     public static int guiAccent() {
         CustomTheme theme = activeTheme();
         return theme == null ? MenuScreen.DEFAULT_ACCENT : theme.guiAccentColor();
@@ -187,16 +173,6 @@ public class CustomTheme extends Module {
     public static float clickGuiRadius() {
         CustomTheme theme = activeTheme();
         return theme == null ? 10f : theme.clickGuiRadius.get().floatValue();
-    }
-
-    public static float hudRadiusScale() {
-        CustomTheme theme = activeTheme();
-        return theme == null ? 1f : theme.hudRadius.get().floatValue() / 6f;
-    }
-
-    public static float squircleExponent() {
-        CustomTheme theme = activeTheme();
-        return theme == null ? 2.35f : theme.squircleCurvature.get().floatValue();
     }
 
     public int itemAccentColor() {

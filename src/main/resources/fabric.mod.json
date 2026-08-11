@@ -26,7 +26,7 @@
       "file": "META-INF/jars/cosmetic.jar"
     },
     {
-      "file": "META-INF/jars/fte-api-1.0.5.jar"
+      "file": "META-INF/jars/pulse-cosmetics.jar"
     }
   ],
   "depends": {

@@ -5,17 +5,17 @@ import fun.enoughvisuals.systems.gps.GpsSystem.WaypointView;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.SolarIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class GpsScreen extends ClientToolScreen {
-    public static final Identifier ICON = Identifier.of("enough", "icons/client/gps.png");
+    public static final String ICON = SolarIcons.WAYPOINT;
 
     private final TextBox nameBox = new TextBox("name", "", ClientLanguage.text("ui.client_tools.gps.name_placeholder", "Point name"));
     private final TextBox xBox = new TextBox("x", "", "X");
@@ -27,7 +27,7 @@ public class GpsScreen extends ClientToolScreen {
     }
 
     @Override
-    protected Identifier icon() {
+    protected String icon() {
         return ICON;
     }
 

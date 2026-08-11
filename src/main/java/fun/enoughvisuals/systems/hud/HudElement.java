@@ -1,8 +1,6 @@
 package fun.enoughvisuals.systems.hud;
 
-import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.settings.Setting;
-import fun.enoughvisuals.utils.render.blur.GlassUtil;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -82,14 +80,14 @@ public abstract class HudElement {
 
         long now = System.currentTimeMillis();
         float appearProgress = clamp01((now - spawnTime) / (float) APPEAR_MS);
-        float openCurve = easeOutBack(appearProgress);
+        float openCurve = RenderUtil.easeOutQuart(appearProgress);
         float closeProgress = removeTime < 0L
                 ? 0f
                 : clamp01((now - removeTime) / (float) REMOVE_MS);
         float closeCurve = RenderUtil.easeInOutCubic(closeProgress);
         float scale = removeTime < 0L
-                ? (2f - openCurve)
-                : (1f - 0.22f * closeCurve);
+                ? (0.86f + 0.14f * openCurve)
+                : (1f - 0.10f * closeCurve);
         float alpha = removeTime < 0L
                 ? easeOutQuad(appearProgress)
                 : (1f - closeCurve);
@@ -100,10 +98,10 @@ public abstract class HudElement {
             float runtimeFade = contentVisibleTarget ? easeOutQuad(p) : RenderUtil.easeInOutCubic(p);
             alpha *= runtimeFade;
 
-            float runtimeClosePart = 1f - RenderUtil.easeInOutCubic(p);
+            float hiddenScale = getHiddenContentScale();
             runtimeScale = contentVisibleTarget
-                    ? (2f - easeOutBack(p))
-                    : (1f + runtimeClosePart * 0.45f);
+                    ? hiddenScale + (1f - hiddenScale) * easeOutBack(p)
+                    : hiddenScale + (1f - hiddenScale) * RenderUtil.easeInOutCubic(p);
         }
 
         if (alpha <= 0.01f) {
@@ -111,11 +109,13 @@ public abstract class HudElement {
         }
 
         boolean dragging = DragAndDrop.getInstance().getDragging() == this;
-        float targetTiltDeg = dragging ? clamp(dragVelocityX * 2.8f, -9f, 9f) : 0f;
-        tiltAnimDeg = RenderUtil.animate(tiltAnimDeg, targetTiltDeg, dragging ? 0.16f : 0.22f, frameDelta);
+        float targetTiltDeg = dragging && allowsDragRotation()
+                ? clamp(dragVelocityX * 0.65f, -3.2f, 3.2f) : 0f;
+        tiltAnimDeg = RenderUtil.animate(tiltAnimDeg, targetTiltDeg, dragging ? 0.13f : 0.20f, frameDelta);
 
+        float renderY = getVisualY();
         float centerX = x + width * 0.5f;
-        float centerY = y + height * 0.5f;
+        float centerY = renderY + height * 0.5f;
         float finalScale = scale * runtimeScale;
         float hudScale = hudScale();
 
@@ -130,9 +130,9 @@ public abstract class HudElement {
         boolean clipElement = removeTime >= 0L;
         try {
             if (clipElement) {
-                RenderUtil.enableScissor(x, y, width, height);
+                RenderUtil.enableScissor(x, renderY, width, height);
             }
-            renderContent(ctx, x, y, width, height, delta, alpha);
+            renderContent(ctx, x, renderY, width, height, delta, alpha);
         } finally {
             if (clipElement) {
                 RenderUtil.disableScissor();
@@ -184,11 +184,13 @@ public abstract class HudElement {
         }
 
         boolean dragging = DragAndDrop.getInstance().getDragging() == this;
-        float targetTiltDeg = dragging ? clamp(dragVelocityX * 2.8f, -9f, 9f) : 0f;
-        tiltAnimDeg = RenderUtil.animate(tiltAnimDeg, targetTiltDeg, dragging ? 0.16f : 0.22f, frameDelta);
+        float targetTiltDeg = dragging && allowsDragRotation()
+                ? clamp(dragVelocityX * 0.55f, -2.2f, 2.2f) : 0f;
+        tiltAnimDeg = RenderUtil.animate(tiltAnimDeg, targetTiltDeg, dragging ? 0.15f : 0.24f, frameDelta);
 
+        float renderY = getVisualY();
         float centerX = x + width * 0.5f;
-        float centerY = y + height * 0.5f;
+        float centerY = renderY + height * 0.5f;
         float hudScale = hudScale();
 
         ctx.getMatrices().push();
@@ -199,7 +201,7 @@ public abstract class HudElement {
         ctx.getMatrices().translate(-centerX, -centerY, 0);
 
         try {
-            renderContent(ctx, x, y, width, height, delta, alpha);
+            renderContent(ctx, x, renderY, width, height, delta, alpha);
         } finally {
             setActiveScissorScale(previousScissorScale);
             ctx.getMatrices().pop();
@@ -214,13 +216,7 @@ public abstract class HudElement {
 
     protected final void drawMenuStyleBackground(DrawContext ctx, float x, float y, float w, float h,
                                                  float radius, float alpha) {
-        radius *= CustomTheme.hudRadiusScale();
-        RenderUtil.drawShadow(ctx, x, y, w, h, radius, 8.5f,
-                RenderUtil.withAlpha(0x000000, alpha * 0.22f));
-        GlassUtil.drawGlassPanel(ctx, x, y, w, h, radius,
-                CustomTheme.hudPanelTint(),
-                alpha * CustomTheme.hudPanelTintAlpha(),
-                alpha * alpha);
+        HudDesign.drawPanel(ctx, x, y, w, h, radius, alpha);
     }
 
     protected final <T extends Setting<?>> T addSetting(T setting) {
@@ -250,6 +246,14 @@ public abstract class HudElement {
 
     protected boolean usesSplitAppearanceAnimation() {
         return false;
+    }
+
+    protected float getHiddenContentScale() {
+        return 0.94f;
+    }
+
+    protected boolean allowsDragRotation() {
+        return true;
     }
 
     protected final float getHeaderRenderAlpha() {
@@ -287,19 +291,20 @@ public abstract class HudElement {
     }
 
     public boolean contains(float mx, float my) {
-        return mx >= x && mx <= x + width && my >= y && my <= y + height;
+        float visualY = getVisualY();
+        return mx >= x && mx <= x + width && my >= visualY && my <= visualY + height;
+    }
+
+    /** Render/interaction Y after transient screen insets; never persisted. */
+    public float getVisualY() {
+        return y - HudBottomInset.offsetFor(y, height, hudScreenHeight());
     }
 
     public static float hudScale() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client == null || client.getWindow() == null) {
-            return 1.0f;
-        }
-        float guiScale = (float) client.getWindow().getScaleFactor();
-        if (guiScale <= 0.001f) {
-            return 1.0f;
-        }
-        return REFERENCE_GUI_SCALE / guiScale;
+        // HUD coordinates already use Minecraft's scaled GUI space. Applying
+        // REFERENCE_GUI_SCALE / guiScale a second time made the protected
+        // launcher render the whole HUD at 50% when GUI scale was 4.
+        return 1.0f;
     }
 
     public static float screenToHud(float coordinate) {
@@ -330,9 +335,19 @@ public abstract class HudElement {
         return true;
     }
 
+    public boolean isHorizontalDragLocked() {
+        return false;
+    }
+
     public boolean isRemovable() {
         return true;
     }
+
+    /** Receives chat-editor clicks in HUD-local design coordinates. */
+    public boolean onMouseClicked(float localX, float localY, int button) {
+        return false;
+    }
+
     public void moveSetting(Setting<?> setting, int offset) {
         int index = settings.indexOf(setting);
         if (index < 0) return;

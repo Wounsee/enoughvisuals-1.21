@@ -4,8 +4,11 @@ import fun.enoughvisuals.systems.modules.modules.utils.PvPSave;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.screen.GameMenuScreen;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.ClickableWidget;
+import net.minecraft.client.gui.widget.TextWidget;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
@@ -23,6 +26,29 @@ public abstract class GameMenuScreenPvPSaveMixin {
         Screen current = (Screen) (Object) this;
         if (PvPSave.requestExit(current, this::enough$invokeDisconnect)) {
             ci.cancel();
+        }
+    }
+
+    @Inject(method = "init", at = @At("TAIL"))
+    private void enough$centerPauseMenu(CallbackInfo ci) {
+        Screen screen = (Screen) (Object) this;
+        int top = Integer.MAX_VALUE;
+        int bottom = Integer.MIN_VALUE;
+        for (Element element : screen.children()) {
+            if (element instanceof ClickableWidget widget && !(widget instanceof TextWidget)) {
+                top = Math.min(top, widget.getY());
+                bottom = Math.max(bottom, widget.getY() + widget.getHeight());
+            }
+        }
+        if (top == Integer.MAX_VALUE || bottom <= top) return;
+
+        int offset = (screen.height - (bottom - top)) / 2 - top;
+        for (Element element : screen.children()) {
+            if (element instanceof ClickableWidget widget && !(widget instanceof TextWidget)) {
+                widget.setY(widget.getY() + offset);
+            } else if (element instanceof TextWidget title) {
+                title.setY(Math.max(8, top + offset - title.getHeight() - 8));
+            }
         }
     }
 

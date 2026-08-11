@@ -1,7 +1,6 @@
 package fun.wounsee.cosmetic.mixin.render.layers;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
@@ -62,7 +61,11 @@ public abstract class CapeLayerMixin extends RenderLayer<PlayerRenderState, Play
         fakeCloak.copyFrom(realCloak);
 
         // REFERENCED FROM CODE IN CapeLayer (CapeFeatureRenderer for Yarn)
-        AbstractClientPlayer entity = (AbstractClientPlayer) (Minecraft.getInstance().level.getEntity(playerRenderState.id));
+        Entity candidate = AvatarManager.getEntity(playerRenderState);
+        if (!(candidate instanceof AbstractClientPlayer entity)) {
+            avatar = null;
+            return;
+        }
         float tickDelta = ((FiguraEntityRenderStateExtension)playerRenderState).figura$getTickDelta();
 
         double d = Mth.lerp(tickDelta, entity.xCloakO, entity.xCloak) - Mth.lerp(tickDelta, entity.xo, entity.getX());

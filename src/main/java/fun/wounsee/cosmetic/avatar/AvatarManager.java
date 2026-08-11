@@ -31,6 +31,7 @@ import fun.wounsee.cosmetic.utils.FiguraText;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
@@ -43,6 +44,8 @@ public class AvatarManager {
     private static final Map<UUID, UserData> LOADED_USERS = new ConcurrentHashMap<>();
     private static final Set<UUID> FETCHED_USERS = new HashSet<>();
     private static final Set<UUID> PREVIEW_USERS = ConcurrentHashMap.newKeySet();
+    private static final Map<UUID, Long> PREVIEW_LOAD_GENERATIONS = new ConcurrentHashMap<>();
+    private static final AtomicLong PREVIEW_LOAD_SEQUENCE = new AtomicLong();
 
     private static final Int2ObjectMap<Avatar> LOADED_CEM = new Int2ObjectOpenHashMap<>();
 
@@ -232,9 +235,14 @@ public class AvatarManager {
     public static void clearAvatars(UUID id) {
         FETCHED_USERS.remove(id);
         PREVIEW_USERS.remove(id);
+        PREVIEW_LOAD_GENERATIONS.remove(id);
 
         UserData user = LOADED_USERS.get(id);
-        if (user != null) user.clear();
+        if (user != null) {
+            synchronized (user) {
+                user.clear();
+            }
+        }
 
         NetworkStuff.clear(id);
         CosmeticMod.debug("Cleared avatars of " + id);
@@ -254,6 +262,7 @@ public class AvatarManager {
         LOADED_USERS.clear();
         FETCHED_USERS.clear();
         PREVIEW_USERS.clear();
+        PREVIEW_LOAD_GENERATIONS.clear();
         ENTITY_CACHE.clear();
         clearCEMAvatars();
 
@@ -311,8 +320,11 @@ public class AvatarManager {
         FETCHED_USERS.add(id);
         PREVIEW_USERS.add(id);
         if (paths == null || paths.isEmpty()) return;
-        UserData user = LOADED_USERS.computeIfAbsent(id, UserData::new);
-        LocalAvatarLoader.loadCompositeAvatar(paths, user, true);
+        long generation = PREVIEW_LOAD_SEQUENCE.incrementAndGet();
+        PREVIEW_LOAD_GENERATIONS.put(id, generation);
+        UserData user = new PreviewUserData(id, generation);
+        LOADED_USERS.put(id, user);
+        LocalAvatarLoader.loadCompositeAvatar(paths, user, false);
     }
 
     // load CEM avatar
@@ -421,5 +433,25 @@ public class AvatarManager {
         // build root
         root.then(target);
         return root;
+    }
+
+    /** Prevents an asynchronous preview parse from publishing after its cache entry was cleared. */
+    private static final class PreviewUserData extends UserData {
+        private final long generation;
+
+        private PreviewUserData(UUID id, long generation) {
+            super(id);
+            this.generation = generation;
+        }
+
+        @Override
+        public synchronized void loadAvatar(CompoundTag nbt) {
+            if (!PREVIEW_USERS.contains(id)
+                    || !Objects.equals(PREVIEW_LOAD_GENERATIONS.get(id), generation)
+                    || LOADED_USERS.get(id) != this) {
+                return;
+            }
+            super.loadAvatar(nbt);
+        }
     }
 }

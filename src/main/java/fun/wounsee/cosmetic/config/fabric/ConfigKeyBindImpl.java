@@ -1,9 +1,7 @@
 package fun.wounsee.cosmetic.config.fabric;
 
 import fun.wounsee.cosmetic.config.ConfigKeyBind;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.client.Minecraft;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,17 +12,11 @@ public final class ConfigKeyBindImpl {
     }
 
     public static void addKeyBind(ConfigKeyBind keyBind) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft != null && minecraft.options != null) {
-            registerNow(keyBind);
-            return;
-        }
-
-        // Configs are created from static initializers. Registering through
-        // Fabric API at that point loads KeyBindingAccessor before Minecraft's
-        // options/category map is ready, which leaves the accessor stub loaded
-        // and later makes unrelated mods (for example EntityCulling) crash.
-        ClientLifecycleEvents.CLIENT_STARTED.register(client -> registerNow(keyBind));
+        // ConfigManager.init() runs from the Fabric client entrypoint, which is
+        // the supported registration phase. CLIENT_STARTED is already too late:
+        // GameOptions has built its key array by then and Fabric deliberately
+        // rejects any additional registration.
+        registerNow(keyBind);
     }
 
     private static void registerNow(ConfigKeyBind keyBind) {

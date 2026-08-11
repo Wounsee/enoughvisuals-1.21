@@ -58,9 +58,36 @@ public final class CosmeticBridge {
         invokeOptionalVoid("setPreviewAlpha", new Class<?>[]{float.class}, alpha);
     }
 
+    public static void setPreviewHideVanillaModel(boolean hide) {
+        invokeOptionalVoid("setPreviewHideVanillaModel", new Class<?>[]{boolean.class}, hide);
+    }
+
+    public static void drawPreviewEntity(Object graphics, Object entity, float x, float y,
+                                         float scale, float pitch, float yaw) {
+        drawPreviewEntity(graphics, entity, x, y, scale, pitch, yaw, false);
+    }
+
+    public static void drawPreviewEntity(Object graphics, Object entity, float x, float y,
+                                         float scale, float pitch, float yaw, boolean lockHeadToBody) {
+        boolean drawn = invokeOptionalVoid("drawPreviewEntity",
+                new Class<?>[]{Object.class, Object.class, float.class, float.class, float.class,
+                        float.class, float.class, boolean.class},
+                graphics, entity, x, y, scale, pitch, yaw, lockHeadToBody);
+        if (drawn) return;
+        invokeOptionalVoid("drawPreviewEntity",
+                new Class<?>[]{Object.class, Object.class, float.class, float.class, float.class, float.class, float.class},
+                graphics, entity, x, y, scale, pitch, yaw);
+    }
+
     public static boolean previewReady(UUID player) {
         return invokeOptional("previewReady", Boolean.class,
                 new Class<?>[]{UUID.class}, player).orElse(false);
+    }
+
+    /** True only when the embedded runtime can actually draw its current base avatar. */
+    public static boolean hasRenderReadyAvatar(Object renderState) {
+        return invokeOptional("hasRenderReadyAvatar", Boolean.class,
+                new Class<?>[]{Object.class}, renderState).orElse(false);
     }
 
     public static void clearRemote(UUID player) {

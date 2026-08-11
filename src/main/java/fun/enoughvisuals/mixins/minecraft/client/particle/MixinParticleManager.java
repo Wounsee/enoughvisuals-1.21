@@ -2,6 +2,7 @@ package fun.enoughvisuals.mixins.minecraft.client.particle;
 
 import fun.enoughvisuals.systems.modules.modules.visual.NoRender;
 import fun.enoughvisuals.systems.modules.modules.visual.HitParticles;
+import fun.enoughvisuals.systems.modules.modules.utils.Optimization;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleManager;
@@ -41,6 +42,10 @@ public class MixinParticleManager {
     @Inject(method = "addParticle(Lnet/minecraft/particle/ParticleEffect;DDDDDD)Lnet/minecraft/client/particle/Particle;", at = @At("HEAD"), cancellable = true)
     private void onAddCritParticle(ParticleEffect parameters, double x, double y, double z, double velocityX, double velocityY, double velocityZ, CallbackInfoReturnable<Particle> cir) {
         if (isCritSuppressed(parameters)) {
+            cir.setReturnValue(null);
+            return;
+        }
+        if (!Optimization.shouldSpawnParticle(x, y, z)) {
             cir.setReturnValue(null);
         }
     }

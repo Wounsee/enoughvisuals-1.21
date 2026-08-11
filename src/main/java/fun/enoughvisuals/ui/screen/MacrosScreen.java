@@ -5,21 +5,19 @@ import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.SolarIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
-import fun.enoughvisuals.utils.render.images.Draw;
 import fun.enoughvisuals.utils.system.BindKeyUtil;
 import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
 public class MacrosScreen extends Screen {
-    private static final Identifier ICON_TRASH = Identifier.of("enough", "icons/client/trash.png");
     private static final int PANEL_BG = 0xCC000000;
     private static final int HEADER_BG = 0x8C000000;
     private static final int FIELD_BG = 0xD9101217;
@@ -153,7 +151,8 @@ public class MacrosScreen extends Screen {
 
             float delX = x + w - 27f;
             float delY = rowY + 4.5f;
-            Draw.imageTinted(ctx, ICON_TRASH, delX, delY, 12f, 12f, 0xFFFF6F87, rowHovered ? 1f : 0.68f);
+            CustomFontRenderer.drawCenteredText(ctx, SolarIcons.DELETE, delX + 6f, delY + 2.4f,
+                    8.2f, RenderUtil.withAlpha(0xFFFF6F87, rowHovered ? 1f : 0.68f), FontWeight.SOLAR_ICONS);
         }
         RenderUtil.disableScissor();
     }

@@ -1,13 +1,14 @@
 package fun.enoughvisuals.ui.hud;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import fun.enoughvisuals.systems.hud.HudDesign;
 import fun.enoughvisuals.systems.hud.HudElement;
-import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
-import fun.enoughvisuals.systems.modules.modules.visual.TargetESP;
 import fun.enoughvisuals.systems.modules.modules.utils.NameProtect;
+import fun.enoughvisuals.systems.modules.modules.visual.TargetESP;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.HudIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.images.Draw;
 import net.minecraft.client.MinecraftClient;
@@ -17,6 +18,7 @@ import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.scoreboard.ReadableScoreboardScore;
 import net.minecraft.scoreboard.ScoreHolder;
 import net.minecraft.scoreboard.Scoreboard;
@@ -27,60 +29,182 @@ import net.minecraft.scoreboard.number.StyledNumberFormat;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
-import org.joml.Quaternionf;
 
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
-import java.util.UUID;
 
-public class TargetHud extends HudElement {
+/** Figma Main/Target HUD. The six cells are main hand, offhand and four armor slots. */
+public final class TargetHud extends HudElement {
+    private static final Identifier MOB_ICON = Identifier.of("enough", "icons/hud/whodark.png");
+    private static final float BASE_WIDTH = 148f;
+    private static final float BASE_HEIGHT = 37f;
 
-    public final SliderSetting scale = addSetting(new SliderSetting("Масштаб", "scale", 0.9, 0.5, 1.5, 0.05));
+    public final SliderSetting scale = addSetting(HudDesign.scaleSetting());
 
-    private LivingEntity logicTarget = null;
-    private LivingEntity displayTarget = null;
-    private long lastTargetTime = 0L;
-
-    private float healthAnim = 0f;
+    private LivingEntity logicTarget;
+    private LivingEntity displayTarget;
+    private LivingEntity cachedLookTarget;
+    private long lastTargetTime;
+    private long lastTargetSearchMs;
+    private float healthAnim;
     private float maxHealthAnim = 20f;
 
-    private static final Identifier MOB_ICON = Identifier.of("enough", "icons/hud/whodark.png");
-    private static final Identifier BLOOM_PARTICLE = Identifier.of("enough", "textures/bloom.png");
-
-    private final List<HitParticle> hitParticles = new ArrayList<>();
-    private final Random random = new Random();
-    private UUID trackedTargetId = null;
-    private float trackedHealth = -1f;
-    private long hitFlashHoldUntilMs = 0L;
-    private float hitFlashAnim = 0f;
-    private int pendingHitBursts = 0;
-    private long lastParticleUpdateMs = 0L;
-    private long lastTargetSearchMs = 0L;
-    private LivingEntity cachedLookTarget = null;
-
     public TargetHud(float x, float y) {
-        super(x, y, 120f, 34f);
+        super(x, y, BASE_WIDTH, BASE_HEIGHT);
+    }
+
+    @Override
+    protected void update(float delta) {
+        findTarget();
+        long now = System.currentTimeMillis();
+        if (logicTarget != null && (!logicTarget.isAlive() || logicTarget.isRemoved())) logicTarget = null;
+        if (now - lastTargetTime > 2_000L) logicTarget = null;
+
+        if (logicTarget != null) {
+            displayTarget = logicTarget;
+            setContentVisibleTarget(true);
+            float health = resolveDisplayHealth(displayTarget);
+            float max = Math.max(displayTarget.getMaxHealth(), health);
+            float frame = RenderUtil.getFrameDelta();
+            healthAnim = RenderUtil.animate(healthAnim, health, 0.18f, frame);
+            maxHealthAnim = RenderUtil.animate(maxHealthAnim, max, 0.18f, frame);
+        } else {
+            setContentVisibleTarget(false);
+        }
+
+        float s = HudDesign.scale(scale, 0.90f);
+        setWidth(BASE_WIDTH * s);
+        setHeight(BASE_HEIGHT * s);
+    }
+
+    @Override
+    protected void renderContent(DrawContext ctx, float x, float y, float w, float h,
+                                 float delta, float alpha) {
+        if (displayTarget == null) return;
+        float s = HudDesign.scale(scale, 0.90f);
+        float u = s / 1.8f;
+        HudDesign.drawRounderPanel(ctx, x, y, w, h, 23f * u, alpha);
+
+        float headX = x + 8.5f * s;
+        float headY = y + 5.5f * s;
+        float headSize = 26f * s;
+        float headRadius = 8f * s;
+
+        float hpProgress = maxHealthAnim <= 0f ? 0f : clamp01(healthAnim / maxHealthAnim);
+        float imageX = headX + 0.85f * s;
+        float imageY = headY + 0.85f * s;
+        float imageSize = headSize - 1.7f * s;
+        float imageRadius = headRadius - 0.5f * s;
+        float previousExponent = RenderUtil.pushSquircleExponent(HudDesign.rounderHudExponent());
+        try {
+            if (displayTarget instanceof AbstractClientPlayerEntity player) {
+                Draw.imagePlayerHeadRounded(ctx, player.getSkinTextures().texture(),
+                        imageX, imageY, imageSize, imageRadius, alpha);
+            } else {
+                RenderUtil.drawRoundedTextureShader(ctx, MOB_ICON,
+                        imageX, imageY, imageSize, imageSize, imageRadius, alpha,
+                        0f, 0f, 1f, 1f, 1f, 1f);
+            }
+
+            RenderUtil.drawCrispSquircleProgressOutline(ctx, headX, headY, headSize, headSize, headRadius,
+                    1.75f * s, 1f, RenderUtil.withAlpha(0xFF29292C, alpha));
+            RenderUtil.drawCrispSquircleProgressOutline(ctx, headX, headY, headSize, headSize, headRadius,
+                    1.75f * s, hpProgress, RenderUtil.withAlpha(HudDesign.ACCENT, alpha));
+        } finally {
+            RenderUtil.restoreSquircleExponent(previousExponent);
+        }
+
+        drawVerticalDivider(ctx, x + 41f * s, y + 6f * s, 25f * s, alpha);
+        drawIdentity(ctx, x + 48.5f * s, y, s, alpha);
+        drawVerticalDivider(ctx, x + 95f * s, y + 6f * s, 25f * s, alpha);
+        drawEquipment(ctx, x + 102.5f * s, y + 10.5f * s, s, alpha);
+    }
+
+    private void drawIdentity(DrawContext ctx, float x, float panelY, float s, float alpha) {
+        float iconSize = 8f * s;
+        float textSize = 7f * s;
+        int dim = RenderUtil.withAlpha(HudDesign.TEXT_DIM, alpha);
+        int text = RenderUtil.withAlpha(HudDesign.TEXT, alpha);
+        CustomFontRenderer.drawText(ctx, HudIcons.USER, x, panelY + 7.5f * s,
+                iconSize, dim, FontWeight.HUD_ICONS);
+        String name = protectedName(displayTarget);
+        float nameX = x + 10f * s;
+        if (CustomFontRenderer.getTextWidth(name, textSize, FontWeight.SEMIBOLD) > 36f * s) {
+            RenderUtil.drawMarqueeText(ctx, name, nameX, panelY + 7.25f * s,
+                    36f * s, 8f * s, textSize, text, FontWeight.SEMIBOLD, 14f * s);
+        } else {
+            CustomFontRenderer.drawText(ctx, name, nameX, panelY + 7.25f * s,
+                    textSize, text, FontWeight.SEMIBOLD);
+        }
+
+        CustomFontRenderer.drawText(ctx, HudIcons.HEART, x, panelY + 20.5f * s,
+                iconSize, RenderUtil.withAlpha(HudDesign.ACCENT, alpha), FontWeight.HUD_ICONS);
+        String hp = String.format(java.util.Locale.ROOT, "%.1f", Math.max(0f, healthAnim));
+        float hpY = panelY + 20.25f * s;
+        CustomFontRenderer.drawText(ctx, hp, nameX, hpY, textSize, text, FontWeight.SEMIBOLD);
+        float hpW = CustomFontRenderer.getTextWidth(hp, textSize, FontWeight.SEMIBOLD);
+        CustomFontRenderer.drawText(ctx, "HP", nameX + hpW + 1f * s, hpY,
+                textSize, RenderUtil.withAlpha(HudDesign.ACCENT, alpha), FontWeight.SEMIBOLD);
+    }
+
+    private void drawEquipment(DrawContext ctx, float x, float y, float s, float alpha) {
+        List<ItemStack> slots = new ArrayList<>(6);
+        slots.add(displayTarget.getMainHandStack());
+        slots.add(displayTarget.getOffHandStack());
+        List<ItemStack> armor = new ArrayList<>();
+        displayTarget.getArmorItems().forEach(armor::add);
+        Collections.reverse(armor); // helmet, chestplate, leggings, boots
+        while (armor.size() < 4) armor.add(ItemStack.EMPTY);
+        slots.addAll(armor.subList(0, 4));
+
+        for (int i = 0; i < slots.size(); i++) {
+            int column = i < 2 ? i : i - 2;
+            int row = i < 2 ? 0 : 1;
+            float cellX = x + column * 9.5f * s;
+            float cellY = y + row * 10f * s;
+            ItemStack stack = slots.get(i);
+            if (stack == null || stack.isEmpty()) {
+                CustomFontRenderer.drawText(ctx, HudIcons.CLOSE, cellX, cellY,
+                        8f * s, RenderUtil.withAlpha(0xFF4D4D52, alpha), FontWeight.HUD_ICONS);
+            } else {
+                drawItem(ctx, stack, cellX, cellY, 8f * s, alpha);
+            }
+        }
+    }
+
+    private static void drawItem(DrawContext ctx, ItemStack stack, float x, float y,
+                                 float size, float alpha) {
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(x, y, 70f);
+        ctx.getMatrices().scale(size / 16f, size / 16f, 1f);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+        ctx.drawItem(stack, 0, 0);
+        ctx.draw();
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        ctx.getMatrices().pop();
+    }
+
+    private static void drawVerticalDivider(DrawContext ctx, float x, float y, float height, float alpha) {
+        RenderUtil.drawRoundedRect(ctx, x, y, 1f, height, 0.5f,
+                RenderUtil.withAlpha(HudDesign.DIVIDER, alpha));
     }
 
     private void findTarget() {
         MinecraftClient mc = MinecraftClient.getInstance();
         long now = System.currentTimeMillis();
-
         if (mc.currentScreen instanceof ChatScreen) {
             setNewTarget(mc.player);
             return;
         }
-
         if (mc.player == null || mc.world == null) return;
-
         if (TargetESP.globalTarget != null) {
             setNewTarget(TargetESP.globalTarget);
             return;
         }
-
         if (now - lastTargetSearchMs < 60L) {
             if (cachedLookTarget != null && cachedLookTarget.isAlive() && !cachedLookTarget.isRemoved()) {
                 setNewTarget(cachedLookTarget);
@@ -88,369 +212,65 @@ public class TargetHud extends HudElement {
             return;
         }
         lastTargetSearchMs = now;
-
         double maxDist = TargetESP.effectiveAttackRange();
-
-        Vec3d eyes = mc.player.getCameraPosVec(1.0f);
-        Vec3d look = mc.player.getRotationVec(1.0f);
+        Vec3d eyes = mc.player.getCameraPosVec(1f);
+        Vec3d look = mc.player.getRotationVec(1f);
         Vec3d end = eyes.add(look.multiply(maxDist));
-
         LivingEntity best = null;
-        double bestDist = maxDist * maxDist;
-
-        Box searchBox = mc.player.getBoundingBox().stretch(look.multiply(maxDist)).expand(1.0);
-        for (Entity e : mc.world.getOtherEntities(mc.player, searchBox, entity -> entity instanceof LivingEntity)) {
-            LivingEntity le = (LivingEntity) e;
-            if (!le.isAlive() || le.isRemoved()) continue;
-
-            Box box = le.getBoundingBox().expand(0.05);
-            Optional<Vec3d> hit = box.raycast(eyes, end);
-
+        double bestDistance = maxDist * maxDist;
+        Box search = mc.player.getBoundingBox().stretch(look.multiply(maxDist)).expand(1.0);
+        for (Entity entity : mc.world.getOtherEntities(mc.player, search,
+                candidate -> candidate instanceof LivingEntity)) {
+            LivingEntity living = (LivingEntity) entity;
+            if (!living.isAlive() || living.isRemoved()) continue;
+            Optional<Vec3d> hit = living.getBoundingBox().expand(0.05).raycast(eyes, end);
             if (hit.isPresent()) {
-                double d = eyes.squaredDistanceTo(hit.get());
-                if (d < bestDist) {
-                    bestDist = d;
-                    best = le;
+                double distance = eyes.squaredDistanceTo(hit.get());
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    best = living;
                 }
             }
         }
-
         cachedLookTarget = best;
-        if (best != null) {
-            setNewTarget(best);
-        }
+        if (best != null) setNewTarget(best);
     }
 
     private void setNewTarget(LivingEntity entity) {
+        if (entity == null) return;
         if (logicTarget != entity) {
             logicTarget = entity;
             displayTarget = entity;
-
-            float resolvedHealth = resolveDisplayHealth(entity);
-            healthAnim = resolvedHealth;
-            maxHealthAnim = Math.max(entity.getMaxHealth(), resolvedHealth);
-
-            trackedTargetId = entity.getUuid();
-            trackedHealth = resolvedHealth;
-            hitFlashAnim = 0f;
-            hitFlashHoldUntilMs = 0L;
-            pendingHitBursts = 0;
-            hitParticles.clear();
+            healthAnim = resolveDisplayHealth(entity);
+            maxHealthAnim = Math.max(entity.getMaxHealth(), healthAnim);
         }
         lastTargetTime = System.currentTimeMillis();
     }
 
-    @Override
-    protected void update(float delta) {
-        findTarget();
-        float frameDelta = RenderUtil.getFrameDelta();
-
-        long now = System.currentTimeMillis();
-
-        if (logicTarget != null && (!logicTarget.isAlive() || logicTarget.isRemoved())) {
-            logicTarget = null;
-        }
-
-        if (now - lastTargetTime > 2000L) {
-            logicTarget = null;
-        }
-
-        if (logicTarget != null) {
-            displayTarget = logicTarget;
-            setContentVisibleTarget(true);
-
-            float resolvedHealth = resolveDisplayHealth(displayTarget);
-            float resolvedMax = Math.max(displayTarget.getMaxHealth(), resolvedHealth);
-
-            healthAnim = RenderUtil.animate(healthAnim, resolvedHealth, 0.2f, frameDelta);
-            maxHealthAnim = RenderUtil.animate(maxHealthAnim, resolvedMax, 0.2f, frameDelta);
-
-            trackHitState(displayTarget, resolvedHealth, now);
-        } else {
-            setContentVisibleTarget(false);
-            trackedTargetId = null;
-            trackedHealth = -1f;
-        }
-
-        updateHitEffects(now);
-
-        float s = scale.get().floatValue();
-        float baseW = 120f * s;
-        float baseH = 34f * s;
-
-        setWidth(baseW);
-        setHeight(baseH);
-    }
-
-    @Override
-    protected void renderContent(DrawContext ctx, float x, float y, float w, float h, float delta, float alpha) {
-        if (displayTarget == null) return;
-
-        RenderSystem.disableDepthTest();
-        RenderSystem.disableCull();
-
-        float s = scale.get().floatValue();
-        drawMenuStyleBackground(ctx, x, y, w, h, 6f * s, alpha);
-
-        float padding = 5f * s;
-        float headSize = 24f * s;
-        float headX = x + padding;
-        float headY = y + (h - headSize) * 0.5f;
-        float headRadius = 4f * s;
-
-        if (displayTarget instanceof AbstractClientPlayerEntity player) {
-            Identifier skin = player.getSkinTextures().texture();
-            Draw.imagePlayerHeadRounded(ctx, skin, headX, headY, headSize, headRadius, alpha);
-        } else {
-            Draw.image(ctx, MOB_ICON, headX, headY, headSize, headSize, alpha);
-        }
-
-        float centerX = headX + headSize * 0.5f;
-        float centerY = headY + headSize * 0.5f;
-        if (pendingHitBursts > 0) {
-            for (int i = 0; i < pendingHitBursts; i++) {
-                spawnHitParticles(centerX, centerY, s);
-            }
-            pendingHitBursts = 0;
-        }
-
-        renderHitParticles(ctx, alpha);
-
-        if (hitFlashAnim > 0.01f) {
-            int redOverlay = RenderUtil.withAlpha(0xFFFF3B30, alpha * hitFlashAnim * 0.42f);
-            if (displayTarget instanceof AbstractClientPlayerEntity) {
-                RenderUtil.drawRoundedRect(ctx, headX, headY, headSize, headSize, headRadius, redOverlay);
-            } else {
-                RenderUtil.drawRect(ctx, headX, headY, headSize, headSize, redOverlay);
-            }
-        }
-
-        float textX = headX + headSize + 6f * s;
-        float rightEdge = x + w - padding;
-
-        float hpFontSize = 6.5f * s;
-        float heartSize = 9f * s;
-        float iconGap = 2f * s;
-
-        float displayHealthValue = Math.max(0f, healthAnim);
-        String hpStr = String.format("%.1f", displayHealthValue).replace(',', '.');
-
-        float hpStrW = CustomFontRenderer.getTextWidth(hpStr, hpFontSize, FontWeight.SEMIBOLD);
-        float iconW = CustomFontRenderer.getTextWidth("\uF000", heartSize, FontWeight.HEART);
-        float topRowY = y + 6f * s;
-
-        float heartX = rightEdge - iconW;
-        float hpNumX = heartX - iconGap - hpStrW;
-
-        CustomFontRenderer.drawText(ctx, "\uF000", heartX, topRowY, heartSize, RenderUtil.withAlpha(CustomTheme.hudAccentLight(), alpha), FontWeight.HEART);
-        CustomFontRenderer.drawText(ctx, hpStr, hpNumX, topRowY + 1f * s, hpFontSize, RenderUtil.withAlpha(CustomTheme.hudAccentLight(), alpha), FontWeight.SEMIBOLD);
-
-        float nameFontSize = 7f * s;
-        float nameMaxX = hpNumX - 4f * s;
-        String originalName = protectedName(displayTarget);
-        float nameLimitW = 58f * s;
-        float nameMaxW = Math.min(Math.max(8f * s, nameMaxX - textX), nameLimitW);
-        int nameColor = RenderUtil.withAlpha(0xFFFFFF, alpha);
-        if (originalName.length() > 12 || CustomFontRenderer.getTextWidth(originalName, nameFontSize, FontWeight.SEMIBOLD) > nameMaxW) {
-            RenderUtil.drawMarqueeText(ctx, originalName, textX, topRowY + 0.5f * s,
-                    nameMaxW, 10f * s, nameFontSize, nameColor, FontWeight.SEMIBOLD, 20f * s);
-        } else {
-            CustomFontRenderer.drawText(ctx, originalName, textX, topRowY + 0.5f * s, nameFontSize, nameColor, FontWeight.SEMIBOLD);
-        }
-
-        float barH = 3f * s;
-        float barY = y + h - padding - barH;
-        float barX = textX;
-        float barW = rightEdge - barX;
-
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(0, 0, 50.0f);
-
-        RenderUtil.drawRoundedRect(ctx, barX, barY, barW, barH, 1.5f * s, RenderUtil.withAlpha(CustomTheme.hudSliderBg(), alpha * 0.7f));
-
-        float safeMax = maxHealthAnim <= 0f ? 1f : maxHealthAnim;
-        float hpProgress = Math.max(0f, Math.min(1f, healthAnim / safeMax));
-        float fillW = barW * hpProgress;
-
-        if (fillW > 0.5f) {
-            ctx.getMatrices().translate(0, 0, 5.0f);
-            RenderUtil.drawRoundedRect(ctx, barX, barY, fillW, barH, 1.5f * s, RenderUtil.withAlpha(CustomTheme.hudAccent(), alpha));
-        }
-
-        RenderSystem.enableDepthTest();
-        RenderSystem.enableCull();
-        ctx.getMatrices().pop();
-    }
-
-    private String protectedName(LivingEntity entity) {
-        if (entity == null || entity.getName() == null) return "";
-        return NameProtect.protect(entity.getName().getString());
-    }
-
-    private void trackHitState(LivingEntity entity, float currentHealth, long now) {
-        UUID id = entity.getUuid();
-        if (!id.equals(trackedTargetId)) {
-            trackedTargetId = id;
-            trackedHealth = currentHealth;
-            hitFlashAnim = 0f;
-            return;
-        }
-
-        if (trackedHealth >= 0f && currentHealth + 0.05f < trackedHealth) {
-            hitFlashHoldUntilMs = now + 120L;
-            pendingHitBursts++;
-        }
-
-        trackedHealth = currentHealth;
-    }
-
-    private void updateHitEffects(long now) {
-        float flashTarget = now < hitFlashHoldUntilMs ? 1f : 0f;
-        float speed = flashTarget > hitFlashAnim ? 0.35f : 0.13f;
-        hitFlashAnim = RenderUtil.animate(hitFlashAnim, flashTarget, speed, RenderUtil.getFrameDelta());
-
-        updateHitParticles(now);
-    }
-
-    private void spawnHitParticles(float centerX, float centerY, float scaleFactor) {
-        int count = 9;
-        for (int i = 0; i < count; i++) {
-            if (hitParticles.size() > 72) {
-                hitParticles.remove(0);
-            }
-
-            float angle = random.nextFloat() * (float) (Math.PI * 2.0);
-            float speed = (0.55f + random.nextFloat() * 0.85f) * scaleFactor;
-            float vx = (float) Math.cos(angle) * speed;
-            float vy = (float) Math.sin(angle) * speed - 0.12f * scaleFactor;
-            float size = (4.0f + random.nextFloat() * 4.2f) * scaleFactor;
-            float life = 14.0f + random.nextFloat() * 11.0f;
-            float rot = random.nextFloat() * 360.0f;
-            float rotSpeed = (random.nextFloat() - 0.5f) * 18.0f;
-
-            hitParticles.add(new HitParticle(centerX, centerY, vx, vy, size, life, life, rot, rotSpeed));
-        }
-    }
-
-    private void updateHitParticles(long now) {
-        if (lastParticleUpdateMs == 0L) {
-            lastParticleUpdateMs = now;
-            return;
-        }
-
-        float dt = (now - lastParticleUpdateMs) / 16.6667f;
-        lastParticleUpdateMs = now;
-        if (dt <= 0f) return;
-
-        dt = Math.min(dt, 3.0f);
-        Iterator<HitParticle> iterator = hitParticles.iterator();
-        while (iterator.hasNext()) {
-            HitParticle p = iterator.next();
-            p.life -= dt;
-            if (p.life <= 0f) {
-                iterator.remove();
-                continue;
-            }
-
-            p.x += p.vx * dt;
-            p.y += p.vy * dt;
-            p.vy += 0.03f * dt;
-            p.rotation += p.rotationSpeed * dt;
-        }
-    }
-
-    private void renderHitParticles(DrawContext ctx, float alpha) {
-        if (hitParticles.isEmpty()) return;
-
-        for (HitParticle p : hitParticles) {
-            float lifeRatio = p.life / p.maxLife;
-            float fade = lifeRatio * lifeRatio;
-            float particleAlpha = alpha * fade * 0.92f;
-            if (particleAlpha <= 0.01f) continue;
-
-            float progress = 1f - lifeRatio;
-            float size = p.size * (0.9f + progress * 0.45f);
-            float drawX = p.x - size * 0.5f;
-            float drawY = p.y - size * 0.5f;
-            float redGlowRadius = Math.max(1.0f, size * 0.34f);
-            int redGlowColor = RenderUtil.withAlpha(0xFFFF2E2E, particleAlpha * 0.45f);
-
-            ctx.getMatrices().push();
-            ctx.getMatrices().translate(p.x, p.y, 0f);
-            ctx.getMatrices().multiply(new Quaternionf().rotateZ((float) Math.toRadians(p.rotation)));
-            ctx.getMatrices().translate(-p.x, -p.y, 0f);
-            Draw.image(ctx, BLOOM_PARTICLE, drawX, drawY, size, size, particleAlpha);
-            ctx.getMatrices().pop();
-
-            RenderUtil.drawCircle(ctx, p.x, p.y, redGlowRadius, redGlowColor);
-            int coreColor = RenderUtil.withAlpha(0xFFFF1F1F, particleAlpha * 0.62f);
-            RenderUtil.drawCircle(ctx, p.x, p.y, Math.max(0.6f, size * 0.16f), coreColor);
-        }
+    private static String protectedName(LivingEntity entity) {
+        return entity == null || entity.getName() == null ? "" : NameProtect.protect(entity.getName().getString());
     }
 
     private float resolveDisplayHealth(LivingEntity entity) {
-        float vanillaHealth = Math.max(0f, entity.getHealth() + entity.getAbsorptionAmount());
-        if (!(entity instanceof PlayerEntity player)) {
-            return vanillaHealth;
-        }
-
-        Float scoreboardHealth = readScoreboardHealth(player);
-        return scoreboardHealth != null && scoreboardHealth > 0f ? scoreboardHealth : vanillaHealth;
+        float vanilla = Math.max(0f, entity.getHealth() + entity.getAbsorptionAmount());
+        if (!(entity instanceof PlayerEntity player)) return vanilla;
+        Float scoreboard = readScoreboardHealth(player);
+        return scoreboard != null && scoreboard > 0f ? scoreboard : vanilla;
     }
 
     private Float readScoreboardHealth(PlayerEntity player) {
         try {
             Scoreboard scoreboard = player.getScoreboard();
-            if (scoreboard == null) return null;
-
-            ScoreboardObjective belowName = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.BELOW_NAME);
-            return readScoreValue(scoreboard, player, belowName);
+            ScoreboardObjective objective = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.BELOW_NAME);
+            if (objective == null) return null;
+            ReadableScoreboardScore score = scoreboard.getScore((ScoreHolder) player, objective);
+            if (score == null) return null;
+            NumberFormat format = objective.getNumberFormatOr(StyledNumberFormat.EMPTY);
+            String raw = ReadableScoreboardScore.getFormattedScore(score, format).getString();
+            String digits = raw.replace(',', '.').replaceAll("[^0-9.]", "");
+            return digits.isEmpty() ? null : Float.parseFloat(digits);
         } catch (Throwable ignored) {
             return null;
-        }
-    }
-
-    private Float readScoreValue(Scoreboard scoreboard, PlayerEntity player, ScoreboardObjective objective) {
-        if (objective == null) return null;
-
-        ReadableScoreboardScore score = scoreboard.getScore((ScoreHolder) player, objective);
-        if (score == null) return null;
-
-        NumberFormat format = objective.getNumberFormatOr(StyledNumberFormat.EMPTY);
-        String raw = ReadableScoreboardScore.getFormattedScore(score, format).getString();
-        if (raw == null || raw.isBlank()) return null;
-
-        String digits = raw.replace(',', '.').replaceAll("[^0-9.]", "");
-        if (digits.isEmpty()) return null;
-
-        try {
-            return Float.parseFloat(digits);
-        } catch (NumberFormatException ignored) {
-            return null;
-        }
-    }
-
-    private static final class HitParticle {
-        float x;
-        float y;
-        float vx;
-        float vy;
-        float size;
-        float life;
-        final float maxLife;
-        float rotation;
-        final float rotationSpeed;
-
-        private HitParticle(float x, float y, float vx, float vy, float size, float life, float maxLife, float rotation, float rotationSpeed) {
-            this.x = x;
-            this.y = y;
-            this.vx = vx;
-            this.vy = vy;
-            this.size = size;
-            this.life = life;
-            this.maxLife = maxLife;
-            this.rotation = rotation;
-            this.rotationSpeed = rotationSpeed;
         }
     }
 }

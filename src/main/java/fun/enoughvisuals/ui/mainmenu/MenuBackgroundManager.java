@@ -1,6 +1,12 @@
 package fun.enoughvisuals.ui.mainmenu;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+import fun.enoughvisuals.utils.render.RenderUtil;
+import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.util.Identifier;
@@ -94,7 +100,7 @@ public final class MenuBackgroundManager {
                 loading = false;
                 pending = null;
                 progress = 0f;
-                error = "Не удалось загрузить фон";
+                error = ClientLanguage.text("ui.background.download_failed", "Не удалось загрузить фон");
             }
         });
     }
@@ -140,7 +146,7 @@ public final class MenuBackgroundManager {
             progress = 1f;
         } catch (Exception ex) {
             image.close();
-            error = "Не удалось открыть фон";
+            error = ClientLanguage.text("ui.background.open_failed", "Не удалось открыть фон");
         } finally {
             loading = false;
             pending = null;
@@ -194,10 +200,57 @@ public final class MenuBackgroundManager {
     public static float progress() { return progress; }
     public static Entry pending() { return pending; }
     public static String error() { return error; }
+
+    /** Draws the same selected gallery image as the main menu, cropped to cover the screen. */
+    public static void drawSelectedBackground(DrawContext context, int width, int height) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        Identifier background = texture;
+        try {
+            AbstractTexture loaded = client.getTextureManager().getTexture(background);
+            if (loaded != null) loaded.setFilter(true, true);
+        } catch (Throwable ignored) {
+        }
+
+        int imageWidth = Math.max(1, textureWidth);
+        int imageHeight = Math.max(1, textureHeight);
+        float screenAspect = width / (float) Math.max(1, height);
+        float textureAspect = imageWidth / (float) imageHeight;
+        float sourceX = 0f;
+        float sourceY = 0f;
+        int sourceWidth = imageWidth;
+        int sourceHeight = imageHeight;
+        if (screenAspect > textureAspect) {
+            sourceHeight = Math.round(imageWidth / screenAspect);
+            sourceY = (imageHeight - sourceHeight) * 0.5f;
+        } else if (screenAspect < textureAspect) {
+            sourceWidth = Math.round(imageHeight * screenAspect);
+            sourceX = (imageWidth - sourceWidth) * 0.5f;
+        }
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        context.drawTexture(RenderLayer::getGuiTextured, background, 0, 0, sourceX, sourceY,
+                width, height, sourceWidth, sourceHeight, imageWidth, imageHeight);
+        context.draw();
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        RenderSystem.disableBlend();
+        RenderUtil.drawRect(context, 0f, 0f, width, height, 0x4A000000);
+        RenderUtil.drawGradientRect(context, 0f, 0f, width, height * 0.30f,
+                0x5C000000, 0x00000000);
+        RenderUtil.drawGradientRect(context, 0f, height * 0.66f, width, height * 0.34f,
+                0x00000000, 0x6A000000);
+    }
+
     public static boolean isCached(MinecraftClient client, Entry entry) {
         return entry == DEFAULT || CACHED.computeIfAbsent(entry.id(), id ->
                 Files.isRegularFile(cacheDir(client).resolve(id + ".png")));
     }
 
-    public record Entry(String id, String title, String url) {}
+    public record Entry(String id, String title, String url) {
+        public String displayTitle() {
+            if ("default".equals(id)) return ClientLanguage.text("ui.background.current", "Текущий фон");
+            return ClientLanguage.text("ui.background.entry." + id, title);
+        }
+    }
 }

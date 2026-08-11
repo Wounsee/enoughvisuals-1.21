@@ -4,6 +4,7 @@ import fun.enoughvisuals.systems.friends.FriendRepo;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.SolarIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.images.Draw;
 import fun.enoughvisuals.utils.system.ClientLanguage;
@@ -17,7 +18,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class FriendsScreen extends ClientToolScreen {
-    public static final Identifier ICON = Identifier.of("enough", "icons/client/friends.png");
+    public static final String ICON = SolarIcons.FRIENDS;
 
     private final TextBox nameBox = new TextBox(
             "name",
@@ -30,7 +31,7 @@ public class FriendsScreen extends ClientToolScreen {
     }
 
     @Override
-    protected Identifier icon() {
+    protected String icon() {
         return ICON;
     }
 

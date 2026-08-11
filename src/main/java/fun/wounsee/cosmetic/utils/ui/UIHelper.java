@@ -66,6 +66,7 @@ public final class UIHelper {
     public static float fireRot = 0f;
     public static float dollScale = 1f;
     private static float previewAlpha = 1f;
+    private static boolean previewHideVanillaModel = false;
 
     public static void setPreviewAlpha(float alpha) {
         previewAlpha = Math.max(0f, Math.min(1f, alpha));
@@ -73,6 +74,15 @@ public final class UIHelper {
 
     public static float getPreviewAlpha() {
         return previewAlpha;
+    }
+
+    /** Hides the vanilla player body so a preview only shows the avatar's own geometry. */
+    public static void setPreviewHideVanillaModel(boolean hide) {
+        previewHideVanillaModel = hide;
+    }
+
+    public static boolean isPreviewHideVanillaModel() {
+        return previewHideVanillaModel;
     }
 
     // -- Functions -- // 
@@ -122,8 +132,12 @@ public final class UIHelper {
         RenderSystem.enableBlend();
     }
 
-    @SuppressWarnings("deprecation")
     public static void drawEntity(float x, float y, float scale, float pitch, float yaw, LivingEntity entity, GuiGraphics gui, Vector3f offset, EntityRenderMode renderMode) {
+        drawEntity(x, y, scale, pitch, yaw, entity, gui, offset, renderMode, false);
+    }
+
+    @SuppressWarnings("deprecation")
+    public static void drawEntity(float x, float y, float scale, float pitch, float yaw, LivingEntity entity, GuiGraphics gui, Vector3f offset, EntityRenderMode renderMode, boolean lockHeadToBody) {
         // backup entity variables
         float headX = entity.getXRot();
         float headY = entity.yHeadRot;
@@ -190,13 +204,24 @@ public final class UIHelper {
                 xRot = pitch;
                 yRot = yaw + bodyY + 180;
 
-                entity.setXRot(-xRot);
-                entity.yHeadRot = -yaw + bodyY;
+                if (lockHeadToBody) {
+                    // The pose already carries the full rotation, so leaving the head
+                    // neutral makes it turn together with the body.
+                    entity.setXRot(0f);
+                    entity.yHeadRot = bodyY;
+                } else {
+                    entity.setXRot(-xRot);
+                    entity.yHeadRot = -yaw + bodyY;
+                }
 
                 // lightning
                 Lighting.setupForEntityInInventory();
             }
         }
+
+        // previews only want the avatar geometry, so the vanilla body is switched off
+        if (previewHideVanillaModel)
+            entity.setInvisible(true);
 
         // apply matrix transformers
         PoseStack pose = gui.pose();

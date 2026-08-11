@@ -4,6 +4,7 @@ import fun.enoughvisuals.systems.network.RemoteConfig;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.render.RenderUtil;
+import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
@@ -56,30 +57,30 @@ public final class GateScreen extends Screen {
         RemoteConfig rc = RemoteConfig.getInstance();
         if (rc.isBanned()) {
             kind = Kind.BAN;
-            title = "\u0414\u043e\u0441\u0442\u0443\u043f \u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d";
+            title = ClientLanguage.text("ui.gate.ban_title", "Доступ запрещён");
             String reason = rc.getBanReason();
             message = (reason == null || reason.isBlank())
-                    ? "\u0412\u0430\u0448\u0435 \u0443\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u043e \u0437\u0430\u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u043d\u043e."
+                    ? ClientLanguage.text("ui.gate.ban_message", "Ваше устройство заблокировано.")
                     : reason;
-            buttonLabel = "\u041f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u0430";
+            buttonLabel = ClientLanguage.text("ui.gate.support", "Поддержка");
             buttonUrl = orDefault(rc.getBlockUrl());
         } else if (rc.isClientBlocked()) {
             kind = Kind.BLOCK;
-            title = "\u041a\u043b\u0438\u0435\u043d\u0442 \u0437\u0430\u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u043d";
+            title = ClientLanguage.text("ui.gate.block_title", "Клиент заблокирован");
             String m = rc.getBlockMessage();
             message = (m == null || m.isBlank())
-                    ? "\u041a\u043b\u0438\u0435\u043d\u0442 \u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d. \u0421\u043b\u0435\u0434\u0438\u0442\u0435 \u0437\u0430 \u043d\u043e\u0432\u043e\u0441\u0442\u044f\u043c\u0438 \u0432 \u043d\u0430\u0448\u0435\u043c \u0422\u0435\u043b\u0435\u0433\u0440\u0430\u043c."
+                    ? ClientLanguage.text("ui.gate.block_message", "Клиент временно недоступен. Следите за новостями в нашем Telegram.")
                     : m;
-            buttonLabel = "\u041f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435";
+            buttonLabel = ClientLanguage.text("ui.gate.details", "Подробнее");
             buttonUrl = orDefault(rc.getBlockUrl());
         } else {
             kind = Kind.UPDATE;
-            title = "\u041e\u0448\u0438\u0431\u043a\u0430";
+            title = ClientLanguage.text("ui.gate.update_title", "Требуется обновление");
             String m = rc.getUpdateMessage();
             message = (m == null || m.isBlank())
-                    ? "\u0412\u0430\u0448\u0430 \u0432\u0435\u0440\u0441\u0438\u044f \u043a\u043b\u0438\u0435\u043d\u0442\u0430 \u0443\u0441\u0442\u0430\u0440\u0435\u043b\u0430. \u0427\u0442\u043e\u0431\u044b \u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u0442\u044c \u0438\u0433\u0440\u0430\u0442\u044c, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u0435 \u043f\u043e\u0441\u043b\u0435\u0434\u043d\u044e\u044e \u0432\u0435\u0440\u0441\u0438\u044e \u043a\u043b\u0438\u0435\u043d\u0442\u0430."
+                    ? ClientLanguage.text("ui.gate.update_message", "Эта версия клиента устарела. Установите последнюю версию, чтобы продолжить игру.")
                     : m;
-            buttonLabel = "\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c";
+            buttonLabel = ClientLanguage.text("ui.gate.update", "Обновить");
             buttonUrl = orDefault(rc.getUpdateUrl());
         }
     }

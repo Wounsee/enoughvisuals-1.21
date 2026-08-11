@@ -5,6 +5,7 @@ import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.utils.player.ClientActionUtil;
+import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 
@@ -65,7 +66,8 @@ public class ItemPickupLogger extends Module {
             String name = entry.getKey().substring(entry.getKey().indexOf('|') + 1);
             if (donateOnly.get() && !isDonateItem(name)) continue;
 
-            ClientActionUtil.clientMessage("\u041f\u043e\u0434\u043e\u0431\u0440\u0430\u043d \u043f\u0440\u0435\u0434\u043c\u0435\u0442: \u00A7d" + name + " \u00A77x" + added);
+            ClientActionUtil.clientMessage(ClientLanguage.text("chat.item_pickup.picked",
+                    "Подобран предмет: §d%s §7x%d").formatted(name, added));
         }
 
         lastCounts.clear();

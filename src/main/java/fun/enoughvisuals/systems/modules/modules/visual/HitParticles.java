@@ -57,12 +57,12 @@ public class HitParticles extends Module {
     };
 
     private static final int MAX_PARTICLES = 600;
-    private static final String STAR_1 = "Р—РІРµР·РґР° 1";
-    private static final String STAR_2 = "Р—РІРµР·РґР° 2";
-    private static final String HEART = "РЎРµСЂРґС†Рµ";
-    private static final String CROWN = "РљРѕСЂРѕРЅР°";
-    private static final String LIGHTNING = "РњРѕР»РЅРёСЏ";
-    private static final String SNOWFLAKE = "РЎРЅРµР¶РёРЅРєР°";
+    private static final String STAR_1 = "Звезда 1";
+    private static final String STAR_2 = "Звезда 2";
+    private static final String HEART = "Сердце";
+    private static final String CROWN = "Корона";
+    private static final String LIGHTNING = "Молния";
+    private static final String SNOWFLAKE = "Снежинка";
     private static final String BLOOM = "Bloom";
     private static final String[] TYPES = new String[]{STAR_1, STAR_2, HEART, CROWN, LIGHTNING, SNOWFLAKE, BLOOM};
     private static final String[] SELECT_TYPES = new String[]{"Star 1", "Star 2", "Heart", "Crown", "Lightning", "Snowflake", "Bloom"};
@@ -102,9 +102,9 @@ public class HitParticles extends Module {
     ));
 
     public final SelectSetting particleTypes = add(new SelectSetting(
-            "РџР°СЂС‚РёРєР»С‹",
+            "Партиклы",
             "particles",
-            "РњРѕР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ РЅРµСЃРєРѕР»СЊРєРѕ РІРёРґРѕРІ РїР°СЂС‚РёРєР»РѕРІ",
+            "Можно выбрать несколько видов партиклов",
             defaults("Star 1"),
             SELECT_TYPES
     ));

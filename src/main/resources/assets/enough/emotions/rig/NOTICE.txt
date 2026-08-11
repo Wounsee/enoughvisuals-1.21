@@ -1,0 +1,11 @@
+The weighted Steve and Alex BOBJ rigs in this directory, and the compatible
+loader/skinning behavior, are derived from BBS CML Edition:
+
+https://github.com/ElGatoPro300/BBS-CML-EDITION
+branch: 1.21.4
+commit: 133ff136c025f22e370a116cc89fbcb9bd592fc0
+
+Original BOBJ runtime and assets copyright 2025 McHorse.
+1.21.4 BBS CML Edition work copyright 2026 ElGatoPro300.
+
+See BBS-MIT-LICENSE.txt in this directory for the full MIT license notice.

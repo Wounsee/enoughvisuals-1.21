@@ -1,0 +1,64 @@
+{
+  "potions": [
+    {
+      "name": "Зелье Ассасина",
+      "effects": [
+        { "name": ["Сила", "Strength"], "minLevel": 4 },
+        { "name": ["Скорость", "Speed"], "minLevel": 3 },
+        { "name": ["Спешка", "Haste"], "minLevel": 1 }
+      ]
+    },
+    {
+      "name": "Зелье Палладина",
+      "effects": [
+        { "name": ["Сопротивление", "Resistance"], "minLevel": 1 },
+        { "name": ["Огнестойкость", "Fire Resistance"], "minLevel": 1 },
+        { "name": ["Невидимость", "Invisibility"], "minLevel": 1 },
+        { "name": ["Прилив здоровья", "Health Boost"], "minLevel": 3 }
+      ]
+    },
+    {
+      "name": "Зелье Гнева",
+      "effects": [
+        { "name": ["Сила", "Strength"], "minLevel": 5 },
+        { "name": ["Замедление", "Slowness"], "minLevel": 4 }
+      ]
+    },
+    {
+      "name": "Снотворное",
+      "effects": [
+        { "name": ["Слабость", "Weakness"], "minLevel": 2 },
+        { "name": ["Утомление", "Mining Fatigue"], "minLevel": 2 },
+        { "name": ["Иссушение", "Wither"], "minLevel": 3 },
+        { "name": ["Слепота", "Blindness"], "minLevel": 1 }
+      ]
+    },
+    {
+      "name": "Зелье Радиации",
+      "effects": [
+        { "name": ["Отравление", "Poison"], "minLevel": 2 },
+        { "name": ["Иссушение", "Wither"], "minLevel": 2 },
+        { "name": ["Замедление", "Slowness"], "minLevel": 3 },
+        { "name": ["Голод", "Hunger"], "minLevel": 5 },
+        { "name": ["Свечение", "Glowing"], "minLevel": 1 }
+      ]
+    },
+    {
+      "name": "Хлопушка",
+      "effects": [
+        { "name": ["Замедление", "Slowness"], "minLevel": 10 },
+        { "name": ["Скорость", "Speed"], "minLevel": 5 },
+        { "name": ["Слепота", "Blindness"], "minLevel": 10 },
+        { "name": ["Свечение", "Glowing"], "minLevel": 1 }
+      ]
+    },
+    {
+      "name": "Святая вода",
+      "effects": [
+        { "name": ["Регенерация", "Regeneration"], "minLevel": 3 },
+        { "name": ["Невидимость", "Invisibility"], "minLevel": 2 },
+        { "name": ["Исцеление", "Instant Health"], "minLevel": 2 }
+      ]
+    }
+  ]
+}

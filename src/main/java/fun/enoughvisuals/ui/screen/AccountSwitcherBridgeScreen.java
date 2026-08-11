@@ -3,6 +3,7 @@ package fun.enoughvisuals.ui.screen;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.render.RenderUtil;
+import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
@@ -19,7 +20,7 @@ public final class AccountSwitcherBridgeScreen extends Screen {
     private boolean attempted;
 
     public AccountSwitcherBridgeScreen(Screen parent) {
-        super(Text.literal("Account Switcher"));
+        super(Text.literal(ClientLanguage.text("ui.account.title", "Менеджер аккаунтов")));
         this.parent = parent;
     }
 
@@ -57,7 +58,8 @@ public final class AccountSwitcherBridgeScreen extends Screen {
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         renderBackground(ctx, mouseX, mouseY, delta);
-        CustomFontRenderer.drawCenteredText(ctx, "Opening account switcher...",
+        CustomFontRenderer.drawCenteredText(ctx,
+                ClientLanguage.text("ui.account.opening", "Открытие менеджера аккаунтов..."),
                 width * 0.5f, height * 0.5f - 5.0f, 9.0f, 0xFFFFFFFF, FontWeight.SEMIBOLD);
     }
 

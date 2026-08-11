@@ -6,17 +6,16 @@ import fun.enoughvisuals.systems.modules.modules.visual.MouseParticles;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.SolarIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.StencilUtil;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
-import fun.enoughvisuals.utils.render.images.Draw;
 import fun.enoughvisuals.utils.sound.EnoughSoundPlayer;
 import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -26,14 +25,14 @@ import java.util.Locale;
 import java.util.Map;
 
 public abstract class ClientToolScreen extends Screen {
-    protected static final Identifier ICON_SEARCH = icon("search");
-    protected static final Identifier ICON_PLUS = icon("plus");
-    protected static final Identifier ICON_TRASH = icon("trash");
-    protected static final Identifier ICON_SAVE = icon("save");
-    protected static final Identifier ICON_LOAD = icon("load");
-    protected static final Identifier ICON_FOLDER = icon("folder");
-    protected static final Identifier ICON_PIN = icon("pin");
-    protected static final Identifier ICON_CROSSHAIR = icon("crosshair");
+    protected static final String ICON_SEARCH = SolarIcons.SEARCH;
+    protected static final String ICON_PLUS = SolarIcons.ADD;
+    protected static final String ICON_TRASH = SolarIcons.DELETE;
+    protected static final String ICON_SAVE = SolarIcons.SAVE;
+    protected static final String ICON_LOAD = SolarIcons.DOWNLOAD;
+    protected static final String ICON_FOLDER = SolarIcons.FOLDER;
+    protected static final String ICON_PIN = SolarIcons.PIN;
+    protected static final String ICON_CROSSHAIR = SolarIcons.TARGET;
 
     private static final float BASE_W = 430f;
     private static final float BASE_H = 255f;
@@ -82,10 +81,6 @@ public abstract class ClientToolScreen extends Screen {
         super(Text.literal(title));
         MinecraftClient client = MinecraftClient.getInstance();
         parentScreen = client == null ? null : client.currentScreen;
-    }
-
-    private static Identifier icon(String name) {
-        return Identifier.of("enough", "icons/client/" + name + ".png");
     }
 
     @Override
@@ -210,7 +205,8 @@ public abstract class ClientToolScreen extends Screen {
         float iconSize = 20f * l.scale;
         float iconX = l.x + l.pad;
         float iconY = l.y + 12f * l.scale;
-        Draw.imageTinted(ctx, icon(), iconX, iconY, iconSize, iconSize, MenuScreen.ACCENT_LIGHT, alpha);
+        CustomFontRenderer.drawText(ctx, icon(), iconX, iconY + 1f * l.scale, iconSize,
+                RenderUtil.withAlpha(MenuScreen.ACCENT_LIGHT, alpha), FontWeight.SOLAR_ICONS);
 
         float titleX = iconX + iconSize + 8f * l.scale;
         CustomFontRenderer.drawText(ctx, title(), titleX, l.y + 9f * l.scale, 10.5f * l.scale,
@@ -231,8 +227,8 @@ public abstract class ClientToolScreen extends Screen {
         float searchX = l.x + l.w - l.pad - searchW;
         float searchY = l.y + 14f * l.scale;
         drawTextBox(ctx, searchBox, searchX, searchY, searchW, searchH, alpha, mx, my, false);
-        Draw.imageTinted(ctx, ICON_SEARCH, searchX + 5f * l.scale, searchY + 4.2f * l.scale,
-                8.5f * l.scale, 8.5f * l.scale, MenuScreen.TEXT_DIM, alpha * 0.82f);
+        CustomFontRenderer.drawText(ctx, ICON_SEARCH, searchX + 5f * l.scale, searchY + 4.2f * l.scale,
+                8.5f * l.scale, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, alpha * 0.82f), FontWeight.SOLAR_ICONS);
 
         RenderUtil.drawRect(ctx, l.x + l.pad, l.y + l.headerH - 0.5f * l.scale,
                 l.w - l.pad * 2f, 0.5f * l.scale, RenderUtil.withAlpha(0xFFFFFF, alpha * 0.07f));
@@ -303,10 +299,11 @@ public abstract class ClientToolScreen extends Screen {
 
     protected void drawRowIcon(DrawContext ctx, Layout l, ToolRow row, float x, float y,
                                boolean selected, float hover, float alpha) {
-        Identifier rowIcon = row.icon() == null ? icon() : row.icon();
+        String rowIcon = row.icon() == null ? icon() : row.icon();
         int iconColor = selected ? MenuScreen.ACCENT_LIGHT : MenuScreen.TEXT_DIM;
-        Draw.imageTinted(ctx, rowIcon, x + 7f * l.scale, y + 8f * l.scale, 13f * l.scale, 13f * l.scale,
-                iconColor, alpha * (selected ? 1f : 0.78f + hover * 0.18f));
+        CustomFontRenderer.drawText(ctx, rowIcon, x + 7f * l.scale, y + 8f * l.scale, 13f * l.scale,
+                RenderUtil.withAlpha(iconColor, alpha * (selected ? 1f : 0.78f + hover * 0.18f)),
+                FontWeight.SOLAR_ICONS);
     }
 
     protected float rowTextOffset(Layout l, ToolRow row) {
@@ -349,7 +346,7 @@ public abstract class ClientToolScreen extends Screen {
         }
     }
 
-    protected boolean drawButton(DrawContext ctx, String id, String label, Identifier icon,
+    protected boolean drawButton(DrawContext ctx, String id, String label, String icon,
                                  float x, float y, float w, float h, boolean enabled,
                                  int mx, int my, float alpha) {
         boolean hovered = enabled && mx >= x && mx <= x + w && my >= y && my <= y + h;
@@ -369,9 +366,10 @@ public abstract class ClientToolScreen extends Screen {
         float textSize = 6.2f * currentScale();
         float textY = by + (bh - textSize) * 0.5f - 0.55f * currentScale();
         if (icon != null) {
-            Draw.imageTinted(ctx, icon, bx + 6f * currentScale(), by + (bh - 8.5f * currentScale()) * 0.5f,
-                    8.5f * currentScale(), 8.5f * currentScale(),
-                    enabled ? MenuScreen.TEXT_WHITE : MenuScreen.TEXT_DIM, alpha * (enabled ? 0.92f : 0.45f));
+            CustomFontRenderer.drawText(ctx, icon, bx + 6f * currentScale(),
+                    by + (bh - 8.5f * currentScale()) * 0.5f, 8.5f * currentScale(),
+                    RenderUtil.withAlpha(enabled ? MenuScreen.TEXT_WHITE : MenuScreen.TEXT_DIM,
+                            alpha * (enabled ? 0.92f : 0.45f)), FontWeight.SOLAR_ICONS);
         }
         float textX = icon == null ? bx + bw * 0.5f : bx + 18f * currentScale();
         String trimmed = CustomFontRenderer.trimToWidth(label, icon == null ? bw - 10f * currentScale() : bw - 23f * currentScale(),
@@ -520,7 +518,7 @@ public abstract class ClientToolScreen extends Screen {
         return filteredRows().stream().filter(row -> row.id().equals(selectedId)).findFirst().orElse(null);
     }
 
-    protected abstract Identifier icon();
+    protected abstract String icon();
     protected abstract String title();
     protected abstract String statusText(int visibleRows);
     protected abstract String emptyText();
@@ -539,7 +537,7 @@ public abstract class ClientToolScreen extends Screen {
         return Math.max(min, Math.min(max, value));
     }
 
-    protected record ToolRow(String id, String title, String subtitle, Identifier icon) {
+    protected record ToolRow(String id, String title, String subtitle, String icon) {
     }
 
     protected record Layout(float x, float y, float w, float h, float pad, float headerH,

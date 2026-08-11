@@ -8,9 +8,11 @@ import fun.enoughvisuals.ui.mainmenu.MainMenuButton;
 import fun.enoughvisuals.ui.mainmenu.MenuBackgroundManager;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.SolarIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.ScreenScaleUtil;
 import fun.enoughvisuals.utils.sound.EnoughSoundPlayer;
+import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.client.gui.DrawContext;
@@ -20,17 +22,24 @@ import net.minecraft.client.gui.screen.option.OptionsScreen;
 import net.minecraft.client.gui.screen.world.SelectWorldScreen;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.text.Text;
+import net.minecraft.util.Util;
 import net.minecraft.util.Identifier;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
 public final class CustomMainMenuScreen extends Screen {
     private static final int WHITE = 0xFFFFFFFF;
     private static final int SUBTITLE = 0xFFB195E1;
+    private static final String DISCORD_URL = "https://dsc.gg/enoughvisuals";
+    private static final String TELEGRAM_URL = "https://t.me/enoughvisuals";
 
     private final MainMenuAnimation animation = new MainMenuAnimation();
     private final AnimatedFloat pickerHover = new AnimatedFloat(0f, 240L, Easing.OUT_QUART);
+    private final AnimatedFloat discordHover = new AnimatedFloat(0f, 180L, Easing.OUT_QUART);
+    private final AnimatedFloat telegramHover = new AnimatedFloat(0f, 180L, Easing.OUT_QUART);
+    private final AnimatedFloat languageHover = new AnimatedFloat(0f, 180L, Easing.OUT_QUART);
     private final List<MainMenuButton> buttons = new ArrayList<>();
     private Identifier filteredBackground;
     private boolean pendingAnimationRestart;
@@ -61,27 +70,27 @@ public final class CustomMainMenuScreen extends Screen {
         updateVirtualScreen();
         buttons.clear();
         buttons.add(new MainMenuButton(
-                "\u041c\u043d\u043e\u0433\u043e\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c\u0441\u043a\u0430\u044f \u0438\u0433\u0440\u0430",
+                ClientLanguage.text("ui.main_menu.multiplayer", "Многопользовательская игра"),
                 "\uF003",
                 true,
                 this::openMultiplayer));
         buttons.add(new MainMenuButton(
-                "\u041e\u0434\u0438\u043d\u043e\u0447\u043d\u0430\u044f \u0438\u0433\u0440\u0430",
+                ClientLanguage.text("ui.main_menu.singleplayer", "Одиночная игра"),
                 "\uF004",
                 false,
                 this::openSingleplayer));
         buttons.add(new MainMenuButton(
-                "\u0421\u043c\u0435\u043d\u0438\u0442\u044c \u0430\u043a\u043a\u0430\u0443\u043d\u0442",
+                ClientLanguage.text("ui.main_menu.account", "Сменить аккаунт"),
                 "\uF002",
                 false,
                 this::openAccountManager));
         buttons.add(new MainMenuButton(
-                "\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438",
+                ClientLanguage.text("ui.main_menu.settings", "Настройки"),
                 "\uF001",
                 false,
                 this::openOptions));
         buttons.add(new MainMenuButton(
-                "\u0412\u044b\u0445\u043e\u0434",
+                ClientLanguage.text("ui.main_menu.quit", "Выход"),
                 "\uF000",
                 false,
                 this::quitGame));
@@ -131,11 +140,74 @@ public final class CustomMainMenuScreen extends Screen {
             buttons.get(i).render(ctx, scale, buttonAlpha, appear);
         }
         renderBackgroundPickerButton(ctx, virtualMouseX, virtualMouseY, scale, alpha);
+        renderSocialButtons(ctx, virtualMouseX, virtualMouseY - yOffset, scale, alpha);
+        ctx.getMatrices().pop();
+    }
+
+    private void renderSocialButtons(DrawContext ctx, float mouseX, float mouseY, float scale, float alpha) {
+        float size = 18f * scale;
+        float gap = 4f * scale;
+        float x = virtualWidth * 0.5f - (size * 3f + gap * 2f) * 0.5f;
+        float fullH = 19.5f * scale;
+        float rowY = virtualHeight * 0.5f - 4f * scale
+                + (fullH + 4f * scale) * 3f + 1f * scale;
+        float y = rowY + fullH + 7f * scale;
+        renderSocialButton(ctx, SolarIcons.DISCORD, x, y, size, mouseX, mouseY, alpha, discordHover, 10.2f);
+        renderSocialButton(ctx, SolarIcons.TELEGRAM, x + size + gap, y, size, mouseX, mouseY, alpha, telegramHover, 10.4f);
+        renderLanguageButton(ctx, x + (size + gap) * 2f, y, size, mouseX, mouseY, alpha);
+    }
+
+    private void renderLanguageButton(DrawContext ctx, float x, float y, float size,
+                                      float mouseX, float mouseY, float alpha) {
+        boolean hover = mouseX >= x && mouseX <= x + size && mouseY >= y && mouseY <= y + size;
+        languageHover.setTarget(hover ? 1f : 0f);
+        float hoverValue = languageHover.value();
+        float grow = 1f + hoverValue * 0.055f;
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(x + size * 0.5f, y + size * 0.5f, 0f);
+        ctx.getMatrices().scale(grow, grow, 1f);
+        ctx.getMatrices().translate(-(x + size * 0.5f), -(y + size * 0.5f), 0f);
+        float previousExponent = RenderUtil.pushSquircleExponent(2f);
+        try {
+            RenderUtil.drawRoundedRect(ctx, x, y, size, size, size * 0.5f,
+                    RenderUtil.withAlpha(RenderUtil.lerpColor(0xFF151519, 0xFF252632, hoverValue), alpha * 0.94f));
+        } finally {
+            RenderUtil.restoreSquircleExponent(previousExponent);
+        }
+        float iconSize = size * 0.56f;
+        float iconY = y + (size - CustomFontRenderer.getTextHeight(iconSize, FontWeight.SOLAR_ICONS)) * 0.5f + size * 0.04f;
+        CustomFontRenderer.drawCenteredText(ctx, SolarIcons.LANGUAGE, x + size * 0.5f, iconY, iconSize,
+                RenderUtil.withAlpha(WHITE, alpha * (0.78f + hoverValue * 0.22f)), FontWeight.SOLAR_ICONS);
+        ctx.getMatrices().pop();
+    }
+
+    private void renderSocialButton(DrawContext ctx, String icon, float x, float y, float size,
+                                    float mouseX, float mouseY, float alpha, AnimatedFloat hoverAnimation,
+                                    float iconSize) {
+        boolean hover = mouseX >= x && mouseX <= x + size && mouseY >= y && mouseY <= y + size;
+        hoverAnimation.setTarget(hover ? 1f : 0f);
+        float hoverValue = hoverAnimation.value();
+        float grow = 1f + hoverValue * 0.055f;
+
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(x + size * 0.5f, y + size * 0.5f, 0f);
+        ctx.getMatrices().scale(grow, grow, 1f);
+        ctx.getMatrices().translate(-(x + size * 0.5f), -(y + size * 0.5f), 0f);
+        float previousExponent = RenderUtil.pushSquircleExponent(2f);
+        try {
+            RenderUtil.drawRoundedRect(ctx, x, y, size, size, size * 0.5f,
+                    RenderUtil.withAlpha(RenderUtil.lerpColor(0xFF151519, 0xFF252632, hoverValue), alpha * 0.94f));
+        } finally {
+            RenderUtil.restoreSquircleExponent(previousExponent);
+        }
+        float iconY = y + (size - CustomFontRenderer.getTextHeight(iconSize, FontWeight.SOLAR_ICONS)) * 0.5f;
+        CustomFontRenderer.drawCenteredText(ctx, icon, x + size * 0.5f, iconY, iconSize,
+                RenderUtil.withAlpha(WHITE, alpha * (0.78f + hoverValue * 0.22f)), FontWeight.SOLAR_ICONS);
         ctx.getMatrices().pop();
     }
 
     private void renderBackgroundPickerButton(DrawContext ctx, float mouseX, float mouseY, float scale, float alpha) {
-        String label = "Выбрать фон";
+        String label = ClientLanguage.text("ui.main_menu.choose_background", "Выбрать фон");
         float textSize = 5.8f * scale;
         float iconSize = 9.5f * scale;
         float w = CustomFontRenderer.getTextWidth(label, textSize, FontWeight.SEMIBOLD) + 30f * scale;
@@ -166,6 +238,11 @@ public final class CustomMainMenuScreen extends Screen {
         if (client != null) client.setScreen(this);
     }
 
+    void resumeFromLanguagePicker() {
+        suppressNextIntro = true;
+        if (client != null) client.setScreen(this);
+    }
+
     void renderBackgroundPickerBackdrop(DrawContext ctx) {
         RenderUtil.beginFrame();
         updateVirtualScreen();
@@ -181,7 +258,12 @@ public final class CustomMainMenuScreen extends Screen {
             button.render(ctx, scale, 1f, 1f);
         }
         renderBackgroundPickerButton(ctx, -10000f, -10000f, scale, 1f);
+        renderSocialButtons(ctx, -10000f, -10000f, scale, 1f);
         ctx.getMatrices().pop();
+    }
+
+    void renderLanguagePickerBackdrop(DrawContext ctx) {
+        renderBackgroundPickerBackdrop(ctx);
     }
 
     private void renderHeader(DrawContext ctx, float scale, float alpha, float appear) {
@@ -202,14 +284,14 @@ public final class CustomMainMenuScreen extends Screen {
         ctx.getMatrices().scale(grow, grow, 1.0f);
         ctx.getMatrices().translate(-centerX, -(centerY - 45.0f * scale), 0.0f);
         CustomFontRenderer.drawCenteredText(ctx,
-                "\u0434\u0430\u0432\u043d\u043e \u043d\u0435 \u0432\u0438\u0434\u0435\u043b\u0438\u0441\u044c, " + username,
+                ClientLanguage.text("ui.main_menu.greeting", "Давно не виделись, %s").formatted(username),
                 centerX,
                 centerY - 63.0f * scale,
                 subtitleSize,
                 RenderUtil.withAlpha(SUBTITLE, alpha),
                 FontWeight.REGULAR);
         CustomFontRenderer.drawCenteredText(ctx,
-                "\u0414\u043e\u0431\u0440\u043e \u043f\u043e\u0436\u0430\u043b\u043e\u0432\u0430\u0442\u044c \u0432",
+                ClientLanguage.text("ui.main_menu.welcome", "Добро пожаловать в"),
                 centerX,
                 centerY - 55.5f * scale,
                 titleSize,
@@ -379,7 +461,7 @@ public final class CustomMainMenuScreen extends Screen {
             float virtualMouseX = ScreenScaleUtil.screenToVirtual(mouseX);
             float virtualMouseY = ScreenScaleUtil.screenToVirtual(mouseY);
             float scale = layoutScale();
-            String backgroundLabel = "Выбрать фон";
+            String backgroundLabel = ClientLanguage.text("ui.main_menu.choose_background", "Выбрать фон");
             float pickerW = CustomFontRenderer.getTextWidth(backgroundLabel, 5.8f * scale, FontWeight.SEMIBOLD) + 30f * scale;
             float pickerH = 18f * scale;
             float pickerX = virtualWidth * 0.5f - pickerW * 0.5f;
@@ -390,6 +472,30 @@ public final class CustomMainMenuScreen extends Screen {
                 client.setScreen(new BackgroundPickerScreen(this));
                 return true;
             }
+            float socialSize = 18f * scale;
+            float socialGap = 4f * scale;
+            float socialX = virtualWidth * 0.5f - (socialSize * 3f + socialGap * 2f) * 0.5f;
+            float fullH = 19.5f * scale;
+            float rowY = virtualHeight * 0.5f - 4f * scale
+                    + (fullH + 4f * scale) * 3f + 1f * scale;
+            float socialY = rowY + fullH + 7f * scale + yOffset;
+            if (virtualMouseY >= socialY && virtualMouseY <= socialY + socialSize) {
+                if (virtualMouseX >= socialX && virtualMouseX <= socialX + socialSize) {
+                    openUrl(DISCORD_URL);
+                    return true;
+                }
+                float telegramX = socialX + socialSize + socialGap;
+                if (virtualMouseX >= telegramX && virtualMouseX <= telegramX + socialSize) {
+                    openUrl(TELEGRAM_URL);
+                    return true;
+                }
+                float languageX = socialX + (socialSize + socialGap) * 2f;
+                if (virtualMouseX >= languageX && virtualMouseX <= languageX + socialSize) {
+                    EnoughSoundPlayer.playScroll();
+                    client.setScreen(new LanguagePickerScreen(this));
+                    return true;
+                }
+            }
             for (MainMenuButton menuButton : buttons) {
                 if (menuButton.click(virtualMouseX, virtualMouseY - yOffset)) {
                     return true;
@@ -397,6 +503,11 @@ public final class CustomMainMenuScreen extends Screen {
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    private void openUrl(String url) {
+        EnoughSoundPlayer.playScroll();
+        Util.getOperatingSystem().open(URI.create(url));
     }
 
     @Override

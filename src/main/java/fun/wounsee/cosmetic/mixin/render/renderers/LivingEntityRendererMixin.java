@@ -110,7 +110,10 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity, S extend
                 part.preTransform(model);
         }
 
-        boolean showBody = isBodyVisible(livingEntityRenderState);
+        // Previews hide the vanilla body through invisibility, but the avatar itself
+        // still has to render in full.
+        boolean previewOnly = UIHelper.paperdoll && UIHelper.isPreviewHideVanillaModel();
+        boolean showBody = previewOnly || isBodyVisible(livingEntityRenderState);
         boolean translucent = !showBody && !livingEntityRenderState.isInvisibleToPlayer;
         boolean glowing = !showBody && livingEntityRenderState.appearsGlowing;
         boolean invisible = !translucent && !showBody && !glowing;
@@ -137,7 +140,11 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity, S extend
 
         CosmeticMod.popPushProfiler("render");
         float renderAlpha = (translucent ? 0.15f : 1f) * UIHelper.getPreviewAlpha();
-        currentAvatar.render(entity, livingEntityRenderState.yRot, tickDelta, renderAlpha, poseStack, bufferSource, light, overlay, (LivingEntityRenderer<?, ?, ?>) (Object) this, filter, translucent, glowing);
+        // Vertex alpha only fades correctly on an alpha-capable layer. Preview transitions used
+        // to keep CUTOUT/EYES layers when the entity itself was otherwise opaque, leaving opaque
+        // avatar fragments until the final frame.
+        boolean alphaTranslucent = translucent || renderAlpha < 0.999f;
+        currentAvatar.render(entity, livingEntityRenderState.yRot, tickDelta, renderAlpha, poseStack, bufferSource, light, overlay, (LivingEntityRenderer<?, ?, ?>) (Object) this, filter, alphaTranslucent, glowing);
 
         CosmeticMod.popPushProfiler("postRenderEvent");
         currentAvatar.postRenderEvent(tickDelta, poseMatrix);

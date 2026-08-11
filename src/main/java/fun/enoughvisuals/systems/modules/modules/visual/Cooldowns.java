@@ -3,6 +3,7 @@ package fun.enoughvisuals.systems.modules.modules.visual;
 import fun.enoughvisuals.mixins.accessors.HandledScreenAccessor;
 import fun.enoughvisuals.mixins.accessors.ItemCooldownEntryAccessor;
 import fun.enoughvisuals.mixins.accessors.ItemCooldownManagerAccessor;
+import fun.enoughvisuals.systems.hud.HudBottomInset;
 import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
@@ -34,7 +35,7 @@ public class Cooldowns extends Module {
         int sh = ctx.getScaledWindowHeight();
 
         int baseX = sw / 2 - 90;
-        int baseY = sh - 16 - 3;
+        int baseY = Math.round(sh - 16 - 3 - HudBottomInset.current());
 
         for (int i = 0; i < 9; i++) {
             ItemStack stack = mc.player.getInventory().getStack(i);
@@ -63,7 +64,7 @@ public class Cooldowns extends Module {
         if (remainingSec <= 0f) return;
 
         int color = getAdaptiveColor(remainingSec);
-        String text = remainingSec >= 1f ? String.format("%.1f", remainingSec) : String.format("%.2f", remainingSec);
+        String text = formatRemaining(remainingSec);
 
         CustomFontRenderer.drawText(ctx, text, slotX + 1.0f, slotY - 1.0f, 6.0f, color, FontWeight.SEMIBOLD);
     }
@@ -88,5 +89,16 @@ public class Cooldowns extends Module {
         if (sec > 1.0f) return 0xFFFFA53A;
         if (sec > 0.45f) return 0xFFFFFF66;
         return 0xFF7CFF7C;
+    }
+
+    private static String formatRemaining(float seconds) {
+        if (seconds < 1f) {
+            int millis = Math.max(0, Math.round(seconds * 1_000f / 50f) * 50);
+            return millis + "ms";
+        }
+        if (seconds < 10f) return String.format(java.util.Locale.ROOT, "%.2fs", seconds);
+        if (seconds < 60f) return String.format(java.util.Locale.ROOT, "%.1fs", seconds);
+        int whole = (int) Math.ceil(seconds);
+        return String.format(java.util.Locale.ROOT, "%d:%02d", whole / 60, whole % 60);
     }
 }

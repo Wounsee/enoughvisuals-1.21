@@ -1,6 +1,7 @@
 package fun.enoughvisuals.mixins.minecraft.client;
 
 import fun.enoughvisuals.systems.gps.GpsSystem;
+import fun.enoughvisuals.systems.graffiti.GraffitiManager;
 
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.modules.utils.ClickPearl;
@@ -35,14 +36,23 @@ public class MouseMixin {
         }
     }
 
-    @Inject(method = "onMouseButton", at = @At("HEAD"))
+    @Inject(method = "onMouseButton", at = @At("HEAD"), cancellable = true)
     private void enough$onMouseButton(long window, int button, int action, int mods, CallbackInfo ci) {
-        if (action != GLFW.GLFW_PRESS) return;
-
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client == null || client.currentScreen != null) return;
+        if (client == null) return;
+
+        if (action == GLFW.GLFW_PRESS && button == GLFW.GLFW_MOUSE_BUTTON_RIGHT
+                && GraffitiManager.getInstance().deleteLookedAtOwn()) {
+            ci.cancel();
+            return;
+        }
 
         int key = BindKeyUtil.mouseButtonToCode(button);
+        if (GraffitiManager.getInstance().onKey(key, action)) {
+            ci.cancel();
+            return;
+        }
+        if (action != GLFW.GLFW_PRESS || client.currentScreen != null) return;
 
         if (GpsSystem.getInstance().openGuiIfBound(key, client)) {
             return;

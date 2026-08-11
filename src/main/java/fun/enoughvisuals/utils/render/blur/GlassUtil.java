@@ -6,14 +6,12 @@ import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.StencilUtil;
-import fun.enoughvisuals.systems.modules.modules.client.CornerStyle;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.*;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.*;
 import net.minecraft.util.Identifier;
 import org.joml.Matrix4f;
-import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,10 +41,6 @@ public class GlassUtil {
     private static int lastWidth = 0;
     private static int lastHeight = 0;
     private static int lastChainLength = 0;
-    private static float lastBlurOffset = 0;
-
-    private static int frameCounter = 0;
-
     private static void init() {
         if (initialized || initFailed) return;
 
@@ -131,6 +125,8 @@ public class GlassUtil {
             int sourceTexture = screenTex;
             int sourceWidth = w;
             int sourceHeight = h;
+            int scaledWidth = mc.getWindow().getScaledWidth();
+            int scaledHeight = mc.getWindow().getScaledHeight();
             int passes = Math.max(1, CHAIN_LENGTH);
             for (int i = 0; i < passes; i++) {
                 fboChain[0].beginWrite(true);
@@ -139,10 +135,10 @@ public class GlassUtil {
                     restoreState(mainFbo, wasDepthTest, wasBlend);
                     return;
                 }
-                setUniform(horizontal, "Resolution", 1.0f / sourceWidth, 1.0f / sourceHeight);
-                setUniform(horizontal, "Offset", BLUR_OFFSET);
+                setUniform2f(horizontal, "Resolution", 1.0f / sourceWidth, 1.0f / sourceHeight);
+                if (i == 0) setUniform1f(horizontal, "Offset", BLUR_OFFSET);
                 RenderSystem.setShaderTexture(0, sourceTexture);
-                drawFullscreenQuad(fboChain[0].textureWidth, fboChain[0].textureHeight);
+                drawFullscreenQuad(scaledWidth, scaledHeight);
 
                 fboChain[1].beginWrite(true);
                 ShaderProgram vertical = RenderSystem.setShader(kawaseUpKey);
@@ -150,10 +146,12 @@ public class GlassUtil {
                     restoreState(mainFbo, wasDepthTest, wasBlend);
                     return;
                 }
-                setUniform(vertical, "Resolution", 1.0f / fboChain[0].textureWidth, 1.0f / fboChain[0].textureHeight);
-                setUniform(vertical, "Offset", BLUR_OFFSET);
+                if (i == 0) {
+                    setUniform2f(vertical, "Resolution", 1.0f / fboChain[0].textureWidth, 1.0f / fboChain[0].textureHeight);
+                    setUniform1f(vertical, "Offset", BLUR_OFFSET);
+                }
                 RenderSystem.setShaderTexture(0, fboChain[0].getColorAttachment());
-                drawFullscreenQuad(fboChain[1].textureWidth, fboChain[1].textureHeight);
+                drawFullscreenQuad(scaledWidth, scaledHeight);
 
                 sourceTexture = fboChain[1].getColorAttachment();
                 sourceWidth = fboChain[1].textureWidth;
@@ -162,10 +160,8 @@ public class GlassUtil {
 
             resultTexture = fboChain[1].getColorAttachment();
             frameReady = true;
-            lastBlurOffset = BLUR_OFFSET;
 
             restoreState(mainFbo, wasDepthTest, wasBlend);
-            frameCounter++;
 
         } catch (Exception e) {
             LOGGER.error("beginFrame() failed", e);
@@ -247,11 +243,24 @@ public class GlassUtil {
         float texH = lastHeight;
 
         Matrix4f mat = ctx.getMatrices().peek().getPositionMatrix();
-        float[] bounds = transformedBounds(mat, x, y, w, h);
-        float px = bounds[0] * guiScale;
-        float py = bounds[1] * guiScale;
-        float pw = (bounds[2] - bounds[0]) * guiScale;
-        float ph = (bounds[3] - bounds[1]) * guiScale;
+        float x1 = x + w;
+        float y1 = y + h;
+        float p0x = mat.m00() * x + mat.m10() * y + mat.m30();
+        float p0y = mat.m01() * x + mat.m11() * y + mat.m31();
+        float p1x = mat.m00() * x1 + mat.m10() * y + mat.m30();
+        float p1y = mat.m01() * x1 + mat.m11() * y + mat.m31();
+        float p2x = mat.m00() * x1 + mat.m10() * y1 + mat.m30();
+        float p2y = mat.m01() * x1 + mat.m11() * y1 + mat.m31();
+        float p3x = mat.m00() * x + mat.m10() * y1 + mat.m30();
+        float p3y = mat.m01() * x + mat.m11() * y1 + mat.m31();
+        float minX = Math.min(Math.min(p0x, p1x), Math.min(p2x, p3x));
+        float minY = Math.min(Math.min(p0y, p1y), Math.min(p2y, p3y));
+        float maxX = Math.max(Math.max(p0x, p1x), Math.max(p2x, p3x));
+        float maxY = Math.max(Math.max(p0y, p1y), Math.max(p2y, p3y));
+        float px = minX * guiScale;
+        float py = minY * guiScale;
+        float pw = (maxX - minX) * guiScale;
+        float ph = (maxY - minY) * guiScale;
 
         float u0 = px / texW;
         float u1 = (px + pw) / texW;
@@ -265,14 +274,14 @@ public class GlassUtil {
         if (radius > 0.5f && glassPanelKey != null) {
             ShaderProgram panelShader = RenderSystem.setShader(glassPanelKey);
             if (panelShader != null) {
-                setUniform(panelShader, "PanelSize", w, h);
-                setUniform(panelShader, "Radius", radius);
-                setUniform(panelShader, "BlurAlpha", blur);
-                setUniform(panelShader, "SquircleExponent", CornerStyle.exponent());
+                setUniform2f(panelShader, "PanelSize", w, h);
+                setUniform1f(panelShader, "Radius", radius);
+                setUniform1f(panelShader, "BlurAlpha", blur);
+                setUniform1f(panelShader, "SquircleExponent", RenderUtil.squircleExponent());
                 float cr = ((tintColor >> 16) & 0xFF) / 255f;
                 float cg = ((tintColor >> 8) & 0xFF) / 255f;
                 float cb = (tintColor & 0xFF) / 255f;
-                setUniform(panelShader, "TintColor", cr, cg, cb, tintAlpha);
+                setUniform4f(panelShader, "TintColor", cr, cg, cb, tintAlpha);
 
                 RenderSystem.setShaderTexture(0, resultTexture);
                 if (blur > 0.001f) {
@@ -301,6 +310,112 @@ public class GlassUtil {
             drawBlurQuad(mat, x, y, w, h, u0, v0, u1, v1);
             drawTintQuad(mat, x, y, w, h, tintColor, tintAlpha);
         }
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+    }
+
+    /**
+     * Draws glass directly as annular-sector geometry.  This deliberately does not use a
+     * rectangular quad plus stencil: the game framebuffer is not guaranteed to expose a
+     * stencil attachment after the blur FBO pass, which used to leak the sector's bounding
+     * square onto the screen.
+     */
+    public static void drawGlassRingSector(DrawContext ctx, float cx, float cy,
+                                           float innerRadius, float outerRadius,
+                                           float startAngle, float endAngle,
+                                           int tintColor, float tintAlpha, float blurAlpha) {
+        float blur = Math.max(0f, Math.min(1f, blurAlpha));
+        float tint = Math.max(0f, Math.min(1f, tintAlpha));
+        if (outerRadius <= innerRadius || endAngle <= startAngle || (blur <= 0.001f && tint <= 0.001f)) {
+            return;
+        }
+
+        if (!CustomTheme.blurDisabled() && frameReady && resultTexture != 0 && blur > 0.001f) {
+            Matrix4f matrix = ctx.getMatrices().peek().getPositionMatrix();
+            int segments = Math.max(8, (int) Math.ceil((endAngle - startAngle) * outerRadius / 90f));
+            MinecraftClient mc = MinecraftClient.getInstance();
+            float guiScale = (float) mc.getWindow().getScaleFactor();
+            float uvScaleX = guiScale / Math.max(1f, lastWidth);
+            float uvScaleY = guiScale / Math.max(1f, lastHeight);
+
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+            RenderSystem.setShaderTexture(0, resultTexture);
+            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+
+            BufferBuilder builder = Tessellator.getInstance().begin(
+                    VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_TEXTURE_COLOR);
+            for (int i = 0; i <= segments; i++) {
+                float angle = (float) Math.toRadians(startAngle + (endAngle - startAngle) * i / segments);
+                float cos = (float) Math.cos(angle);
+                float sin = (float) Math.sin(angle);
+                addScreenSampledVertex(builder, matrix, cx + cos * innerRadius, cy + sin * innerRadius,
+                        blur, uvScaleX, uvScaleY);
+                addScreenSampledVertex(builder, matrix, cx + cos * outerRadius, cy + sin * outerRadius,
+                        blur, uvScaleX, uvScaleY);
+            }
+            BufferRenderer.drawWithGlobalProgram(builder.end());
+        }
+
+        if (tint > 0.001f) {
+            RenderUtil.drawRingSector(ctx, cx, cy, innerRadius, outerRadius,
+                    startAngle, endAngle, RenderUtil.withAlpha(tintColor, tint));
+        }
+        restoreOverlayState();
+    }
+
+    /** Draws circular glass as circle geometry, never as a square clipped by stencil. */
+    public static void drawGlassCircle(DrawContext ctx, float cx, float cy, float radius,
+                                       int tintColor, float tintAlpha, float blurAlpha) {
+        float blur = Math.max(0f, Math.min(1f, blurAlpha));
+        float tint = Math.max(0f, Math.min(1f, tintAlpha));
+        if (radius <= 0f || (blur <= 0.001f && tint <= 0.001f)) return;
+
+        if (!CustomTheme.blurDisabled() && frameReady && resultTexture != 0 && blur > 0.001f) {
+            Matrix4f matrix = ctx.getMatrices().peek().getPositionMatrix();
+            int segments = Math.max(32, (int) Math.ceil(radius * 1.25f));
+            MinecraftClient mc = MinecraftClient.getInstance();
+            float guiScale = (float) mc.getWindow().getScaleFactor();
+            float uvScaleX = guiScale / Math.max(1f, lastWidth);
+            float uvScaleY = guiScale / Math.max(1f, lastHeight);
+
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+            RenderSystem.setShaderTexture(0, resultTexture);
+            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+
+            BufferBuilder builder = Tessellator.getInstance().begin(
+                    VertexFormat.DrawMode.TRIANGLE_FAN, VertexFormats.POSITION_TEXTURE_COLOR);
+            addScreenSampledVertex(builder, matrix, cx, cy, blur, uvScaleX, uvScaleY);
+            for (int i = 0; i <= segments; i++) {
+                float angle = (float) (Math.PI * 2.0 * i / segments);
+                addScreenSampledVertex(builder, matrix,
+                        cx + (float) Math.cos(angle) * radius,
+                        cy + (float) Math.sin(angle) * radius, blur, uvScaleX, uvScaleY);
+            }
+            BufferRenderer.drawWithGlobalProgram(builder.end());
+        }
+
+        if (tint > 0.001f) {
+            RenderUtil.drawCrispCircle(ctx, cx, cy, radius, RenderUtil.withAlpha(tintColor, tint));
+        }
+        restoreOverlayState();
+    }
+
+    private static void addScreenSampledVertex(BufferBuilder builder, Matrix4f matrix,
+                                                float x, float y, float alpha,
+                                                float uvScaleX, float uvScaleY) {
+        float screenX = matrix.m00() * x + matrix.m10() * y + matrix.m30();
+        float screenY = matrix.m01() * x + matrix.m11() * y + matrix.m31();
+        float u = screenX * uvScaleX;
+        float v = 1f - screenY * uvScaleY;
+        builder.vertex(matrix, x, y, 0f).texture(u, v).color(1f, 1f, 1f, alpha);
+    }
+
+    private static void restoreOverlayState() {
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -354,18 +469,6 @@ public class GlassUtil {
         return 0xFF000000 | (r << 16) | (g << 8) | 0xFF;
     }
 
-    private static float[] transformedBounds(Matrix4f mat, float x, float y, float w, float h) {
-        Vector3f p0 = mat.transformPosition(x, y, 0f, new Vector3f());
-        Vector3f p1 = mat.transformPosition(x + w, y, 0f, new Vector3f());
-        Vector3f p2 = mat.transformPosition(x + w, y + h, 0f, new Vector3f());
-        Vector3f p3 = mat.transformPosition(x, y + h, 0f, new Vector3f());
-        float minX = Math.min(Math.min(p0.x, p1.x), Math.min(p2.x, p3.x));
-        float minY = Math.min(Math.min(p0.y, p1.y), Math.min(p2.y, p3.y));
-        float maxX = Math.max(Math.max(p0.x, p1.x), Math.max(p2.x, p3.x));
-        float maxY = Math.max(Math.max(p0.y, p1.y), Math.max(p2.y, p3.y));
-        return new float[]{ minX, minY, maxX, maxY };
-    }
-
     private static void drawBlurQuad(Matrix4f mat, float x, float y, float w, float h,
                                      float u0, float v0, float u1, float v1) {
         RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
@@ -397,12 +500,7 @@ public class GlassUtil {
         BufferRenderer.drawWithGlobalProgram(tint.end());
     }
 
-    private static void drawFullscreenQuad(int fbW, int fbH) {
-
-        MinecraftClient mc = MinecraftClient.getInstance();
-        int sw = mc.getWindow().getScaledWidth();
-        int sh = mc.getWindow().getScaledHeight();
-
+    private static void drawFullscreenQuad(int sw, int sh) {
         BufferBuilder builder = Tessellator.getInstance().begin(
                 VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
         builder.vertex(0, 0, 0)     .texture(0.0f, 1.0f).color(0xFFFFFFFF);
@@ -412,8 +510,8 @@ public class GlassUtil {
         BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
-    private static void setUniform(ShaderProgram prog, String name, float... values) {
-        if (prog == null) return;
+    private static GlUniform uniform(ShaderProgram prog, String name) {
+        if (prog == null) return null;
         GlUniform uniform = null;
         try {
             Map<String, GlUniform> map = ((ShaderProgramAccessor) prog).getUniformsByName();
@@ -424,13 +522,23 @@ public class GlassUtil {
                 uniform = prog.getUniform(name);
             } catch (Exception ignored) {}
         }
-        if (uniform == null) return;
-        switch (values.length) {
-            case 1 -> uniform.set(values[0]);
-            case 2 -> uniform.set(values[0], values[1]);
-            case 3 -> uniform.set(values[0], values[1], values[2]);
-            case 4 -> uniform.set(values[0], values[1], values[2], values[3]);
-        }
+        return uniform;
+    }
+
+    private static void setUniform1f(ShaderProgram program, String name, float value) {
+        GlUniform uniform = uniform(program, name);
+        if (uniform != null) uniform.set(value);
+    }
+
+    private static void setUniform2f(ShaderProgram program, String name, float x, float y) {
+        GlUniform uniform = uniform(program, name);
+        if (uniform != null) uniform.set(x, y);
+    }
+
+    private static void setUniform4f(ShaderProgram program, String name,
+                                     float x, float y, float z, float w) {
+        GlUniform uniform = uniform(program, name);
+        if (uniform != null) uniform.set(x, y, z, w);
     }
 
 
@@ -466,6 +574,5 @@ public class GlassUtil {
         lastWidth = 0;
         lastHeight = 0;
         lastChainLength = 0;
-        lastBlurOffset = 0f;
     }
 }

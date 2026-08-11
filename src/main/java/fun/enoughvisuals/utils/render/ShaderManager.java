@@ -1,15 +1,12 @@
 package fun.enoughvisuals.utils.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import org.joml.Matrix4f;
-import org.joml.Vector4f;
-import org.lwjgl.opengl.GL11;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
-import org.lwjgl.system.MemoryStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,7 +14,9 @@ import java.io.InputStream;
 import java.nio.FloatBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class ShaderManager {
 
@@ -26,6 +25,8 @@ public class ShaderManager {
 
     private static final Map<String, Integer> programs = new HashMap<>();
     private static final Map<String, Map<String, Integer>> uniformCache = new HashMap<>();
+    private static final Map<String, Long> screenSizeCache = new HashMap<>();
+    private static final Set<Integer> configuredTextureSamplers = new HashSet<>();
 
     private static boolean initialized = false;
     private static boolean failed = false;
@@ -36,13 +37,15 @@ public class ShaderManager {
     private static int quadVBO = 0;
 
     private static int previousProgram = 0;
+    private static final FloatBuffer QUAD_UPLOAD = BufferUtils.createFloatBuffer(6 * 2);
+    private static final FloatBuffer TEX_QUAD_UPLOAD = BufferUtils.createFloatBuffer(6 * 6);
 
     
-    private static int savedVAO = 0;
     private static boolean programActive = false;
 
     public static final String ROUNDED_RECT = "rounded_rect";
     public static final String ROUNDED_RECT_OUTLINE = "rounded_rect_outline";
+    public static final String ROUNDED_RECT_PROGRESS = "rounded_rect_progress";
     public static final String ROUNDED_RECT_GRADIENT = "rounded_rect_gradient";
     public static final String CIRCLE = "circle";
     public static final String SHADOW = "shadow";
@@ -66,6 +69,7 @@ public class ShaderManager {
             // Твои старые шейдеры
             linkProgram(ROUNDED_RECT, vertShader, "rounded_rect.fsh");
             linkProgram(ROUNDED_RECT_OUTLINE, vertShader, "rounded_rect_outline.fsh");
+            linkProgram(ROUNDED_RECT_PROGRESS, vertShader, "rounded_rect_progress.fsh");
             linkProgram(ROUNDED_RECT_GRADIENT, vertShader, "rounded_rect_gradient.fsh");
             linkProgram(CIRCLE, vertShader, "circle.fsh");
             linkProgram(SHADOW, vertShader, "shadow.fsh");
@@ -114,40 +118,41 @@ public class ShaderManager {
             float uvEndX = (u + uW + pad * (uW / w)) / tW;
             float uvEndY = (v + vH + pad * (vH / h)) / tH;
 
-            // Применяем 3D трансформацию
-            Vector4f p1 = mat.transform(new Vector4f(minX, minY, 0f, 1f));
-            Vector4f p2 = mat.transform(new Vector4f(minX, maxY, 0f, 1f));
-            Vector4f p3 = mat.transform(new Vector4f(maxX, maxY, 0f, 1f));
-            Vector4f p4 = mat.transform(new Vector4f(maxX, minY, 0f, 1f));
+            // Применяем ту же 2D матрицу напрямую, без четырёх временных Vector4f.
+            float p1x = mat.m00() * minX + mat.m10() * minY + mat.m30();
+            float p1y = mat.m01() * minX + mat.m11() * minY + mat.m31();
+            float p2x = mat.m00() * minX + mat.m10() * maxY + mat.m30();
+            float p2y = mat.m01() * minX + mat.m11() * maxY + mat.m31();
+            float p3x = mat.m00() * maxX + mat.m10() * maxY + mat.m30();
+            float p3y = mat.m01() * maxX + mat.m11() * maxY + mat.m31();
+            float p4x = mat.m00() * maxX + mat.m10() * minY + mat.m30();
+            float p4y = mat.m01() * maxX + mat.m11() * minY + mat.m31();
 
             // Переводим в экранные координаты (NDC)
-            float ndcP1X = (p1.x * scale / fbW) * 2f - 1f; float ndcP1Y = 1f - (p1.y * scale / fbH) * 2f;
-            float ndcP2X = (p2.x * scale / fbW) * 2f - 1f; float ndcP2Y = 1f - (p2.y * scale / fbH) * 2f;
-            float ndcP3X = (p3.x * scale / fbW) * 2f - 1f; float ndcP3Y = 1f - (p3.y * scale / fbH) * 2f;
-            float ndcP4X = (p4.x * scale / fbW) * 2f - 1f; float ndcP4Y = 1f - (p4.y * scale / fbH) * 2f;
-
-            // Структура: NDC X, NDC Y, UV X, UV Y, Local X, Local Y
-            float[] vertices = {
-                    ndcP1X, ndcP1Y, uvStartX, uvStartY, -pad, -pad,
-                    ndcP2X, ndcP2Y, uvStartX, uvEndY,   -pad, h + pad,
-                    ndcP3X, ndcP3Y, uvEndX,   uvEndY,   w + pad, h + pad,
-                    ndcP1X, ndcP1Y, uvStartX, uvStartY, -pad, -pad,
-                    ndcP3X, ndcP3Y, uvEndX,   uvEndY,   w + pad, h + pad,
-                    ndcP4X, ndcP4Y, uvEndX,   uvStartY, w + pad, -pad
-            };
+            float ndcP1X = (p1x * scale / fbW) * 2f - 1f; float ndcP1Y = 1f - (p1y * scale / fbH) * 2f;
+            float ndcP2X = (p2x * scale / fbW) * 2f - 1f; float ndcP2Y = 1f - (p2y * scale / fbH) * 2f;
+            float ndcP3X = (p3x * scale / fbW) * 2f - 1f; float ndcP3Y = 1f - (p3y * scale / fbH) * 2f;
+            float ndcP4X = (p4x * scale / fbW) * 2f - 1f; float ndcP4Y = 1f - (p4y * scale / fbH) * 2f;
 
             int locTexture = getUniformLocation(program, shaderName, "uTexture");
-            if (locTexture >= 0) GL20.glUniform1i(locTexture, 0);
+            if (locTexture >= 0 && configuredTextureSamplers.add(program)) {
+                GL20.glUniform1i(locTexture, 0);
+            }
 
             int prevVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
             GL30.glBindVertexArray(texVAO);
             GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, texVBO);
 
-            try (MemoryStack stack = MemoryStack.stackPush()) {
-                FloatBuffer fb = stack.mallocFloat(vertices.length);
-                fb.put(vertices).flip();
-                GL20.glBufferSubData(GL20.GL_ARRAY_BUFFER, 0, fb);
-            }
+            TEX_QUAD_UPLOAD.clear();
+            TEX_QUAD_UPLOAD
+                    .put(ndcP1X).put(ndcP1Y).put(uvStartX).put(uvStartY).put(-pad).put(-pad)
+                    .put(ndcP2X).put(ndcP2Y).put(uvStartX).put(uvEndY).put(-pad).put(h + pad)
+                    .put(ndcP3X).put(ndcP3Y).put(uvEndX).put(uvEndY).put(w + pad).put(h + pad)
+                    .put(ndcP1X).put(ndcP1Y).put(uvStartX).put(uvStartY).put(-pad).put(-pad)
+                    .put(ndcP3X).put(ndcP3Y).put(uvEndX).put(uvEndY).put(w + pad).put(h + pad)
+                    .put(ndcP4X).put(ndcP4Y).put(uvEndX).put(uvStartY).put(w + pad).put(-pad)
+                    .flip();
+            GL20.glBufferSubData(GL20.GL_ARRAY_BUFFER, 0, TEX_QUAD_UPLOAD);
 
             GL20.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 
@@ -285,15 +290,21 @@ public class ShaderManager {
             float scale = (float) mc.getWindow().getScaleFactor();
 
             Matrix4f mat = ctx != null ? ctx.getMatrices().peek().getPositionMatrix() : new Matrix4f().identity();
-            Vector4f p1 = mat.transform(new Vector4f(x - pad,     y - pad,     0f, 1f));
-            Vector4f p2 = mat.transform(new Vector4f(x + w + pad, y - pad,     0f, 1f));
-            Vector4f p3 = mat.transform(new Vector4f(x + w + pad, y + h + pad, 0f, 1f));
-            Vector4f p4 = mat.transform(new Vector4f(x - pad,     y + h + pad, 0f, 1f));
+            float x0 = x - pad, y0 = y - pad;
+            float x1 = x + w + pad, y1 = y + h + pad;
+            float p1x = mat.m00() * x0 + mat.m10() * y0 + mat.m30();
+            float p1y = mat.m01() * x0 + mat.m11() * y0 + mat.m31();
+            float p2x = mat.m00() * x1 + mat.m10() * y0 + mat.m30();
+            float p2y = mat.m01() * x1 + mat.m11() * y0 + mat.m31();
+            float p3x = mat.m00() * x1 + mat.m10() * y1 + mat.m30();
+            float p3y = mat.m01() * x1 + mat.m11() * y1 + mat.m31();
+            float p4x = mat.m00() * x0 + mat.m10() * y1 + mat.m30();
+            float p4y = mat.m01() * x0 + mat.m11() * y1 + mat.m31();
 
-            float minX = Math.min(Math.min(p1.x, p2.x), Math.min(p3.x, p4.x));
-            float minY = Math.min(Math.min(p1.y, p2.y), Math.min(p3.y, p4.y));
-            float maxX = Math.max(Math.max(p1.x, p2.x), Math.max(p3.x, p4.x));
-            float maxY = Math.max(Math.max(p1.y, p2.y), Math.max(p3.y, p4.y));
+            float minX = Math.min(Math.min(p1x, p2x), Math.min(p3x, p4x));
+            float minY = Math.min(Math.min(p1y, p2y), Math.min(p3y, p4y));
+            float maxX = Math.max(Math.max(p1x, p2x), Math.max(p3x, p4x));
+            float maxY = Math.max(Math.max(p1y, p2y), Math.max(p3y, p4y));
 
             float px1 = minX * scale;
             float py1 = minY * scale;
@@ -305,17 +316,12 @@ public class ShaderManager {
             float ndcX2 = (px2 / fbW) * 2f - 1f;
             float ndcY2 = 1f - (py2 / fbH) * 2f;
 
-            float[] vertices = {
-                    ndcX1, ndcY1,
-                    ndcX1, ndcY2,
-                    ndcX2, ndcY2,
-                    ndcX1, ndcY1,
-                    ndcX2, ndcY2,
-                    ndcX2, ndcY1,
-            };
-
             int loc = getUniformLocation(program, shaderName, "uScreenSize");
-            if (loc >= 0) GL20.glUniform2f(loc, (float) fbW, (float) fbH);
+            long packedScreenSize = ((long) fbW << 32) | (fbH & 0xFFFFFFFFL);
+            if (loc >= 0 && screenSizeCache.getOrDefault(shaderName, Long.MIN_VALUE) != packedScreenSize) {
+                GL20.glUniform2f(loc, (float) fbW, (float) fbH);
+                screenSizeCache.put(shaderName, packedScreenSize);
+            }
 
             
             int prevVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
@@ -323,11 +329,16 @@ public class ShaderManager {
             GL30.glBindVertexArray(quadVAO);
             GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, quadVBO);
 
-            try (MemoryStack stack = MemoryStack.stackPush()) {
-                FloatBuffer fb = stack.mallocFloat(vertices.length);
-                fb.put(vertices).flip();
-                GL20.glBufferSubData(GL20.GL_ARRAY_BUFFER, 0, fb);
-            }
+            QUAD_UPLOAD.clear();
+            QUAD_UPLOAD
+                    .put(ndcX1).put(ndcY1)
+                    .put(ndcX1).put(ndcY2)
+                    .put(ndcX2).put(ndcY2)
+                    .put(ndcX1).put(ndcY1)
+                    .put(ndcX2).put(ndcY2)
+                    .put(ndcX2).put(ndcY1)
+                    .flip();
+            GL20.glBufferSubData(GL20.GL_ARRAY_BUFFER, 0, QUAD_UPLOAD);
 
             GL20.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 
@@ -413,6 +424,8 @@ public class ShaderManager {
         }
         programs.clear();
         uniformCache.clear();
+        screenSizeCache.clear();
+        configuredTextureSamplers.clear();
 
         if (quadVAO != 0) {
             GL30.glDeleteVertexArrays(quadVAO);
@@ -421,6 +434,14 @@ public class ShaderManager {
         if (quadVBO != 0) {
             GL20.glDeleteBuffers(quadVBO);
             quadVBO = 0;
+        }
+        if (texVAO != 0) {
+            GL30.glDeleteVertexArrays(texVAO);
+            texVAO = 0;
+        }
+        if (texVBO != 0) {
+            GL20.glDeleteBuffers(texVBO);
+            texVBO = 0;
         }
 
         initialized = false;

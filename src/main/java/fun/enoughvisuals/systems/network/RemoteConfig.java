@@ -9,6 +9,7 @@ import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.emotions.EmotionWheelManager;
 import fun.enoughvisuals.systems.cosmetic.CosmeticCatalog;
+import fun.enoughvisuals.systems.graffiti.GraffitiManager;
 import net.minecraft.client.MinecraftClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Base64;
@@ -51,6 +53,11 @@ public final class RemoteConfig {
     private volatile String banReason = "";
     private volatile boolean everSynced = false;
     private volatile Set<String> enoughUsers = Collections.emptySet();
+    private volatile List<AutoServer> autoServers = Collections.emptyList();
+    private volatile String launcherRole = "User";
+
+    public record AutoServer(String name, String address) {
+    }
 
     private RemoteConfig() {
     }
@@ -89,20 +96,12 @@ public final class RemoteConfig {
 
     private void sync() throws Exception {
         String body = buildRequest();
-        String response = launcherSync(body);
+        String response = LauncherNetworkClient.sync(body);
         if (response == null || response.isBlank()) {
             return;
         }
         apply(JsonParser.parseString(response).getAsJsonObject());
         everSynced = true;
-    }
-
-    private static String launcherSync(String body) throws Exception {
-        Class<?> bridge =
-                Class.forName("net.fabricmc.loader.impl.secure.SecureModStore");
-        Object response =
-                bridge.getMethod("launcherSync", String.class).invoke(null, body);
-        return response instanceof String text ? text : null;
     }
 
     private String buildRequest() {
@@ -141,6 +140,7 @@ public final class RemoteConfig {
         appendServerIcon(root, mc);
         EmotionWheelManager.getInstance().appendSync(root);
         CosmeticCatalog.appendSync(root);
+        GraffitiManager.getInstance().appendSync(root);
         return root.toString();
     }
 
@@ -169,6 +169,27 @@ public final class RemoteConfig {
         latestVersion = str(o, "latest_version", Info.VERSION);
         updateMessage = str(o, "update_message", "");
         updateUrl = str(o, "update_url", "https://t.me/enoughvisuals");
+        launcherRole = normalizeRole(str(o, "role", "User"));
+
+        List<AutoServer> servers = new ArrayList<>();
+        JsonElement serverArray = o.get("auto_servers");
+        if (serverArray != null && serverArray.isJsonArray()) {
+            for (JsonElement entry : serverArray.getAsJsonArray()) {
+                try {
+                    JsonObject server = entry.getAsJsonObject();
+                    String name = str(server, "name", "").trim();
+                    String address = str(server, "address", "").trim();
+                    if (!name.isEmpty() && !address.isEmpty()) {
+                        servers.add(new AutoServer(name, address));
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        if (!servers.equals(autoServers)) {
+            autoServers = List.copyOf(servers);
+            AutoServerSync.apply(autoServers);
+        }
 
         Set<String> set = new HashSet<>();
         JsonElement arr = o.get("blocked_modules");
@@ -198,6 +219,7 @@ public final class RemoteConfig {
         if (client != null) client.execute(() -> {
             EmotionWheelManager.getInstance().applySync(o);
             CosmeticCatalog.applySync(o);
+            GraffitiManager.getInstance().applySync(o);
         });
         if (changed) {
             enforceBlocksAsync();
@@ -280,6 +302,14 @@ public final class RemoteConfig {
         return enoughUsers;
     }
 
+    public List<AutoServer> getAutoServers() {
+        return autoServers;
+    }
+
+    public String getLauncherRole() {
+        return launcherRole;
+    }
+
     public boolean isEnoughUser(String username) {
         return username != null && enoughUsers.contains(username);
     }
@@ -304,5 +334,11 @@ public final class RemoteConfig {
 
     private static String safe(String s) {
         return s == null ? "" : s;
+    }
+
+    private static String normalizeRole(String value) {
+        if ("Admin".equalsIgnoreCase(value)) return "Admin";
+        if ("Beta".equalsIgnoreCase(value)) return "Beta";
+        return "User";
     }
 }

@@ -9,14 +9,19 @@ import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.util.Identifier;
 import net.fabricmc.loader.api.FabricLoader;
+import fun.enoughvisuals.systems.cosmetic.pulse.PulseCosmeticBridge;
+import fun.enoughvisuals.utils.system.ClientLanguage;
 
 import java.io.InputStream;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.SequenceInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.HashMap;
@@ -32,15 +37,22 @@ import java.util.zip.ZipInputStream;
 
 public final class CosmeticCatalog {
     public enum Kind {
-        MODEL("Модели"), HEAD("Головные"), WEAPON("Оружие");
+        MODEL("Модели"), WINGS("Крылья"), BODYWEAR("На тело"), PET("Питомцы"), HAT("Шапки");
         private final String title;
         Kind(String title) { this.title = title; }
-        public String title() { return title; }
+        public String title() {
+            return ClientLanguage.text("ui.cosmetics.category." + name().toLowerCase(Locale.ROOT), title);
+        }
     }
 
-    public record Entry(String id, String name, Kind kind, Path directory) {}
+    public record Entry(String id, String name, Kind kind, Path directory, int pulseId) {
+        public boolean isPulse() { return pulseId >= 0; }
+    }
 
-    private static final String CATALOG_VERSION = "polairis-63-v1";
+    private static final String CATALOG_VERSION = "polairis-custom-models-pulse-v2-hats";
+    private static final int CATALOG_PART_COUNT = 3;
+    private static final String CATALOG_RESOURCE_PREFIX =
+            "/assets/enough/cosmetics/catalog.zip.part";
     private static final Path ROOT = FabricLoader.getInstance().getGameDir().resolve("EnoughVisuals").resolve("cosmetics");
     private static final Path LEGACY_STATE = ROOT.resolve(".equipped");
     private static final Path STATE = ROOT.resolve(".equipped-slots.json");
@@ -57,6 +69,25 @@ public final class CosmeticCatalog {
             "weapon-capitano - оружие",
             "weapon-yorihime - оружие"
     );
+    /** Pulse cosmetics that must not appear in the catalog, keyed by "CATEGORY:id". */
+    private static final Set<String> PULSE_HIDDEN = Set.of(
+            "WINGS:123",
+            "PET:81",
+            "PET:90",
+            "PET:126",
+            "PET:132"
+    );
+    /** Display names that replace the ones baked into the Pulse runtime. */
+    private static final Map<String, String> PULSE_NAMES = Map.of(
+            "WINGS:82", "Chains",
+            "WINGS:86", "Trident",
+            "WINGS:91", "Aqua",
+            "WINGS:136", "Yellow",
+            "HAT:80", "Shlapa",
+            "HAT:85", "Face",
+            "HAT:88", "Pinguin",
+            "HAT:125", "Hat"
+    );
     private static boolean initialized;
     private static boolean restored;
 
@@ -67,6 +98,7 @@ public final class CosmeticCatalog {
         initialized = true;
         extractBundledCatalog();
         scan();
+        scanPulse();
         readEquippedIds();
     }
 
@@ -84,6 +116,11 @@ public final class CosmeticCatalog {
 
     public static Entry equipped(Kind kind) {
         initialize();
+        if (kind != Kind.MODEL) {
+            int selected = PulseCosmeticBridge.selected(pulseCategory(kind));
+            return ENTRIES.stream().filter(entry -> entry.kind() == kind && entry.pulseId() == selected)
+                    .findFirst().orElse(null);
+        }
         String id = EQUIPPED.getOrDefault(kind, "");
         return ENTRIES.stream().filter(entry -> entry.kind() == kind && entry.id().equals(id))
                 .findFirst().orElse(null);
@@ -104,10 +141,12 @@ public final class CosmeticCatalog {
     }
 
     public static boolean equip(Entry entry) {
-        if (entry == null || !CosmeticBridge.available()) return false;
+        if (entry == null || (!entry.isPulse() && !CosmeticBridge.available())) return false;
         try {
-            if (entry.kind() == Kind.MODEL) EQUIPPED.remove(Kind.HEAD);
-            if (entry.kind() == Kind.HEAD) EQUIPPED.remove(Kind.MODEL);
+            if (entry.isPulse()) {
+                PulseCosmeticBridge.select(pulseCategory(entry.kind()), entry.pulseId());
+                return true;
+            }
             EQUIPPED.put(entry.kind(), entry.id());
             applyLocalSelection();
             writeState();
@@ -124,6 +163,10 @@ public final class CosmeticCatalog {
 
     public static boolean unequip(Kind kind) {
         try {
+            if (kind != Kind.MODEL) {
+                PulseCosmeticBridge.clear(pulseCategory(kind));
+                return true;
+            }
             EQUIPPED.remove(kind);
             applyLocalSelection();
             writeState();
@@ -172,8 +215,6 @@ public final class CosmeticCatalog {
                 UUID uuid = UUID.fromString(object.get("uuid").getAsString());
                 List<Entry> entries = new ArrayList<>();
                 addRemoteEntry(entries, object, "model", Kind.MODEL);
-                addRemoteEntry(entries, object, "head", Kind.HEAD);
-                addRemoteEntry(entries, object, "weapon", Kind.WEAPON);
                 String signature = entries.stream().map(Entry::id).sorted().reduce("", (a, b) -> a + "\n" + b);
                 present.add(uuid);
                 if (!signature.equals(REMOTE_SIGNATURES.get(uuid))) {
@@ -194,6 +235,7 @@ public final class CosmeticCatalog {
 
     public static Identifier preview(Entry entry) {
         if (entry == null) return null;
+        if (entry.isPulse()) return null;
         if (PREVIEWS.containsKey(entry.id())) return PREVIEWS.get(entry.id());
         try {
             NativeImage source = loadPreviewSource(entry);
@@ -301,14 +343,13 @@ public final class CosmeticCatalog {
                         if (source.startsWith(".")) return;
                         String lower = source.toLowerCase(Locale.ROOT);
                         String rootFolder = lower.contains("/") ? lower.substring(0, lower.indexOf('/')) : lower;
-                        Kind kind = MODEL_OVERRIDES.contains(rootFolder)
-                                ? Kind.MODEL
-                                : lower.startsWith("head-") ? Kind.HEAD
-                                : lower.startsWith("weapon-") ? Kind.WEAPON
-                                : Kind.MODEL;
+                        boolean customModel = MODEL_OVERRIDES.contains(rootFolder)
+                                || (!lower.startsWith("head-") && !lower.startsWith("weapon-"));
+                        if (!customModel) return;
+                        Kind kind = Kind.MODEL;
                         String folder = directory.getFileName().toString();
                         String name = cleanName(folder, kind);
-                        ENTRIES.add(new Entry(source, name, kind, directory));
+                        if (kind == Kind.MODEL) ENTRIES.add(new Entry(source, name, kind, directory, -1));
                     });
         } catch (Exception ignored) {}
         ENTRIES.sort(Comparator.comparing(Entry::kind).thenComparing(entry -> entry.name().toLowerCase(Locale.ROOT)));
@@ -316,10 +357,63 @@ public final class CosmeticCatalog {
 
     private static String cleanName(String raw, Kind kind) {
         String value = raw.replace('_', ' ').trim();
-        if (kind == Kind.HEAD && value.toLowerCase(Locale.ROOT).startsWith("head-")) value = value.substring(5);
-        if (kind == Kind.WEAPON && value.toLowerCase(Locale.ROOT).startsWith("weapon-")) value = value.substring(7);
         int note = value.indexOf(" - ");
         return note > 0 ? value.substring(0, note) : value;
+    }
+
+    private static void scanPulse() {
+        addPulse(Kind.WINGS, "WINGS");
+        addPulse(Kind.BODYWEAR, "BODYWEAR");
+        addPulse(Kind.PET, "PET");
+        addPulse(Kind.HAT, "HAT");
+        ENTRIES.sort(Comparator.comparing(Entry::kind).thenComparing(entry -> entry.name().toLowerCase(Locale.ROOT)));
+    }
+
+    private static void addPulse(Kind kind, String category) {
+        for (PulseCosmeticBridge.Item item : PulseCosmeticBridge.items(category)) {
+            String key = category + ":" + item.id();
+            if (PULSE_HIDDEN.contains(key)) {
+                if (PulseCosmeticBridge.selected(category) == item.id()) PulseCosmeticBridge.clear(category);
+                continue;
+            }
+            ENTRIES.add(new Entry("pulse:" + category.toLowerCase(Locale.ROOT) + ":" + item.id(),
+                    PULSE_NAMES.getOrDefault(key, cleanPulseName(item.name())), kind, null, item.id()));
+        }
+    }
+
+    private static String cleanPulseName(String raw) {
+        if (raw == null || raw.isBlank()) return "Косметика";
+        int separator = raw.indexOf(" - ");
+        return (separator >= 0 ? raw.substring(separator + 3) : raw).trim();
+    }
+
+    private static String pulseCategory(Kind kind) {
+        return switch (kind) {
+            case WINGS -> "WINGS";
+            case BODYWEAR -> "BODYWEAR";
+            case PET -> "PET";
+            case HAT -> "HAT";
+            case MODEL -> throw new IllegalArgumentException("Figura models are not Pulse cosmetics");
+        };
+    }
+
+    private static InputStream openBundledCatalog() throws IOException {
+        List<InputStream> parts = new ArrayList<>(CATALOG_PART_COUNT);
+        for (int index = 0; index < CATALOG_PART_COUNT; index++) {
+            String resource = CATALOG_RESOURCE_PREFIX + String.format(Locale.ROOT, "%02d", index);
+            InputStream part = CosmeticCatalog.class.getResourceAsStream(resource);
+            if (part == null) {
+                for (InputStream opened : parts) {
+                    try {
+                        opened.close();
+                    } catch (IOException ignored) {
+                    }
+                }
+                throw new IOException("Missing bundled cosmetic catalog part: " + resource);
+            }
+            parts.add(part);
+        }
+        return new SequenceInputStream(Collections.enumeration(parts));
     }
 
     private static void extractBundledCatalog() {
@@ -327,8 +421,7 @@ public final class CosmeticCatalog {
         try {
             if (Files.isRegularFile(marker) && Files.readString(marker).trim().equals(CATALOG_VERSION)) return;
             Files.createDirectories(ROOT);
-            try (InputStream raw = CosmeticCatalog.class.getResourceAsStream("/assets/enough/cosmetics/catalog.zip")) {
-                if (raw == null) return;
+            try (InputStream raw = openBundledCatalog()) {
                 try (ZipInputStream zip = new ZipInputStream(raw)) {
                     ZipEntry entry;
                     while ((entry = zip.getNextEntry()) != null) {
@@ -349,7 +442,8 @@ public final class CosmeticCatalog {
     }
 
     private static void applyLocalSelection() {
-        List<Path> paths = equippedEntries().stream().map(Entry::directory).toList();
+        List<Path> paths = equippedEntries().stream().filter(entry -> !entry.isPulse())
+                .map(Entry::directory).toList();
         if (paths.isEmpty()) CosmeticBridge.unequip();
         else CosmeticBridge.equip(paths);
     }

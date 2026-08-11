@@ -1,0 +1,26 @@
+{
+  "font": "hud-icons",
+  "source": "Figma Main/HUD node 149:5",
+  "icons": [
+    { "constant": "KEYBOARD", "file": "keyboard.svg", "codepoint": "F200", "node": "150:11" },
+    { "constant": "FLASK", "file": "flask.svg", "codepoint": "F201", "node": "232:59" },
+    { "constant": "PREVIOUS", "file": "previous.svg", "codepoint": "F202", "node": "158:2" },
+    { "constant": "PAUSE", "file": "pause.svg", "codepoint": "F203", "node": "158:11" },
+    { "constant": "NEXT", "file": "next.svg", "codepoint": "F204", "node": "158:8" },
+    { "constant": "HEART", "file": "heart.svg", "codepoint": "F205", "node": "159:925" },
+    { "constant": "USER", "file": "user.svg", "codepoint": "F206", "node": "159:911" },
+    { "constant": "CLOSE", "file": "close.svg", "codepoint": "F207", "node": "159:938" },
+    { "constant": "LOGO", "file": "logo.svg", "codepoint": "F208", "node": "159:283" },
+    { "constant": "SERVER", "file": "server.svg", "codepoint": "F209", "node": "159:291" },
+    { "constant": "FPS", "file": "fps.svg", "codepoint": "F20A", "node": "159:296" },
+    { "constant": "PING", "file": "ping.svg", "codepoint": "F20B", "node": "159:300" },
+    { "constant": "LOCATION", "file": "location.svg", "codepoint": "F20C", "node": "159:151" },
+    { "constant": "SPEED", "file": "speed.svg", "codepoint": "F20D", "node": "159:268" },
+    { "constant": "MODULE_DISABLED", "file": "module-disabled.svg", "codepoint": "F20E", "node": "155:20" },
+    { "constant": "MODULE_ENABLED", "file": "module-enabled.svg", "codepoint": "F20F", "node": "155:12" },
+    { "constant": "SAVE", "file": "save.svg", "codepoint": "F210", "node": "151:171" },
+    { "constant": "BELL", "file": "bell.svg", "codepoint": "F211", "node": "151:140" },
+    { "constant": "WARNING", "file": "warning.svg", "codepoint": "F212", "node": "151:158" },
+    { "constant": "PLAY", "file": "play.svg", "codepoint": "F213", "node": "runtime-state" }
+  ]
+}

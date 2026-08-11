@@ -13,19 +13,41 @@ public final class NowPlayingService {
 
     public record TrackInfo(
             boolean active,
-            String text,
+            String title,
+            String artist,
             boolean isPlaying,
+            long position,
+            long duration,
+            long sampledAtMs,
             boolean hasArtwork,
             byte[] artworkPng
-    ) {}
+    ) {
+        public String text() {
+            return artist == null || artist.isBlank() ? title : artist + " - " + title;
+        }
+
+        public float progress() {
+            return progressAt(System.currentTimeMillis());
+        }
+
+        float progressAt(long nowMs) {
+            if (duration <= 0L) return 0f;
+            double current = position;
+            if (isPlaying && sampledAtMs > 0L) {
+                current += Math.max(0L, nowMs - sampledAtMs) / 1_000.0;
+            }
+            return Math.max(0f, Math.min(1f, (float) (current / duration)));
+        }
+    }
 
     private static final Logger LOGGER =
-            LoggerFactory.getLogger("EnoughVisuals/NowPlaying");
+            LoggerFactory.getLogger("NowPlaying");
 
     private static final TrackInfo EMPTY =
-            new TrackInfo(false, "", false, false, null);
+            new TrackInfo(false, "", "", false, 0L, 0L, 0L, false, null);
 
     private static volatile TrackInfo cached = EMPTY;
+    private static volatile IMediaSession activeSession;
     private static volatile boolean booted = false;
     private static volatile String lastMediaDebug = "";
     private static volatile String lastFailureDebug = "";
@@ -34,6 +56,11 @@ public final class NowPlayingService {
 
     private static final Thread TRACKER = new Thread(() -> {
         while (!Thread.currentThread().isInterrupted()) {
+            if (!MediaSessionSupport.isAvailable()) {
+                cached = EMPTY;
+                activeSession = null;
+                return;
+            }
             try {
                 cached = read();
                 Thread.sleep(POLL_INTERVAL);
@@ -55,17 +82,51 @@ public final class NowPlayingService {
     public static TrackInfo getNowPlaying() {
         if (!booted) {
             booted = true;
-            TRACKER.start();
-            LOGGER.warn("MediaSession polling started");
+            if (MediaSessionSupport.isAvailable()) {
+                TRACKER.start();
+                LOGGER.warn("MediaSession polling started");
+            }
         }
         return cached;
     }
 
-    private static TrackInfo read() {
-        try {
-            List<IMediaSession> sessions = MediaPlayerInfo.INSTANCE.getMediaSessions();
+    public static void previous() {
+        control(IMediaSession::previous);
+    }
 
-            if (sessions == null || sessions.isEmpty()) return EMPTY;
+    public static void playPause() {
+        control(IMediaSession::playPause);
+    }
+
+    public static void next() {
+        control(IMediaSession::next);
+    }
+
+    private static void control(java.util.function.Consumer<IMediaSession> action) {
+        IMediaSession session = activeSession;
+        if (session == null || !MediaSessionSupport.isAvailable()) return;
+        try {
+            action.accept(session);
+        } catch (LinkageError e) {
+            activeSession = null;
+            MediaSessionSupport.disable("native media library failed to link: " + e);
+        } catch (Throwable t) {
+            debugFailure(t);
+        }
+    }
+
+    private static TrackInfo read() {
+        if (!MediaSessionSupport.isAvailable()) {
+            activeSession = null;
+            return EMPTY;
+        }
+        try {
+            List<IMediaSession> sessions = fetchSessions();
+
+            if (sessions == null || sessions.isEmpty()) {
+                activeSession = null;
+                return EMPTY;
+            }
 
             IMediaSession best = null;
 
@@ -93,15 +154,24 @@ public final class NowPlayingService {
                 }
             }
 
-            if (best == null) return EMPTY;
+            if (best == null) {
+                activeSession = null;
+                return EMPTY;
+            }
 
             MediaInfo media = best.getMedia();
-            if (media == null) return EMPTY;
+            if (media == null) {
+                activeSession = null;
+                return EMPTY;
+            }
 
             String title = safe(media.getTitle());
             String artist = safe(media.getArtist());
 
-            if (title.isBlank() && artist.isBlank()) return EMPTY;
+            if (title.isBlank() && artist.isBlank()) {
+                activeSession = null;
+                return EMPTY;
+            }
 
             String text = artist.isEmpty()
                     ? title
@@ -109,18 +179,43 @@ public final class NowPlayingService {
 
             byte[] artwork = media.getArtworkPng();
             debugMedia(text, best.getOwner(), artwork);
+            activeSession = best;
 
             return new TrackInfo(
                     true,
-                    text,
+                    title,
+                    artist,
                     media.isPlaying(),
+                    Math.max(0L, media.getPosition()),
+                    Math.max(0L, media.getDuration()),
+                    System.currentTimeMillis(),
                     artwork != null && artwork.length > 0,
                     artwork
             );
 
+        } catch (LinkageError e) {
+            activeSession = null;
+            MediaSessionSupport.disable("native media library failed to link: " + e);
+            return EMPTY;
         } catch (Throwable t) {
+            activeSession = null;
             debugFailure(t);
             return EMPTY;
+        }
+    }
+
+    /**
+     * The marker is written before control leaves for native code, so a JVM
+     * killed inside the library is recognised on the next launch.
+     */
+    private static List<IMediaSession> fetchSessions() {
+        MediaSessionSupport.armProbe();
+        try {
+            return MediaPlayerInfo.INSTANCE.getMediaSessions();
+        } finally {
+            // Runs after a normal return and after a thrown exception alike:
+            // both prove the JVM survived, so only a hard crash keeps the marker.
+            MediaSessionSupport.confirmNativeCall();
         }
     }
 

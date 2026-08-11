@@ -8,14 +8,13 @@ import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.SolarIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.StencilUtil;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
-import fun.enoughvisuals.utils.render.images.Draw;
 import fun.enoughvisuals.utils.sound.EnoughSoundPlayer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,8 +23,6 @@ import java.util.List;
 public class ContextMenu {
 
     private enum View { NONE, ADD, SETTINGS }
-
-    private static final Identifier TRASH_ICON = Identifier.of("enough", "icons/hud/trash.png");
 
     private static final float ADD_WIDTH = 112f;
     private static final float SETTINGS_WIDTH = 122f;
@@ -36,12 +33,12 @@ public class ContextMenu {
     private static final float MAX_CONTENT_H = 116f;
     private static final float ADD_ROW_H = 17f;
     private static final float BOOL_ROW_H = 16f;
-    private static final float MODE_HEADER_H = 16f;
-    private static final float MODE_OPT_H = 14f;
-    private static final float MODE_LIST_PAD = 2f;
+    private static final float MODE_HEADER_H = 14.5f;
+    private static final float MODE_OPT_H = 12.5f;
+    private static final float MODE_LIST_PAD = 1.5f;
     private static final float SLIDER_ROW_H = 21f;
-    private static final float TOGGLE_W = 13f;
-    private static final float TOGGLE_H = 8f;
+    private static final float TOGGLE_W = 18f;
+    private static final float TOGGLE_H = 9f;
 
     private static final HashMap<Setting<?>, Float> VISUAL_Y = new HashMap<>();
     private static final HashMap<Setting<?>, Float> TOGGLE_ANIMS = new HashMap<>();
@@ -78,7 +75,7 @@ public class ContextMenu {
     public static void openSettings(HudElement element) {
         if (element == null) return;
         view = View.SETTINGS; visible = true;
-        anchorX = element.getX() + element.getWidth() + 6f; anchorY = element.getY();
+        anchorX = element.getX() + element.getWidth() + 6f; anchorY = element.getVisualY();
         targetElement = element;
         draggingSlider = null; draggingSetting = null; expandedMode = null;
         scrollOffset = 0f; scrollTarget = 0f;
@@ -130,7 +127,15 @@ public class ContextMenu {
                 alpha * CustomTheme.hudPanelTintAlpha(), alpha * alpha);
         renderHeader(ctx, alpha);
 
+        float previousScroll = scrollOffset;
         scrollOffset = RenderUtil.animate(scrollOffset, scrollTarget, 0.22f, speed);
+        float scrollDelta = scrollOffset - previousScroll;
+        // Row springs must follow the scroll viewport immediately. Letting them
+        // animate the same offset a second time made the last setting briefly
+        // lag behind the scissor and look as if its plate disappeared.
+        if (view == View.SETTINGS && Math.abs(scrollDelta) > 0.0001f) {
+            VISUAL_Y.replaceAll((setting, visualY) -> visualY + scrollDelta);
+        }
 
         StencilUtil.enableScissor(panelX, contentY, panelW, contentH);
         if (view == View.ADD) renderAddContent(ctx, hudMx, hudMy, alpha);
@@ -192,6 +197,12 @@ public class ContextMenu {
         float screenW = HudElement.hudScreenWidth();
         float screenH = HudElement.hudScreenHeight();
 
+        if (view == View.SETTINGS && targetElement != null) {
+            // Follow the transient visual position while the chat inset opens
+            // or closes; the persisted element coordinates remain untouched.
+            anchorY = targetElement.getVisualY();
+        }
+
         if (view == View.ADD) {
             panelW = ADD_WIDTH;
             float totalContent = getAddEntries().size() * ADD_ROW_H + PADDING * 2f;
@@ -239,7 +250,7 @@ public class ContextMenu {
         for (DragAndDrop.HudEntry entry : entries) {
             boolean hovered = mx >= panelX && mx <= panelX + panelW && my >= rowY && my <= rowY + ADD_ROW_H;
             if (hovered) RenderUtil.drawRoundedRect(ctx, panelX + 3f, rowY, panelW - 6f, ADD_ROW_H - 1f, 5f, RenderUtil.withAlpha(MenuScreen.ACCENT, alpha * 0.12f));
-            CustomFontRenderer.drawText(ctx, entry.displayName, panelX + 7f, rowY + 5.1f, 6.5f, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * (hovered ? 1f : 0.92f)), FontWeight.REGULAR);
+            CustomFontRenderer.drawText(ctx, entry.localizedName(), panelX + 7f, rowY + 5.1f, 6.5f, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * (hovered ? 1f : 0.92f)), FontWeight.REGULAR);
             rowY += ADD_ROW_H;
         }
     }
@@ -346,7 +357,8 @@ public class ContextMenu {
         boolean hovered = mx >= buttonX && mx <= buttonX + buttonW && my >= buttonY && my <= buttonY + buttonH;
         RenderUtil.drawRect(ctx, panelX + 5f, footerY - 0.5f, panelW - 10f, 0.5f, RenderUtil.withAlpha(0xFFFFFF, alpha * 0.07f));
         RenderUtil.drawRoundedRect(ctx, buttonX, buttonY, buttonW, buttonH, 4.5f, RenderUtil.withAlpha(0x000000, alpha * (hovered ? 0.42f : 0.30f)));
-        Draw.image(ctx, TRASH_ICON, buttonX + 5f, buttonY + 3f, 7.5f, 7.5f, 16, 16, alpha * 0.95f);
+        CustomFontRenderer.drawText(ctx, SolarIcons.DELETE, buttonX + 5f, buttonY + 3.8f,
+                6.9f, RenderUtil.withAlpha(0xFFFF6F87, alpha * 0.95f), FontWeight.SOLAR_ICONS);
         CustomFontRenderer.drawText(ctx, "Удалить", buttonX + 16f, buttonY + 4f, 6.2f, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha), FontWeight.REGULAR);
     }
 
@@ -357,28 +369,34 @@ public class ContextMenu {
         }
 
         float textX = panelX + 7f;
-        CustomFontRenderer.drawText(ctx, "\uF000", textX, y + 5.5f, 6.0f, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, alpha * 0.5f), FontWeight.DRAG);
+        CustomFontRenderer.drawText(ctx, SolarIcons.DRAG, textX, y + 5.5f, 6.0f, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, alpha * 0.5f), FontWeight.SOLAR_ICONS);
         textX += 10f;
 
         CustomFontRenderer.drawText(ctx, setting.getName(), textX, y + 4.9f, 6.2f, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * 0.94f), FontWeight.REGULAR);
-        renderToggle(ctx, panelX + panelW - 20f, y + 4.2f, anim, alpha);
+        renderToggle(ctx, panelX + panelW - 25f, y + 3.5f, anim, setting.get(), alpha);
     }
 
     private static void renderMode(DrawContext ctx, ModeSetting setting, float y, float alpha, float hoverAnim, float expandAnim, int mx, int my) {
-        if (hoverAnim > 0.01f) RenderUtil.drawRoundedRect(ctx, panelX + 3f, y, panelW - 6f, MODE_HEADER_H - 0.5f, 4.5f, RenderUtil.withAlpha(0xFFFFFF, alpha * (0.02f + 0.03f * hoverAnim)));
-        CustomFontRenderer.drawText(ctx, setting.getName(), panelX + 7f, y + 4.9f, 6.2f, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * 0.94f), FontWeight.REGULAR);
-        CustomFontRenderer.drawRightText(ctx, setting.get(), panelX + panelW - 16f, y + 4.9f, 5.9f, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, alpha * 0.95f), FontWeight.REGULAR);
-        CustomFontRenderer.drawRightText(ctx, expandAnim > 0.01f ? "v" : ">", panelX + panelW - 8f, y + 4.9f, 6.0f, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, alpha * 0.90f), FontWeight.SEMIBOLD);
+        if (hoverAnim > 0.01f) RenderUtil.drawRoundedRect(ctx, panelX + 3f, y, panelW - 6f,
+                MODE_HEADER_H - 0.5f, 6.5f,
+                RenderUtil.withAlpha(0xFFFFFF, alpha * (0.012f + 0.018f * hoverAnim)));
+        CustomFontRenderer.drawText(ctx, setting.getName(), panelX + 7f, y + 4.2f, 6.1f, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha * 0.94f), FontWeight.REGULAR);
+        CustomFontRenderer.drawRightText(ctx, setting.get(), panelX + panelW - 16f, y + 4.2f, 5.8f, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, alpha * 0.95f), FontWeight.REGULAR);
+        CustomFontRenderer.drawRightText(ctx, expandAnim > 0.01f ? SolarIcons.CHEVRON_DOWN : SolarIcons.CHEVRON_RIGHT,
+                panelX + panelW - 8f, y + 4.15f, 6.0f,
+                RenderUtil.withAlpha(MenuScreen.TEXT_DIM, alpha * 0.90f), FontWeight.SOLAR_ICONS);
 
         if (expandAnim <= 0.01f) return;
         float optionsY = y + MODE_HEADER_H + MODE_LIST_PAD, optionsH = setting.getModes().size() * MODE_OPT_H, visibleH = optionsH * expandAnim;
         StencilUtil.enableScissor(panelX + 4f, optionsY, panelW - 8f, visibleH);
-        RenderUtil.drawRoundedRect(ctx, panelX + 4f, optionsY, panelW - 8f, optionsH + 2f, 4f, RenderUtil.withAlpha(0xFFFFFF, alpha * 0.03f));
+        RenderUtil.drawRoundedRect(ctx, panelX + 4f, optionsY, panelW - 8f, optionsH + 1.5f, 6f, RenderUtil.withAlpha(0xFFFFFF, alpha * 0.022f));
         float optionY = optionsY + 1f;
         for (String option : setting.getModes()) {
             boolean selected = option.equals(setting.get()), hover = mx >= panelX + 5f && mx <= panelX + panelW - 5f && my >= optionY && my <= optionY + MODE_OPT_H;
-            if (selected || hover) RenderUtil.drawRoundedRect(ctx, panelX + 5f, optionY, panelW - 10f, MODE_OPT_H - 0.6f, 3.2f, RenderUtil.withAlpha(MenuScreen.ACCENT, alpha * (selected ? 0.20f : 0.12f)));
-            CustomFontRenderer.drawText(ctx, setting.getDisplayMode(option), panelX + 8f, optionY + 3.8f, 5.9f, RenderUtil.withAlpha(selected ? MenuScreen.TEXT_WHITE : MenuScreen.TEXT_DIM, alpha * 0.98f), FontWeight.REGULAR);
+            if (selected || hover) RenderUtil.drawRoundedRect(ctx, panelX + 5f, optionY, panelW - 10f,
+                    MODE_OPT_H - 0.6f, 5f,
+                    RenderUtil.withAlpha(MenuScreen.ACCENT, alpha * (selected ? 0.18f : 0.08f)));
+            CustomFontRenderer.drawText(ctx, setting.getDisplayMode(option), panelX + 8f, optionY + 3.2f, 5.8f, RenderUtil.withAlpha(selected ? MenuScreen.TEXT_WHITE : MenuScreen.TEXT_DIM, alpha * 0.98f), FontWeight.REGULAR);
             optionY += MODE_OPT_H;
         }
         StencilUtil.disableScissor();
@@ -396,18 +414,45 @@ public class ContextMenu {
         RenderUtil.drawCircle(ctx, knobX, knobY, 3.5f, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha));
     }
 
-    private static void renderToggle(DrawContext ctx, float x, float y, float value, float alpha) {
-        float base = clamp(value, 0f, 1f), smooth = RenderUtil.easeInOutCubic(base), spring = RenderUtil.easeOutBack(base);
-        float progress = clamp(smooth * 0.8f + spring * 0.2f, 0f, 1f);
-        int track = RenderUtil.lerpColor(RenderUtil.withAlpha(MenuScreen.TOGGLE_OFF, alpha * 0.95f), RenderUtil.withAlpha(MenuScreen.TOGGLE_ON, alpha), progress);
-        float radius = TOGGLE_H * 0.5f;
-        RenderUtil.drawRect(ctx, x + radius, y, TOGGLE_W - radius * 2f, TOGGLE_H, track);
-        RenderUtil.drawCircle(ctx, x + radius, y + radius, radius, track);
-        RenderUtil.drawCircle(ctx, x + TOGGLE_W - radius, y + radius, radius, track);
-        float jelly = 1f - Math.abs(progress * 2f - 1f), knobW = 6.2f - jelly * 0.9f, knobH = 6.2f + jelly * 0.5f;
-        float overshoot = Math.max(0f, spring - 1f) * 0.7f, travel = TOGGLE_W - knobW - 2f;
-        float knobX = clamp(x + 1f + travel * progress + overshoot, x + 1f, x + TOGGLE_W - 1f - knobW), knobY = y + (TOGGLE_H - knobH) * 0.5f;
-        RenderUtil.drawEllipse(ctx, knobX + knobW * 0.5f, knobY + knobH * 0.5f, knobW * 0.5f, knobH * 0.5f, RenderUtil.withAlpha(MenuScreen.TOGGLE_KNOB, alpha));
+    private static void renderToggle(DrawContext ctx, float x, float y, float value,
+                                     boolean enabled, float alpha) {
+        float base = clamp(value, 0f, 1f);
+        float progress = RenderUtil.easeInOutCubic(base);
+        float motion = clamp(Math.abs((enabled ? 1f : 0f) - value) * 4.2f, 0f, 1f);
+        int track = RenderUtil.lerpColor(RenderUtil.withAlpha(MenuScreen.TOGGLE_OFF, alpha * 0.90f),
+                RenderUtil.withAlpha(MenuScreen.TOGGLE_ON, alpha * 0.92f), progress);
+        drawCapsule(ctx, x, y, TOGGLE_W, TOGGLE_H, track);
+        drawCapsuleOutline(ctx, x, y, TOGGLE_W, TOGGLE_H, 0.45f,
+                RenderUtil.withAlpha(0xFFFFFFFF, alpha * 0.065f));
+
+        float knobW = 7.25f + motion * 1.05f;
+        float knobH = 5.25f - motion * 0.24f;
+        float inset = 1.25f;
+        float left = x + inset;
+        float right = x + TOGGLE_W - inset - knobW;
+        float knobX = left + (right - left) * progress;
+        float knobY = y + (TOGGLE_H - knobH) * 0.5f;
+        drawCapsule(ctx, knobX, knobY, knobW, knobH,
+                RenderUtil.withAlpha(MenuScreen.TOGGLE_KNOB, alpha * (0.78f + progress * 0.20f)));
+    }
+
+    private static void drawCapsule(DrawContext ctx, float x, float y, float width, float height, int color) {
+        float previous = RenderUtil.pushSquircleExponent(2f);
+        try {
+            RenderUtil.drawRoundedRect(ctx, x, y, width, height, height * 0.5f, color);
+        } finally {
+            RenderUtil.restoreSquircleExponent(previous);
+        }
+    }
+
+    private static void drawCapsuleOutline(DrawContext ctx, float x, float y, float width, float height,
+                                           float lineWidth, int color) {
+        float previous = RenderUtil.pushSquircleExponent(2f);
+        try {
+            RenderUtil.drawRoundedOutline(ctx, x, y, width, height, height * 0.5f, lineWidth, color);
+        } finally {
+            RenderUtil.restoreSquircleExponent(previous);
+        }
     }
 
     private static boolean handleAddClick(float mx, float my) {

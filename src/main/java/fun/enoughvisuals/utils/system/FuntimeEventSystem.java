@@ -1,6 +1,7 @@
 package fun.enoughvisuals.utils.system;
 
 import fun.enoughvisuals.systems.gps.GpsSystem;
+import fun.enoughvisuals.systems.hud.HudNotificationCenter;
 import fun.enoughvisuals.utils.sound.EnoughSoundPlayer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ServerInfo;
@@ -27,7 +28,7 @@ public final class FuntimeEventSystem {
     private static final Pattern TIME_SEC_PATTERN = Pattern.compile("(\\d+)\\s*сек", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern LOOT_PATTERN = Pattern.compile("уровень\\s+лута\\s*:\\s*(.+)$", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
-    private static final long ISLAND_SHOW_MS = 5_000L;
+    private static final long STATUS_SHOW_MS = 5_000L;
     private static final Set<Integer> REMINDER_MINUTES = Set.of(20, 10, 5, 1);
 
     private final Map<String, ScopeState> states = new HashMap<>();
@@ -71,7 +72,7 @@ public final class FuntimeEventSystem {
             long threshold = minute * 60L;
             if (secondsLeft <= threshold && !state.notifiedMinutes.contains(minute)) {
                 state.notifiedMinutes.add(minute);
-                IslandFeed.push("До ивента: " + formatMinSec(secondsLeft), ISLAND_SHOW_MS);
+                HudNotificationCenter.info("До ивента " + formatMinSec(secondsLeft));
                 EnoughSoundPlayer.playWarn();
             }
         }
@@ -92,7 +93,7 @@ public final class FuntimeEventSystem {
             int sec = parseTimeSeconds(lower);
             if (sec > 0) {
                 armCountdown(state, sec);
-                IslandFeed.push("До ивента: " + formatMinSec(sec), ISLAND_SHOW_MS);
+                HudNotificationCenter.info("До ивента " + formatMinSec(sec));
             }
             return;
         }
@@ -101,7 +102,7 @@ public final class FuntimeEventSystem {
             int sec = parseTimeSeconds(lower);
             if (sec > 0) {
                 armCountdown(state, sec);
-                IslandFeed.push("До ивента: " + formatMinSec(sec), ISLAND_SHOW_MS);
+                HudNotificationCenter.info("До ивента " + formatMinSec(sec));
             }
             return;
         }
@@ -145,7 +146,7 @@ public final class FuntimeEventSystem {
             String loot = normalizeLoot(lootMatcher.group(1));
             state.pendingLootType = loot;
             if (loot != null && loot.toLowerCase(Locale.ROOT).contains("элит")) {
-                MineStatusFeed.push("Лут: Элитный", ISLAND_SHOW_MS);
+                MineStatusFeed.push("Лут: Элитный", STATUS_SHOW_MS);
             }
         }
     }
@@ -177,7 +178,7 @@ public final class FuntimeEventSystem {
             } catch (Exception ignored) {}
         }
 
-        IslandFeed.push(islandText, ISLAND_SHOW_MS);
+        HudNotificationCenter.info(islandText);
         EnoughSoundPlayer.playEvent();
     }
 

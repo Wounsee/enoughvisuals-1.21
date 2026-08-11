@@ -12,6 +12,7 @@ import fun.enoughvisuals.systems.modules.modules.utils.Macros;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.SolarIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.StencilUtil;
 import fun.enoughvisuals.utils.sound.EnoughSoundPlayer;
@@ -33,24 +34,24 @@ import java.util.Map;
 
 public final class IntegratedToolPage {
     public enum Type {
-        CONFIGS("\uF001", "ui.client_tools.configs.title", "Конфиги", FontWeight.CLICK_GUI),
-        FRIENDS("\uF003", "ui.client_tools.friends.title", "Друзья", FontWeight.CLICK_GUI),
-        GPS("\uF000", "ui.client_tools.gps.title", "Метки", FontWeight.CLICK_GUI),
-        MACROS("\uF005", "ui.macros.title", "Макросы", FontWeight.CLICK_GUI),
-        INVENTORIES("\uF000", "ui.inventory_manager.title", "Инвентари", FontWeight.BOOK),
-        COSMETICS("\uF009", "ui.client_tools.cosmetics.title", "Косметика", FontWeight.CLICK_GUI),
-        EVENTS("\uF000", "ui.client_tools.events.title", "Ивенты", FontWeight.EVENT);
+        CONFIGS(SolarIcons.FOLDER, "ui.client_tools.configs.title", "Конфиги"),
+        FRIENDS(SolarIcons.FRIENDS, "ui.client_tools.friends.title", "Друзья"),
+        GPS(SolarIcons.WAYPOINT, "ui.client_tools.gps.title", "Метки"),
+        MACROS(SolarIcons.MACROS, "ui.macros.title", "Макросы"),
+        INVENTORIES(SolarIcons.INVENTORY, "ui.inventory_manager.title", "Инвентари"),
+        COSMETICS(SolarIcons.COSMETICS, "ui.client_tools.cosmetics.title", "Косметика"),
+        EVENTS(SolarIcons.EVENTS, "ui.client_tools.events.title", "Ивенты");
 
         private final String icon;
         private final String languageKey;
         private final String fallback;
         private final FontWeight iconWeight;
 
-        Type(String icon, String languageKey, String fallback, FontWeight iconWeight) {
+        Type(String icon, String languageKey, String fallback) {
             this.icon = icon;
             this.languageKey = languageKey;
             this.fallback = fallback;
-            this.iconWeight = iconWeight;
+            this.iconWeight = FontWeight.SOLAR_ICONS;
         }
 
         public String icon() { return icon; }
@@ -146,6 +147,11 @@ public final class IntegratedToolPage {
         macroBinding = false;
     }
 
+    /** Drops only off-screen Figura preview actors; the player's equipped avatar is untouched. */
+    public static void invalidateCosmeticPreviewCache() {
+        CosmeticsToolPage.invalidatePreviewCache();
+    }
+
     public Type type() { return type; }
 
     public void render(DrawContext context, float x, float y, float width, float height, float scale,
@@ -212,17 +218,17 @@ public final class IntegratedToolPage {
                 RenderUtil.withAlpha(MenuScreen.CARD_BG, 0.89f * alpha));
 
         CustomFontRenderer.drawText(context, Type.INVENTORIES.icon(), leftX + 10f * s, py + 9.2f * s,
-                10.5f * s, RenderUtil.withAlpha(MenuScreen.ACCENT_LIGHT, alpha), FontWeight.BOOK);
-        CustomFontRenderer.drawText(context, "Инвентари", leftX + 25f * s, py + 9.8f * s,
+                10.5f * s, RenderUtil.withAlpha(MenuScreen.ACCENT_LIGHT, alpha), FontWeight.SOLAR_ICONS);
+        CustomFontRenderer.drawText(context, Type.INVENTORIES.title(), leftX + 25f * s, py + 9.8f * s,
                 7.4f * s, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha), FontWeight.SEMIBOLD);
-        CustomFontRenderer.drawRightText(context, rows.size() + " сохранений", leftX + leftW - 10f * s,
+        CustomFontRenderer.drawRightText(context, ClientLanguage.text("ui.inventory_manager.saved_count", "%d сохранений").formatted(rows.size()), leftX + leftW - 10f * s,
                 py + 10.5f * s, 5.6f * s, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.92f * alpha), FontWeight.SEMIBOLD);
 
         float inputY = py + 28f * s;
         float saveW = 61f * s;
-        renderCompactInput(context, state.name, "Название инвентаря", leftX + 9f * s, inputY,
+        renderCompactInput(context, state.name, ClientLanguage.text("ui.inventory_manager.name_placeholder", "Название инвентаря"), leftX + 9f * s, inputY,
                 leftW - saveW - 22f * s, s, alpha);
-        renderInventoryButton(context, "inventory_save", "+  Сохранить", leftX + leftW - saveW - 9f * s,
+        renderInventoryButton(context, "inventory_save", ClientLanguage.text("ui.inventory_manager.save", "+  Сохранить"), leftX + leftW - saveW - 9f * s,
                 inputY, saveW, 19f * s, s, mouseX, mouseY, !state.name.text().isBlank(), alpha);
 
         float rowsTop = inputY + 27f * s;
@@ -274,7 +280,7 @@ public final class IntegratedToolPage {
             float buttonY = rowY + 6f * s;
             float deleteX = rowX + listW - deleteW - 10f * s;
             float loadX = deleteX - loadW - 4f * s;
-            drawInventoryRowButton(context, key + ":load", "Загрузить", loadX, buttonY, loadW,
+            drawInventoryRowButton(context, key + ":load", ClientLanguage.text("ui.inventory_manager.load", "Загрузить"), loadX, buttonY, loadW,
                     17f * s, s, mouseX, mouseY, rowAlpha, false);
             drawInventoryRowButton(context, key + ":delete", "X", deleteX, buttonY, deleteW,
                     17f * s, s, mouseX, mouseY, rowAlpha, true);
@@ -286,7 +292,7 @@ public final class IntegratedToolPage {
         context.draw();
         StencilUtil.disableScissor();
         if (rows.isEmpty()) {
-            CustomFontRenderer.drawCenteredText(context, "Сохрани текущее расположение предметов",
+            CustomFontRenderer.drawCenteredText(context, ClientLanguage.text("ui.inventory_manager.empty", "Сохрани текущее расположение предметов"),
                     leftX + leftW * 0.5f, rowsTop + 36f * s, 5.7f * s,
                     RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.82f * alpha), FontWeight.SEMIBOLD);
         }
@@ -311,12 +317,12 @@ public final class IntegratedToolPage {
 
     private void renderInventoryPreview(DrawContext context, float x, float y, float w, float h, float s, float alpha) {
         LayoutView layout = InventoryLayoutManager.getInstance().find(state().selectedId);
-        CustomFontRenderer.drawText(context, "Предпросмотр", x + 10f * s, y + 10f * s,
+        CustomFontRenderer.drawText(context, ClientLanguage.text("ui.inventory_manager.preview", "Предпросмотр"), x + 10f * s, y + 10f * s,
                 7.2f * s, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha), FontWeight.SEMIBOLD);
         if (layout == null || layout.stacks().size() < 41) {
             RenderUtil.drawRoundedOutline(context, x + 9f * s, y + 29f * s, w - 18f * s, 83f * s,
                     6f * s, 0.7f * s, RenderUtil.withAlpha(0xFFFFFF, 0.055f * alpha));
-            CustomFontRenderer.drawCenteredText(context, "Выбери сохранение", x + w * 0.5f, y + 67f * s,
+            CustomFontRenderer.drawCenteredText(context, ClientLanguage.text("ui.inventory_manager.select_save", "Выбери сохранение"), x + w * 0.5f, y + 67f * s,
                     5.8f * s, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.82f * alpha), FontWeight.SEMIBOLD);
             return;
         }
@@ -340,8 +346,9 @@ public final class IntegratedToolPage {
                 RenderUtil.withAlpha(statusColor, ready ? 0.12f * alpha : 0.22f * alpha));
         RenderUtil.drawRoundedOutline(context, statusX, statusY, statusW, 15f * s, 5f * s, 0.7f * s,
                 RenderUtil.withAlpha(statusColor, ready ? 0.30f * alpha : 0.74f * alpha));
-        String status = ready ? "Все предметы на месте"
-                : "Не хватает " + missingItems + " в " + missingSlots + " слотах";
+        String status = ready ? ClientLanguage.text("ui.inventory_manager.ready", "Все предметы на месте")
+                : ClientLanguage.text("ui.inventory_manager.missing", "Не хватает %d в %d слотах")
+                .formatted(missingItems, missingSlots);
         CustomFontRenderer.drawCenteredText(context, status, x + w * 0.5f, statusY + 4.7f * s,
                 5.2f * s, RenderUtil.withAlpha(ready ? MenuScreen.ACCENT_LIGHT : 0xFFFFA1AE, alpha), FontWeight.SEMIBOLD);
 
@@ -349,7 +356,7 @@ public final class IntegratedToolPage {
         float gridW = slot * 9f;
         float gx = x + (w - gridW) * 0.5f;
         float top = y + 54f * s;
-        CustomFontRenderer.drawText(context, "ЭКИПИРОВКА", gx, y + 45.5f * s,
+        CustomFontRenderer.drawText(context, ClientLanguage.text("ui.inventory_manager.equipment", "ЭКИПИРОВКА"), gx, y + 45.5f * s,
                 4.5f * s, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.78f * alpha), FontWeight.SEMIBOLD);
         for (int i = 0; i < 4; i++) drawInventorySlot(context, layout.stacks().get(i), gx + i * slot,
                 top, slot, s, alpha, missing.length > i ? missing[i] : 0);
@@ -359,7 +366,7 @@ public final class IntegratedToolPage {
                 4.2f * s, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.68f * alpha), FontWeight.SEMIBOLD);
 
         float mainY = top + slot + 15f * s;
-        CustomFontRenderer.drawText(context, "ИНВЕНТАРЬ", gx, mainY - 8.5f * s,
+        CustomFontRenderer.drawText(context, ClientLanguage.text("ui.inventory_manager.inventory", "ИНВЕНТАРЬ"), gx, mainY - 8.5f * s,
                 4.5f * s, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.78f * alpha), FontWeight.SEMIBOLD);
         for (int i = 0; i < 27; i++) {
             int stackIndex = 4 + i;
@@ -368,14 +375,14 @@ public final class IntegratedToolPage {
                     missing.length > stackIndex ? missing[stackIndex] : 0);
         }
         float hotbarY = mainY + slot * 3f + 14f * s;
-        CustomFontRenderer.drawText(context, "HOTBAR", gx, hotbarY - 8.5f * s,
+        CustomFontRenderer.drawText(context, ClientLanguage.text("ui.inventory_manager.hotbar", "ХОТБАР"), gx, hotbarY - 8.5f * s,
                 4.5f * s, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.78f * alpha), FontWeight.SEMIBOLD);
         for (int i = 0; i < 9; i++) {
             int stackIndex = 31 + i;
             drawInventorySlot(context, layout.stacks().get(stackIndex), gx + i * slot, hotbarY, slot, s, alpha,
                     missing.length > stackIndex ? missing[stackIndex] : 0);
         }
-        CustomFontRenderer.drawCenteredText(context, layout.itemCount() + " предметов", x + w * 0.5f,
+        CustomFontRenderer.drawCenteredText(context, ClientLanguage.text("ui.inventory_manager.items_count", "%d предметов").formatted(layout.itemCount()), x + w * 0.5f,
                 hotbarY + slot + 11f * s, 5.5f * s, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, alpha), FontWeight.SEMIBOLD);
     }
 
@@ -451,11 +458,11 @@ public final class IntegratedToolPage {
 
         float headerH = 30f * s;
         CustomFontRenderer.drawText(context, type.title(), px + 11f * s, py + 9.4f * s,
-                7.5f * s, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha), FontWeight.SEMIBOLD);
+                8.2f * s, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha), FontWeight.SEMIBOLD);
         List<Row> rows = rows();
         String status = status(rows.size());
         CustomFontRenderer.drawRightText(context, status, px + pw - 10f * s, py + 10.2f * s,
-                5.9f * s, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.92f * alpha), FontWeight.SEMIBOLD);
+                6.3f * s, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.92f * alpha), FontWeight.MEDIUM);
         RenderUtil.drawRect(context, px + 9f * s, py + headerH, pw - 18f * s, 0.6f,
                 RenderUtil.withAlpha(0xFFFFFF, 0.055f * alpha));
 
@@ -502,12 +509,12 @@ public final class IntegratedToolPage {
                 CustomFontRenderer.drawCenteredText(context, type.icon(), rowX + 21f * s, rowY + 11.5f * s,
                         11f * s, RenderUtil.withAlpha(selected ? MenuScreen.ACCENT_LIGHT : MenuScreen.TEXT_DIM, rowAlpha),
                         type.iconWeight());
-                String title = CustomFontRenderer.trimToWidth(row.title, pw - 54f * s, 6.9f * s, FontWeight.SEMIBOLD);
-                String subtitle = CustomFontRenderer.trimToWidth(row.subtitle, pw - 54f * s, 5.8f * s, FontWeight.SEMIBOLD);
+                String title = CustomFontRenderer.trimToWidth(row.title, pw - 54f * s, 7.2f * s, FontWeight.SEMIBOLD);
+                String subtitle = CustomFontRenderer.trimToWidth(row.subtitle, pw - 54f * s, 6.1f * s, FontWeight.MEDIUM);
                 CustomFontRenderer.drawText(context, title, rowX + 39f * s, rowY + 6.9f * s,
-                        6.9f * s, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, rowAlpha * (selected ? 1f : 0.93f)), FontWeight.SEMIBOLD);
+                        7.2f * s, RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, rowAlpha * (selected ? 1f : 0.93f)), FontWeight.SEMIBOLD);
                 CustomFontRenderer.drawText(context, subtitle, rowX + 39f * s, rowY + 19f * s,
-                        5.8f * s, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.92f * rowAlpha), FontWeight.SEMIBOLD);
+                        6.1f * s, RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.92f * rowAlpha), FontWeight.MEDIUM);
             }
             rowY += rowH;
             rowIndex++;
@@ -543,11 +550,9 @@ public final class IntegratedToolPage {
             case FRIENDS -> ClientLanguage.text("ui.client_tools.friends.editor", "Друг");
             case GPS -> ClientLanguage.text("ui.client_tools.gps.editor", "Метка");
             case MACROS -> ClientLanguage.text("ui.macros.title", "Macros");
-            case INVENTORIES -> "Инвентари";
-            case COSMETICS -> "Косметика";
-            case EVENTS -> "Ивенты";
+            case INVENTORIES, COSMETICS, EVENTS -> type.title();
         };
-        CustomFontRenderer.drawText(context, heading, cx, cy, 7.4f * s,
+        CustomFontRenderer.drawText(context, heading, cx, cy, 8.1f * s,
                 RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha), FontWeight.SEMIBOLD);
         cy += 17f * s;
 
@@ -609,9 +614,9 @@ public final class IntegratedToolPage {
         float appear = nextEditorElement();
         x += (1f - RenderUtil.easeOutQuart(appear)) * 13f * s;
         alpha *= RenderUtil.easeOutCubic(appear);
-        CustomFontRenderer.drawText(context, label, x, y, 6f * s,
-                RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.9f * alpha), FontWeight.SEMIBOLD);
-        renderCompactInput(context, input, input.placeholder, x, y + 9f * s, w, s, alpha);
+        CustomFontRenderer.drawText(context, label, x, y, 6.4f * s,
+                RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.9f * alpha), FontWeight.MEDIUM);
+        renderCompactInput(context, input, label, x, y + 9f * s, w, s, alpha);
         return y + 31f * s;
     }
 
@@ -625,18 +630,18 @@ public final class IntegratedToolPage {
                 RenderUtil.lerpColor(RenderUtil.withAlpha(MenuScreen.SETTING_INPUT_BG, alpha * 0.84f),
                         RenderUtil.withAlpha(MenuScreen.CHIP_BG, alpha * 0.98f), focus));
         String value = input.value.isEmpty() ? placeholder : input.value;
-        value = CustomFontRenderer.trimToWidth(value, w - 12f * s, 6.1f * s, FontWeight.SEMIBOLD);
+        value = CustomFontRenderer.trimToWidth(value, w - 12f * s, 6.5f * s, FontWeight.MEDIUM);
         if (input.value.isEmpty()) {
-            CustomFontRenderer.drawText(context, value, x + 6f * s, y + 6.1f * s, 6.1f * s,
-                    RenderUtil.withAlpha(MenuScreen.TEXT_DIM, alpha), FontWeight.SEMIBOLD);
+            CustomFontRenderer.drawText(context, value, x + 6f * s, y + 5.9f * s, 6.5f * s,
+                    RenderUtil.withAlpha(MenuScreen.TEXT_DIM, alpha), FontWeight.MEDIUM);
         } else {
-            RenderUtil.drawAnimatedInputText(context, value, x + 6f * s, y + 6.1f * s, 6.1f * s,
-                    RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha), FontWeight.SEMIBOLD,
+            RenderUtil.drawAnimatedInputText(context, value, x + 6f * s, y + 5.9f * s, 6.5f * s,
+                    RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha), FontWeight.MEDIUM,
                     input.typedIndex, input.typedAt);
         }
         if (focused && (System.currentTimeMillis() / 500L) % 2L == 0L) {
             float caret = x + 6f * s + CustomFontRenderer.getTextWidth(input.value,
-                    6.1f * s, FontWeight.SEMIBOLD) + 1f;
+                    6.5f * s, FontWeight.MEDIUM) + 1f;
             RenderUtil.drawRect(context, Math.min(caret, x + w - 6f * s), y + 5f * s, 0.7f, 9f * s,
                     RenderUtil.withAlpha(MenuScreen.TEXT_WHITE, alpha));
         }
@@ -685,8 +690,8 @@ public final class IntegratedToolPage {
         RenderUtil.drawRoundedRect(context, x + inset, y - hover * 0.45f * s, w - inset * 2f,
                 h + hover * 0.9f * s, 5.5f * s, background);
         CustomFontRenderer.drawCenteredText(context, label, x + w * 0.5f, y + 6.8f * s - hover * 0.2f * s,
-                (6.1f + hover * 0.18f) * s, RenderUtil.withAlpha(enabled ? MenuScreen.TEXT_WHITE : MenuScreen.TEXT_DIM,
-                        alpha * (enabled ? 0.96f : 0.52f)), FontWeight.SEMIBOLD);
+                (6.5f + hover * 0.18f) * s, RenderUtil.withAlpha(enabled ? MenuScreen.TEXT_WHITE : MenuScreen.TEXT_DIM,
+                        alpha * (enabled ? 0.96f : 0.52f)), FontWeight.MEDIUM);
         state().buttons.add(new Button(id, new Bounds(x, y, w, h), enabled));
         return y + 25f * s;
     }
@@ -801,6 +806,14 @@ public final class IntegratedToolPage {
         return true;
     }
 
+    public boolean mouseDragged(float mouseX, float mouseY, int button, float deltaX, float deltaY) {
+        return type == Type.COSMETICS && cosmeticsPage.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+    }
+
+    public boolean mouseReleased(int button) {
+        return type == Type.COSMETICS && cosmeticsPage.mouseReleased(button);
+    }
+
     public boolean keyPressed(int key) {
         if (type == Type.MACROS && macroBinding) {
             state().macroKey = key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_DELETE
@@ -856,8 +869,8 @@ public final class IntegratedToolPage {
             }
         } else if (type == Type.GPS) {
             for (WaypointView waypoint : GpsSystem.getInstance().listActiveWaypoints()) {
-                String subtitle = String.format("%d %d %d - %d блоков",
-                        (int) waypoint.x(), (int) waypoint.y(), (int) waypoint.z(), waypoint.distance());
+                String subtitle = ClientLanguage.text("ui.client_tools.gps.coordinates_distance", "%d %d %d - %d блоков")
+                        .formatted((int) waypoint.x(), (int) waypoint.y(), (int) waypoint.z(), waypoint.distance());
                 addIfMatches(rows, new Row(String.valueOf(waypoint.activeIndex()), waypoint.name(), subtitle), query);
             }
         } else if (type == Type.MACROS && Macros.INSTANCE != null) {
@@ -868,7 +881,8 @@ public final class IntegratedToolPage {
             }
         } else if (type == Type.INVENTORIES) {
             for (LayoutView layout : InventoryLayoutManager.getInstance().list()) {
-                addIfMatches(rows, new Row(layout.id(), layout.name(), layout.itemCount() + " предметов"), query);
+                addIfMatches(rows, new Row(layout.id(), layout.name(),
+                        ClientLanguage.text("ui.inventory_manager.items_count", "%d предметов").formatted(layout.itemCount())), query);
             }
         }
         return rows;
@@ -885,8 +899,8 @@ public final class IntegratedToolPage {
             case FRIENDS -> String.valueOf(count);
             case GPS -> count + " / " + trimScope(GpsSystem.getInstance().currentScopeLabel());
             case MACROS -> String.valueOf(count);
-            case INVENTORIES -> count + " сохранений";
-            case COSMETICS -> count + " предметов";
+            case INVENTORIES -> ClientLanguage.text("ui.inventory_manager.saved_count", "%d сохранений").formatted(count);
+            case COSMETICS -> ClientLanguage.text("ui.cosmetics.items_count", "%d предметов").formatted(count);
             case EVENTS -> String.valueOf(count);
         };
     }
@@ -897,9 +911,9 @@ public final class IntegratedToolPage {
             case FRIENDS -> ClientLanguage.text("ui.client_tools.friends.empty", "Список друзей пуст");
             case GPS -> ClientLanguage.text("ui.client_tools.gps.empty", "Меток пока нет");
             case MACROS -> ClientLanguage.text("ui.macros.empty", "Макросов пока нет");
-            case INVENTORIES -> "Сохранений пока нет";
-            case COSMETICS -> "Косметика не найдена";
-            case EVENTS -> "Ивентов пока нет";
+            case INVENTORIES -> ClientLanguage.text("ui.inventory_manager.no_saves", "Сохранений пока нет");
+            case COSMETICS -> ClientLanguage.text("ui.cosmetics.not_found", "Косметика не найдена");
+            case EVENTS -> ClientLanguage.text("ui.events.no_events", "Ивентов пока нет");
         };
     }
 
@@ -941,16 +955,20 @@ public final class IntegratedToolPage {
     private void perform(String id) {
         PageState state = state();
         switch (id) {
-            case "config_save" -> notice(ConfigSystem.getInstance().saveCurrent(), "Конфиг сохранён", "Не удалось сохранить");
+            case "config_save" -> notice(ConfigSystem.getInstance().saveCurrent(),
+                    ClientLanguage.text("ui.client_tools.configs.saved_ok", "Конфиг сохранён"),
+                    ClientLanguage.text("ui.client_tools.configs.save_fail", "Не удалось сохранить"));
             case "config_save_as" -> {
                 boolean ok = ConfigSystem.getInstance().saveAs(state.name.text());
                 if (ok) state.selectedId = ConfigSystem.getInstance().getLastConfigName();
-                notice(ok, "Конфиг сохранён", "Не удалось сохранить");
+                notice(ok, ClientLanguage.text("ui.client_tools.configs.saved_ok", "Конфиг сохранён"),
+                        ClientLanguage.text("ui.client_tools.configs.save_fail", "Не удалось сохранить"));
             }
             case "config_load" -> {
                 Row row = selected();
                 boolean ok = row != null && ConfigSystem.getInstance().load(row.id);
-                notice(ok, "Конфиг загружен", "Не удалось загрузить");
+                notice(ok, ClientLanguage.text("ui.client_tools.configs.loaded", "Конфиг загружен"),
+                        ClientLanguage.text("ui.client_tools.configs.load_fail", "Не удалось загрузить"));
             }
             case "config_delete" -> {
                 Row row = selected();
@@ -959,14 +977,15 @@ public final class IntegratedToolPage {
                     rowBornAt.remove(Type.CONFIGS.name() + ":" + row.id);
                     state.selectedId = "";
                 }
-                notice(ok, "Конфиг удалён", "Не удалось удалить");
+                notice(ok, ClientLanguage.text("ui.client_tools.configs.deleted", "Конфиг удалён"),
+                        ClientLanguage.text("ui.client_tools.configs.delete_fail", "Не удалось удалить"));
             }
             case "config_folder" -> {
                 try {
                     Util.getOperatingSystem().open(ConfigSystem.getInstance().getConfigDirectory().toFile());
-                    notice(true, "Папка открыта", "");
+                    notice(true, ClientLanguage.text("ui.client_tools.configs.folder_opened", "Папка открыта"), "");
                 } catch (Exception exception) {
-                    notice(false, "", "Не удалось открыть папку");
+                    notice(false, "", ClientLanguage.text("ui.client_tools.configs.folder_fail", "Не удалось открыть папку"));
                 }
             }
             case "friend_add" -> {
@@ -975,7 +994,8 @@ public final class IntegratedToolPage {
                     state.selectedId = state.name.text().toLowerCase(Locale.ROOT);
                     state.name.set("");
                 }
-                notice(ok, "Друг добавлен", "Ник уже в списке");
+                notice(ok, ClientLanguage.text("ui.client_tools.friends.added", "Друг добавлен"),
+                        ClientLanguage.text("ui.client_tools.friends.exists", "Ник уже в списке"));
             }
             case "friend_delete" -> {
                 Row row = selected();
@@ -985,7 +1005,8 @@ public final class IntegratedToolPage {
                     state.selectedId = "";
                     state.name.set("");
                 }
-                notice(ok, "Друг удалён", "Не удалось удалить");
+                notice(ok, ClientLanguage.text("ui.client_tools.friends.removed", "Друг удалён"),
+                        ClientLanguage.text("ui.client_tools.friends.missing", "Не удалось удалить"));
             }
             case "gps_current" -> useCurrentPosition();
             case "gps_save" -> saveWaypoint();
@@ -997,7 +1018,8 @@ public final class IntegratedToolPage {
                     rowBornAt.remove(Type.GPS.name() + ":" + row.id);
                     state.selectedId = "";
                 }
-                notice(ok, "Метка удалена", "Не удалось удалить");
+                notice(ok, ClientLanguage.text("ui.client_tools.gps.deleted", "Метка удалена"),
+                        ClientLanguage.text("ui.client_tools.gps.delete_fail", "Не удалось удалить"));
             }
             case "macro_add" -> {
                 boolean ok = Macros.INSTANCE != null && state.macroKey != BindKeyUtil.NONE && !state.action.text().isBlank();
@@ -1007,7 +1029,8 @@ public final class IntegratedToolPage {
                     state.action.set("");
                     state.macroKey = BindKeyUtil.NONE;
                 }
-                notice(ok, "Макрос добавлен", "Выбери клавишу и действие");
+                notice(ok, ClientLanguage.text("ui.macros.added", "Макрос добавлен"),
+                        ClientLanguage.text("ui.macros.invalid", "Выбери клавишу и действие"));
             }
             case "macro_delete" -> {
                 Row row = selected();
@@ -1020,7 +1043,8 @@ public final class IntegratedToolPage {
                     state.action.set("");
                     state.macroKey = BindKeyUtil.NONE;
                 }
-                notice(ok, "Макрос удалён", "Не удалось удалить");
+                notice(ok, ClientLanguage.text("ui.macros.deleted", "Макрос удалён"),
+                        ClientLanguage.text("ui.macros.delete_fail", "Не удалось удалить"));
             }
             case "inventory_save" -> {
                 InventoryLayoutManager.Result result = InventoryLayoutManager.getInstance().saveCurrent(state.name.text());
@@ -1075,15 +1099,15 @@ public final class IntegratedToolPage {
     private void useCurrentPosition() {
         BlockPos position = GpsSystem.getInstance().currentPlayerBlockPos();
         if (position == null) {
-            notice(false, "", "Позиция игрока недоступна");
+            notice(false, "", ClientLanguage.text("ui.client_tools.gps.no_player", "Позиция игрока недоступна"));
             return;
         }
         PageState state = state();
-        if (state.name.text().isBlank()) state.name.set("Метка");
+        if (state.name.text().isBlank()) state.name.set(ClientLanguage.text("ui.client_tools.gps.default_name", "Метка"));
         state.x.set(String.valueOf(position.getX()));
         state.y.set(String.valueOf(position.getY()));
         state.z.set(String.valueOf(position.getZ()));
-        notice(true, "Координаты заполнены", "");
+        notice(true, ClientLanguage.text("ui.client_tools.gps.coords_filled", "Координаты заполнены"), "");
     }
 
     private void saveWaypoint() {
@@ -1092,7 +1116,7 @@ public final class IntegratedToolPage {
         Double py = parseDouble(state.y.text());
         Double pz = parseDouble(state.z.text());
         if (state.name.text().isBlank() || px == null || py == null || pz == null) {
-            notice(false, "", "Проверь название и координаты");
+            notice(false, "", ClientLanguage.text("ui.client_tools.gps.coords_invalid", "Проверь название и координаты"));
             return;
         }
         GpsSystem.getInstance().addOrReplaceWaypoint(state.name.text(), px, py, pz);
@@ -1102,7 +1126,7 @@ public final class IntegratedToolPage {
                 break;
             }
         }
-        notice(true, "Метка сохранена", "");
+        notice(true, ClientLanguage.text("ui.client_tools.gps.saved", "Метка сохранена"), "");
     }
 
     private boolean gpsValid() {

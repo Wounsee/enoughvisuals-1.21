@@ -4,6 +4,7 @@ import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.utils.player.ClientActionUtil;
+import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
@@ -68,7 +69,8 @@ public final class PvPSave extends Module {
 
         module.blockedCommand = normalized;
         module.blockedCommandAt = now;
-        ClientActionUtil.clientMessage("Вы в PvP. Повторите /" + normalized + ", чтобы выполнить команду.");
+        ClientActionUtil.clientMessage(ClientLanguage.text("chat.pvp_save.blocked",
+                "Вы в PvP. Повторите /%s, чтобы выполнить команду.").formatted(normalized));
         return true;
     }
 
@@ -88,10 +90,10 @@ public final class PvPSave extends Module {
                         client.setScreen(returnScreen);
                     }
                 },
-                Text.literal("Выйти во время PvP?"),
-                Text.literal("До конца PvP осталось " + seconds + " сек."),
-                Text.literal("Да, выйти"),
-                Text.literal("Нет")
+                Text.literal(ClientLanguage.text("ui.pvp_save.exit_title", "Выйти во время PvP?")),
+                Text.literal(ClientLanguage.text("ui.pvp_save.exit_message", "До конца PvP осталось %d сек.").formatted(seconds)),
+                Text.literal(ClientLanguage.text("ui.pvp_save.confirm", "Да, выйти")),
+                Text.literal(ClientLanguage.text("ui.common.no", "Нет"))
         ));
         return true;
     }

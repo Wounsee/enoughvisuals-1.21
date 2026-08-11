@@ -107,6 +107,7 @@ public class Prediction extends Module {
         Box projectileSearchBox = mc.player.getBoundingBox().expand(96.0);
         for (Entity entity : mc.world.getOtherEntities(mc.player, projectileSearchBox, candidate -> candidate instanceof ProjectileEntity)) {
             ProjectileEntity proj = (ProjectileEntity) entity;
+            if (proj.getOwner() != mc.player) continue;
             int projectileId = proj.getId();
             if (isProjectileFinished(proj)) {
                 removeProjectileState(projectileId);

@@ -10,7 +10,7 @@ import net.minecraft.client.gui.DrawContext;
 public final class MainMenuButton {
     private static final int NORMAL = 0xFF151515;
     private static final int HOVER = 0xFF1F1F1F;
-    private static final int ACTIVE = 0xFFA884FF;
+    private static final int ACTIVE = 0xFF7F94DD;
     private static final int TEXT = 0xFFFFFFFF;
 
     private final String label;

@@ -9,13 +9,17 @@ uniform float Offset;
 out vec4 fragColor;
 
 void main() {
-    vec4 sum = vec4(0.0);
-    float weightSum = 0.0;
-    for (int i = -5; i <= 5; i++) {
-        float sampleOffset = float(i);
-        float weight = exp(-(sampleOffset * sampleOffset) / 12.0);
-        sum += texture(Sampler0, TexCoord + vec2(sampleOffset * Resolution.x * Offset, 0.0)) * weight;
-        weightSum += weight;
-    }
-    fragColor = vec4((sum / weightSum).rgb, 1.0);
+    vec2 stepUv = vec2(Resolution.x * Offset, 0.0);
+    vec3 color = texture(Sampler0, TexCoord).rgb * 0.1668305005;
+    color += (texture(Sampler0, TexCoord - stepUv).rgb
+            + texture(Sampler0, TexCoord + stepUv).rgb) * 0.1534914701;
+    color += (texture(Sampler0, TexCoord - stepUv * 2.0).rgb
+            + texture(Sampler0, TexCoord + stepUv * 2.0).rgb) * 0.1195392772;
+    color += (texture(Sampler0, TexCoord - stepUv * 3.0).rgb
+            + texture(Sampler0, TexCoord + stepUv * 3.0).rgb) * 0.0788051484;
+    color += (texture(Sampler0, TexCoord - stepUv * 4.0).rgb
+            + texture(Sampler0, TexCoord + stepUv * 4.0).rgb) * 0.0439760425;
+    color += (texture(Sampler0, TexCoord - stepUv * 5.0).rgb
+            + texture(Sampler0, TexCoord + stepUv * 5.0).rgb) * 0.0207728116;
+    fragColor = vec4(color, 1.0);
 }

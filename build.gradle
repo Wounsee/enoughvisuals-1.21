@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version '1.15-SNAPSHOT'
+    id 'fabric-loom' version '1.17-SNAPSHOT'
     id 'maven-publish'
 }
 
@@ -43,26 +43,40 @@ repositories {
     maven { url 'https://jitpack.io' }
 }
 
-def funtimeEventsSdkDevJar = file("libs/fte-api-1.0.5-dev.jar")
-def funtimeEventsSdkRuntimeJar = file("libs/fte-api-1.0.5-runtime.jar")
+// JitPack publishes the v1.0.5 tag as the root artifact (the README's
+// multi-module coordinate currently has no published POM).
+def funtimeEventsSdk = "com.github.Rizzener:FunTimeEventsSDK:v1.0.5"
+def discordPresence = "com.github.CrashSystemZ:jDRPC:v1.0.0"
+def pulseCosmeticsRuntimeJar = file("libs/pulse-cosmetics-local-1.21.4.jar")
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-    modImplementation files(funtimeEventsSdkDevJar)
+    modImplementation funtimeEventsSdk
+    include funtimeEventsSdk
+    implementation discordPresence
+    include discordPresence
     modRuntimeOnly files(
             "cosmetic-build/fabric/build/libs/cosmetic-0.1.5+1.21.4-fabric-mc.jar")
+    modRuntimeOnly files(pulseCosmeticsRuntimeJar)
+    compileOnly files(pulseCosmeticsRuntimeJar)
     runtimeOnly "com.github.FiguraMC.luaj:luaj-core:3.0.8-figura"
     runtimeOnly "com.github.FiguraMC.luaj:luaj-jse:3.0.8-figura"
     runtimeOnly "com.neovisionaries:nv-websocket-client:2.14"
+    // Minecraft ships JNA at runtime; it is only needed to compile the WinRT
+    // availability probe and must not be bundled into the mod.
+    compileOnly "net.java.dev.jna:jna-platform:5.15.0"
     // Punchy is compiled into EnoughVisuals. Its recovered sources use
     // intermediary Minecraft names, so expose the matching 1.21.4 artifact to
     // javac alongside Loom's named development jar.
     compileOnly files(
             "C:/Users/<user>/Downloads/punchy-2.6.2-fabric-1.21.5.jar"
     )
+    testImplementation platform("org.junit:junit-bom:5.11.4")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
 
 sourceSets.main.java.exclude "punchy/**"
@@ -191,9 +205,9 @@ processResources {
         into "META-INF/jars"
         rename { "cosmetic.jar" }
     }
-    from(funtimeEventsSdkRuntimeJar) {
+    from(pulseCosmeticsRuntimeJar) {
         into "META-INF/jars"
-        rename { "fte-api-1.0.5.jar" }
+        rename { "pulse-cosmetics.jar" }
     }
     inputs.property "version", project.version
     inputs.property "minecraft_version", project.minecraft_version
@@ -207,6 +221,21 @@ processResources {
                 "mod_name": "EnoughVisuals",
                 "mod_description": "EnoughVisuals - ${project.minecraft_version}"
     }
+}
+
+tasks.register("auditFontAssets", Exec) {
+    group = "verification"
+    description = "Verifies generated Inter, Solar and Figma HUD MTSDF atlases"
+    inputs.dir("scripts/font-assets")
+    inputs.dir("src/main/resources/assets/enough/fonts/msdf")
+    inputs.files(
+            "src/main/java/fun/enoughvisuals/utils/font/SolarIcons.java",
+            "src/main/java/fun/enoughvisuals/utils/font/HudIcons.java")
+    commandLine "python", file("scripts/font-assets/audit_font_assets.py")
+}
+
+tasks.named("check") {
+    dependsOn tasks.named("auditFontAssets")
 }
 
 def targetJavaVersion = 21
@@ -229,13 +258,86 @@ jar {
     from("LICENSE") {
         rename { "${it}_${project.archives_base_name}" }
     }
+    from("libs/fte-api-1.0.5-LICENSE.txt") {
+        into "META-INF/licenses"
+        rename { "FunTimeEventsSDK-LICENSE.txt" }
+    }
 }
 
-def enoughGuardRoot = file("C:/Users/<user>/Desktop/EnoughGuard/obfuscator")
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+// EnoughGuard path can be supplied through:
+//   gradle.properties: enoughGuardRoot=C:/path/to/EnoughGuard/obfuscator
+//   environment:       ENOUGH_GUARD_ROOT=C:/path/to/EnoughGuard/obfuscator
+// The hardcoded path is used only as a local fallback.
+def enoughGuardRootPath = providers.gradleProperty("enoughGuardRoot")
+        .orElse(providers.environmentVariable("ENOUGH_GUARD_ROOT"))
+        .getOrElse("C:/Users/<user>/Desktop/EnoughGuard/obfuscator")
+def enoughGuardRoot = file(enoughGuardRootPath)
+def enoughGuardIsWindows = System.getProperty("os.name")
+        .toLowerCase()
+        .contains("windows")
+def enoughGuardWrapper = new File(
+        enoughGuardRoot,
+        enoughGuardIsWindows ? "gradlew.bat" : "gradlew")
 def enoughGuardCli = new File(
         enoughGuardRoot,
         "guard-cli/build/libs/guard-cli-0.1.0-all.jar")
 def enoughGuardProfile = new File(enoughGuardRoot, "profiles/enoughvisuals.yml")
+
+tasks.register("buildEnoughGuard", Exec) {
+    group = "build"
+    description = "Builds the standalone EnoughGuard CLI before protecting the mod"
+
+    inputs.files(fileTree(enoughGuardRoot) {
+        include "settings.gradle.kts"
+        include "build.gradle.kts"
+        include "gradle.properties"
+        include "gradle/wrapper/**"
+        include "gradlew"
+        include "gradlew.bat"
+        include "guard-core/build.gradle.kts"
+        include "guard-core/src/**"
+        include "guard-cli/build.gradle.kts"
+        include "guard-cli/src/**"
+    })
+    outputs.file(enoughGuardCli)
+
+    workingDir enoughGuardRoot
+
+    doFirst {
+        if (!enoughGuardRoot.isDirectory()) {
+            throw new GradleException(
+                    "EnoughGuard directory does not exist: ${enoughGuardRoot}. " +
+                            "Set enoughGuardRoot in gradle.properties or ENOUGH_GUARD_ROOT.")
+        }
+        if (!enoughGuardWrapper.isFile()) {
+            throw new GradleException(
+                    "EnoughGuard Gradle wrapper was not found: ${enoughGuardWrapper}")
+        }
+        if (!enoughGuardProfile.isFile()) {
+            throw new GradleException(
+                    "EnoughGuard profile was not found: ${enoughGuardProfile}")
+        }
+
+        // Build only the Java CLI needed by protectRelease. Do not invoke the
+        // root 'release' task: it also builds native-ui and therefore requires Rust/Cargo.
+        if (enoughGuardIsWindows) {
+            commandLine(
+                    "cmd", "/c",
+                    enoughGuardWrapper.absolutePath,
+                    ":guard-cli:uberJar",
+                    "--no-daemon")
+        } else {
+            commandLine(
+                    enoughGuardWrapper.absolutePath,
+                    ":guard-cli:uberJar",
+                    "--no-daemon")
+        }
+    }
+}
 def remappedReleaseJar =
         layout.buildDirectory.file("libs/${project.archives_base_name}-${project.version}.jar")
 def protectedReleaseJar =
@@ -263,7 +365,7 @@ tasks.register("auditPunchy1214", JavaExec) {
 tasks.register("protectRelease", Exec) {
     group = "build"
     description = "Builds the launcher-only EnoughGuard production artifact"
-    dependsOn tasks.named("auditPunchy1214")
+    dependsOn tasks.named("auditPunchy1214"), tasks.named("buildEnoughGuard")
     inputs.file(remappedReleaseJar)
     inputs.file(enoughGuardCli)
     inputs.file(enoughGuardProfile)
@@ -271,10 +373,13 @@ tasks.register("protectRelease", Exec) {
     outputs.file(protectionReport)
 
     doFirst {
-        if (!enoughGuardCli.isFile() || !enoughGuardProfile.isFile()) {
+        if (!enoughGuardCli.isFile()) {
             throw new GradleException(
-                    "EnoughGuard is not built. Run " +
-                            "C:/Users/<user>/Desktop/EnoughGuard/obfuscator/gradlew.bat release")
+                    "EnoughGuard CLI was not produced: ${enoughGuardCli}")
+        }
+        if (!enoughGuardProfile.isFile()) {
+            throw new GradleException(
+                    "EnoughGuard profile was not found: ${enoughGuardProfile}")
         }
         protectionReport.get().asFile.parentFile.mkdirs()
         commandLine(

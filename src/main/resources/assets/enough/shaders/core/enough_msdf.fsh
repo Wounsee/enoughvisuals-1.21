@@ -4,6 +4,7 @@ uniform sampler2D Sampler0;
 uniform vec4 uColor;
 uniform float uPxRange;
 uniform float uMtsdf;
+uniform float uIconAtlas;
 // framebuffer-space: left, right, left fade width, right fade width.
 // Negative bounds disable clipping for ordinary text draws.
 uniform vec4 uClipFade;
@@ -13,6 +14,12 @@ out vec4 fragColor;
 
 float median(float r, float g, float b) {
     return max(min(r, g), min(max(r, g), b));
+}
+
+float coverageAt(vec2 uv, float screenPxRange) {
+    vec3 sampleRgb = texture(Sampler0, uv).rgb;
+    float distance = median(sampleRgb.r, sampleRgb.g, sampleRgb.b);
+    return clamp(screenPxRange * (distance - 0.5) + 0.5, 0.0, 1.0);
 }
 
 void main() {
@@ -27,15 +34,27 @@ void main() {
     vec2 screenTexSize = vec2(1.0) / uvDerivative;
     float screenPxRange = max(0.5 * dot(unitRange, screenTexSize), 1.0);
 
-    // MTSDF stores a true SDF in alpha. It is more stable than the RGB
-    // channel seams for tiny glyphs; full-size glyphs retain sharp MSDF corners.
+    // MTSDF alpha is useful for tiny text, but it destroys small negative
+    // spaces in filled icons. Icons always use the RGB median and receive a
+    // light four-tap subpixel resolve only while being strongly minified.
     float smallText = (1.0 - smoothstep(1.75, 2.75, screenPxRange))
-            * step(0.5, uMtsdf);
+            * step(0.5, uMtsdf) * (1.0 - step(0.5, uIconAtlas));
     float sd = mix(msdfDistance, texel.a, smallText);
     float screenPxDistance = screenPxRange * (sd - 0.5);
     float regularCoverage = clamp(screenPxDistance + 0.5, 0.0, 1.0);
     float smallCoverage = smoothstep(-0.65, 0.65, screenPxDistance);
     float opacity = mix(regularCoverage, smallCoverage, smallText);
+
+    if (uIconAtlas > 0.5) {
+        vec2 quarterPixel = fwidth(texCoord) * 0.24;
+        float resolved = regularCoverage * 0.40;
+        resolved += coverageAt(texCoord + vec2(-quarterPixel.x, -quarterPixel.y), screenPxRange) * 0.15;
+        resolved += coverageAt(texCoord + vec2( quarterPixel.x, -quarterPixel.y), screenPxRange) * 0.15;
+        resolved += coverageAt(texCoord + vec2(-quarterPixel.x,  quarterPixel.y), screenPxRange) * 0.15;
+        resolved += coverageAt(texCoord + vec2( quarterPixel.x,  quarterPixel.y), screenPxRange) * 0.15;
+        float minified = 1.0 - smoothstep(1.55, 2.8, screenPxRange);
+        opacity = mix(regularCoverage, resolved, minified);
+    }
 
     if (uClipFade.x >= 0.0 && uClipFade.y > uClipFade.x) {
         float px = gl_FragCoord.x;

@@ -4,6 +4,7 @@ import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.settings.Setting;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.StencilUtil;
+import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.util.Identifier;
@@ -34,6 +35,10 @@ public class DragAndDrop {
                     ? Identifier.of("enough", "icons/hud/" + iconFile)
                     : null;
             this.factory = factory;
+        }
+
+        public String localizedName() {
+            return ClientLanguage.text("settings.hud." + id + ".name", displayName);
         }
     }
 
@@ -84,7 +89,7 @@ public class DragAndDrop {
 
         HudElement element = entry.factory.create(x, y);
         element.setTypeId(id);
-        element.setDisplayName(entry.displayName);
+        element.setDisplayName(entry.localizedName());
         element.setIcon(entry.icon);
         applyRememberedSettings(element);
 
@@ -117,6 +122,7 @@ public class DragAndDrop {
             element.clearDragVelocity();
             element.clearDragGrip();
             dragging = null;
+            Grid.clear();
         }
         if (hovered == element) {
             hovered = null;
@@ -148,6 +154,7 @@ public class DragAndDrop {
         dragTargetX = 0f;
         dragTargetY = 0f;
         resetCursor();
+        Grid.clear();
     }
 
     public void renderAll(DrawContext ctx, float delta) {
@@ -177,8 +184,10 @@ public class DragAndDrop {
         if (element == dragging) {
             float follow = RenderUtil.getFrameDelta();
             element.setDragVelocity(dragTargetX - element.getX(), dragTargetY - element.getY());
-            float nextX = RenderUtil.animate(element.getX(), dragTargetX, 0.22f, follow);
-            float nextY = RenderUtil.animate(element.getY(), dragTargetY, 0.22f, follow);
+            float nextX = RenderUtil.animate(element.getX(), dragTargetX,
+                    Grid.isSnappedX() ? 0.34f : 0.22f, follow);
+            float nextY = RenderUtil.animate(element.getY(), dragTargetY,
+                    Grid.isSnappedY() ? 0.34f : 0.22f, follow);
             element.setX(nextX);
             element.setY(nextY);
         }
@@ -199,7 +208,7 @@ public class DragAndDrop {
         }
 
         float x = hovered.getX() - 2f;
-        float y = hovered.getY() - 2f;
+        float y = hovered.getVisualY() - 2f;
         float w = hovered.getWidth() + 4f;
         float h = hovered.getHeight() + 4f;
         float a = RenderUtil.easeOutQuad(hoverAnim);
@@ -269,16 +278,17 @@ public class DragAndDrop {
             return false;
         }
 
+        Grid.clear();
         mx = HudElement.screenToHud(mx);
         my = HudElement.screenToHud(my);
         dragging = hovered;
         bringToFront(dragging);
         dragOffsetX = mx - dragging.getX();
-        dragOffsetY = my - dragging.getY();
+        dragOffsetY = my - dragging.getVisualY();
         dragTargetX = dragging.getX();
         dragTargetY = dragging.getY();
         float gripX = (mx - dragging.getX()) / Math.max(1f, dragging.getWidth());
-        float gripY = (my - dragging.getY()) / Math.max(1f, dragging.getHeight());
+        float gripY = (my - dragging.getVisualY()) / Math.max(1f, dragging.getHeight());
         dragging.setDragGrip(gripX, gripY);
         dragging.clearDragVelocity();
         return true;
@@ -291,11 +301,15 @@ public class DragAndDrop {
 
         mx = HudElement.screenToHud(mx);
         my = HudElement.screenToHud(my);
-        float newX = mx - dragOffsetX;
-        float newY = my - dragOffsetY;
+        float newX = dragging.isHorizontalDragLocked()
+                ? (HudElement.hudScreenWidth() - dragging.getWidth()) * 0.5f
+                : mx - dragOffsetX;
+        float visualY = my - dragOffsetY;
+        float newY = HudBottomInset.layoutYForVisual(
+                visualY, dragging.getHeight(), HudElement.hudScreenHeight());
 
         float[] snapped = Grid.liveSnapAt(dragging, newX, newY);
-        dragTargetX = snapped[0];
+        dragTargetX = dragging.isHorizontalDragLocked() ? newX : snapped[0];
         dragTargetY = snapped[1];
         clampTargetsToScreen(dragging);
     }
@@ -309,6 +323,7 @@ public class DragAndDrop {
         dragging.clearDragVelocity();
         dragging.clearDragGrip();
         dragging = null;
+        Grid.clear();
     }
 
     public void resetCursor() {
@@ -335,8 +350,8 @@ public class DragAndDrop {
 
         float screenW = HudElement.hudScreenWidth();
         float screenH = HudElement.hudScreenHeight();
-        element.setX(Math.max(4f, Math.min(screenW - element.getWidth() - 4f, element.getX())));
-        element.setY(Math.max(4f, Math.min(screenH - element.getHeight() - 4f, element.getY())));
+        element.setX(Math.max(0f, Math.min(screenW - element.getWidth(), element.getX())));
+        element.setY(Math.max(0f, Math.min(screenH - element.getHeight(), element.getY())));
     }
 
     private void clampTargetsToScreen(HudElement element) {
@@ -347,8 +362,8 @@ public class DragAndDrop {
 
         float screenW = HudElement.hudScreenWidth();
         float screenH = HudElement.hudScreenHeight();
-        dragTargetX = Math.max(4f, Math.min(screenW - element.getWidth() - 4f, dragTargetX));
-        dragTargetY = Math.max(4f, Math.min(screenH - element.getHeight() - 4f, dragTargetY));
+        dragTargetX = Math.max(0f, Math.min(screenW - element.getWidth(), dragTargetX));
+        dragTargetY = Math.max(0f, Math.min(screenH - element.getHeight(), dragTargetY));
     }
 
     public Map<String, Map<String, Object>> getRememberedSettingsCopy() {
@@ -376,6 +391,13 @@ public class DragAndDrop {
         for (Setting<?> setting : element.getSettings()) {
             map.put(setting.getId(), setting.serialize());
         }
+    }
+
+    public boolean clickHovered(float mx, float my, int button) {
+        if (hovered == null || hovered.isRemoving()) return false;
+        mx = HudElement.screenToHud(mx);
+        my = HudElement.screenToHud(my);
+        return hovered.onMouseClicked(mx - hovered.getX(), my - hovered.getVisualY(), button);
     }
 
     private void applyRememberedSettings(HudElement element) {

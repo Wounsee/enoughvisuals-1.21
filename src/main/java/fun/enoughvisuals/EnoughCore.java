@@ -16,6 +16,7 @@ import fun.enoughvisuals.systems.modules.modules.utils.*;
 import fun.enoughvisuals.systems.modules.modules.visual.*;
 
 import fun.enoughvisuals.systems.network.RemoteConfig;
+import fun.enoughvisuals.systems.network.DiscordPresenceService;
 import fun.enoughvisuals.systems.events.EventFeedService;
 import fun.enoughvisuals.systems.network.HolyWorldFeatureControl;
 
@@ -25,16 +26,14 @@ import fun.enoughvisuals.ui.hud.BindsHud;
 
 import fun.enoughvisuals.ui.hud.CooldownsHud;
 
-import fun.enoughvisuals.ui.hud.CustomScoreboardHud;
-
 import fun.enoughvisuals.ui.hud.EffectsHud;
-
-import fun.enoughvisuals.ui.hud.InventoryHud;
-
 import fun.enoughvisuals.ui.hud.TargetHud;
-
 import fun.enoughvisuals.ui.hud.WatermarkHud;
-import fun.enoughvisuals.ui.hud.TrapTimerHud;
+import fun.enoughvisuals.ui.hud.PlayerHud;
+import fun.enoughvisuals.ui.hud.NotificationHud;
+import fun.enoughvisuals.ui.hud.ArmorHud;
+import fun.enoughvisuals.ui.hud.InventoryHud;
+import fun.enoughvisuals.ui.hud.HotbarHud;
 
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 
@@ -46,8 +45,10 @@ import fun.enoughvisuals.utils.system.FuntimeEventSystem;
 
 import fun.enoughvisuals.utils.system.NowPlayingService;
 import fun.enoughvisuals.utils.system.TitleBarHelper;
+import fun.enoughvisuals.ui.clickgui.components.IntegratedToolPage;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
@@ -55,14 +56,20 @@ import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import fun.enoughvisuals.systems.emotions.EmotionWheelManager;
-import fun.enoughvisuals.systems.modules.modules.visual.Emotions;
+import fun.enoughvisuals.systems.graffiti.GraffitiManager;
 import fun.enoughvisuals.ui.screen.EmotionWheelScreen;
+import fun.enoughvisuals.ui.screen.GraffitiWheelScreen;
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
+import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 
 import net.minecraft.client.MinecraftClient;
 
 import net.minecraft.client.texture.NativeImage;
+import net.minecraft.resource.ResourceManager;
+import net.minecraft.resource.ResourceType;
+import net.minecraft.util.Identifier;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -99,11 +106,29 @@ public final class EnoughCore {
     public static void initializeClient() {
 
         initCustomFontRendererCompat();
+        ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(
+                new SimpleSynchronousResourceReloadListener() {
+                    @Override
+                    public Identifier getFabricId() {
+                        return Identifier.of("enough", "pulse_emotions");
+                    }
+
+                    @Override
+                    public void reload(ResourceManager manager) {
+                        EmotionWheelManager.getInstance().reloadResources();
+                        MinecraftClient client = MinecraftClient.getInstance();
+                        if (client != null) client.execute(IntegratedToolPage::invalidateCosmeticPreviewCache);
+                    }
+                });
+        ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> {
+            IntegratedToolPage.invalidateCosmeticPreviewCache();
+            GraffitiManager.getInstance().clearWorld();
+        });
         applyFirstLaunchDisplayDefaults();
         RemoteConfig.getInstance().start();
+        ClientLifecycleEvents.CLIENT_STARTED.register(client -> DiscordPresenceService.getInstance().start());
         ClientTickEvents.END_CLIENT_TICK.register(EventFeedService.getInstance()::onClientTick);
         ClientTickEvents.END_CLIENT_TICK.register(TitleBarHelper::applyOnce);
-        new CustomTab();
         ModuleManager manager = ModuleManager.getInstance();
         manager.register(
                 new AspectRatio(),
@@ -116,7 +141,6 @@ public final class EnoughCore {
                 new CustomHitbox(),
                 new GuiSize(),
                 new CustomTheme(),
-                new CornerStyle(),
                 new Friends(),
                 new Configs(),
                 new GPS(),
@@ -144,10 +168,11 @@ public final class EnoughCore {
                 new GlowESP(),
                 new FreeLook(),
                 new Emotions(),
+                new Graffiti(),
                 new Pet(),
                 new FriendMarker(),
                 new TargetESP(),
-                new MineRadar(),
+                new Optimization(),
                 new FakePlayer(),
                 new ClickFriend(),
                 new ChatHelper(),
@@ -214,11 +239,15 @@ public final class EnoughCore {
         WorldRenderEvents.LAST.register(JumpEffect::renderInWorld);
         WorldRenderEvents.LAST.register(Trails::renderInWorld);
         WorldRenderEvents.LAST.register(AttackEffect::renderInWorld);
+        WorldRenderEvents.LAST.register(GraffitiManager.getInstance()::renderWorld);
 
         HudRenderCallback.EVENT.register((drawContext, tickCounter) -> {
             ModuleManager.getInstance().onRender(tickCounter.getTickDelta(true));
             if (!(MinecraftClient.getInstance().currentScreen instanceof EmotionWheelScreen)) {
                 EmotionWheelManager.getInstance().render(drawContext);
+            }
+            if (!(MinecraftClient.getInstance().currentScreen instanceof GraffitiWheelScreen)) {
+                GraffitiManager.getInstance().renderWheel(drawContext);
             }
         });
 
@@ -262,6 +291,7 @@ public final class EnoughCore {
             String line = message.getString();
 
             FuntimeEventSystem.getInstance().onChatLine(line);
+            EventFeedService.getInstance().onChatLine(line);
 
         });
 
@@ -272,6 +302,7 @@ public final class EnoughCore {
             String line = message.getString();
 
             FuntimeEventSystem.getInstance().onChatLine(line);
+            EventFeedService.getInstance().onChatLine(line);
 
         });
 
@@ -279,8 +310,7 @@ public final class EnoughCore {
 
         DragAndDrop dad = DragAndDrop.getInstance();
 
-        dad.register("watermark", "Остров", null, WatermarkHud::new);
-        dad.register("trap_timer", "Таймер Трапки", null, TrapTimerHud::new);
+        dad.register("watermark", "Ватермарка", null, WatermarkHud::new);
 
         dad.register("targethud", "Таргет Худ", null, TargetHud::new);
 
@@ -289,8 +319,11 @@ public final class EnoughCore {
         dad.register("binds", "Бинды", null, BindsHud::new);
 
         dad.register("cooldowns", "Кулдауны", null, CooldownsHud::new);
-
-        dad.register("inventory_hud", "Худ инвентаря", null, InventoryHud::new);
+        dad.register("player", "Плеер", null, PlayerHud::new);
+        dad.register("notifications", "Уведомления", null, NotificationHud::new);
+        dad.register("armor", "Броня", null, ArmorHud::new);
+        dad.register("inventory", "Инвентарь", null, InventoryHud::new);
+        dad.register("custom_hotbar", "Кастомный хотбар", null, HotbarHud::new);
 
 
 
@@ -316,7 +349,11 @@ public final class EnoughCore {
 
 
 
-        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> ConfigSystem.getInstance().autosaveOnExit());
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            IntegratedToolPage.invalidateCosmeticPreviewCache();
+            DiscordPresenceService.getInstance().stop();
+            ConfigSystem.getInstance().autosaveOnExit();
+        });
 
     }
 
@@ -509,4 +546,3 @@ public final class EnoughCore {
 
 
 }
-

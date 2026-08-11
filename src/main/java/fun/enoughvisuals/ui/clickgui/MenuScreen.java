@@ -17,6 +17,7 @@ import fun.enoughvisuals.systems.network.HolyWorldFeatureControl;
 import fun.enoughvisuals.ui.clickgui.components.ModuleCard;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.SolarIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.ScreenScaleUtil;
 import fun.enoughvisuals.utils.render.StencilUtil;
@@ -32,7 +33,6 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -40,9 +40,9 @@ import java.util.Map;
 import java.util.Set;
 
 public class MenuScreen extends Screen {
-    public static final int DEFAULT_ACCENT = 0xFF927BE0;
+    public static final int DEFAULT_ACCENT = 0xFF7F94DD;
     public static int ACCENT = DEFAULT_ACCENT;
-    public static int ACCENT_LIGHT = 0xFFC0B2F2;
+    public static int ACCENT_LIGHT = 0xFF9699F0;
     public static final int TEXT_WHITE = 0xFFF4F1FA;
     public static final int TEXT_GRAY = 0xFFB9B3C7;
     public static final int TEXT_DIM = 0xFF7D778A;
@@ -85,16 +85,16 @@ public class MenuScreen extends Screen {
     private static final long OPEN_MS = 320L;
     private static final long CLOSE_MS = 240L;
     private static final long CARD_STAGGER_MS = 34L;
-    private static final String ICON_VISUAL = "\uF00A";
-    private static final String ICON_WAYPOINT = "\uF000";
-    private static final String ICON_CONFIG = "\uF001";
-    private static final String ICON_UTILS = "\uF002";
-    private static final String ICON_FRIENDS = "\uF003";
+    private static final String ICON_VISUAL = SolarIcons.VISUAL;
+    private static final String ICON_WAYPOINT = SolarIcons.WAYPOINT;
+    private static final String ICON_CONFIG = SolarIcons.FOLDER;
+    private static final String ICON_UTILS = SolarIcons.UTILS;
+    private static final String ICON_FRIENDS = SolarIcons.FRIENDS;
     private static final String LOGO_GLYPH = "\uF002";
-    private static final String ICON_BIND = "\uF005";
-    private static final String ICON_CLIENT = "\uF007";
-    private static final String ICON_PUZZLE = "\uF004";
-    private static final String ICON_SEARCH = "\uF008";
+    private static final String ICON_BIND = SolarIcons.BIND;
+    private static final String ICON_CLIENT = SolarIcons.SETTINGS;
+    private static final String ICON_PUZZLE = SolarIcons.PUZZLE;
+    private static final String ICON_SEARCH = SolarIcons.SEARCH;
     private static final Set<String> TOOL_MODULES = Set.of("configs", "friends", "gps", "macros");
     private final Category[] categories = Arrays.stream(Category.values())
             .filter(category -> !HolyWorldFeatureControl.getInstance().isCategoryBlocked(category))
@@ -238,7 +238,7 @@ public class MenuScreen extends Screen {
         cardCache.clear();
         for (Category category : categories) {
             List<Module> modules = ModuleManager.getInstance().getModulesByCategory(category);
-            modules.sort(Comparator.comparing(Module::getName, String.CASE_INSENSITIVE_ORDER));
+            modules.sort(MenuScreen::compareModules);
             for (Module module : modules) {
                 if (!TOOL_MODULES.contains(module.getId())) {
                     cardCache.put(module, new ModuleCard(module, this));
@@ -304,6 +304,8 @@ public class MenuScreen extends Screen {
         }
         if (!query.isEmpty()) {
             selected.sort((a, b) -> {
+                int pinned = comparePinnedModules(a, b);
+                if (pinned != 0) return pinned;
                 boolean ap = a.getName().toLowerCase(Locale.ROOT).startsWith(query);
                 boolean bp = b.getName().toLowerCase(Locale.ROOT).startsWith(query);
                 if (ap != bp) return ap ? -1 : 1;
@@ -318,6 +320,17 @@ public class MenuScreen extends Screen {
         }
         scrollOffset = Math.max(scrollOffset, -16f * scale);
         scrollTarget = 0f;
+    }
+
+    private static int compareModules(Module a, Module b) {
+        int pinned = comparePinnedModules(a, b);
+        return pinned != 0 ? pinned : a.getName().compareToIgnoreCase(b.getName());
+    }
+
+    private static int comparePinnedModules(Module a, Module b) {
+        boolean aOptimization = "optimization".equals(a.getId());
+        boolean bOptimization = "optimization".equals(b.getId());
+        return aOptimization == bOptimization ? 0 : aOptimization ? -1 : 1;
     }
 
     @Override
@@ -463,7 +476,7 @@ public class MenuScreen extends Screen {
                 case CLIENT -> ICON_CLIENT;
             };
             CustomFontRenderer.drawCenteredText(context, categoryIcon, windowX + 22f * scale,
-                    y + (rowH - 11f * scale) * 0.5f, 11f * scale, iconColor, FontWeight.CLICK_GUI);
+                    y + (rowH - 11f * scale) * 0.5f, 11f * scale, iconColor, FontWeight.SOLAR_ICONS);
             CustomFontRenderer.drawText(context, categories[i].getDisplayName(), windowX + 35f * scale,
                     y + 8.6f * scale, 7.2f * scale, textColor, FontWeight.SEMIBOLD);
         }
@@ -506,24 +519,32 @@ public class MenuScreen extends Screen {
         RenderUtil.drawRect(context, x, windowY + h - 0.5f, w, 0.5f,
                 RenderUtil.withAlpha(0xFFFFFF, 0.055f * alpha));
         float intro = intro(now, openTime + 100L, 280L);
+        float rootSize = 7.4f * scale;
+        float currentSize = 7.7f * scale;
+        float breadcrumbIconSize = 12f * scale;
         CustomFontRenderer.drawCenteredText(context, ICON_PUZZLE, x + 15.5f * scale,
-                windowY + 10.8f * scale, 12f * scale,
-                RenderUtil.withAlpha(ACCENT_LIGHT, 0.94f * alpha * intro), FontWeight.CLICK_GUI);
+                centeredTextY(windowY, h, breadcrumbIconSize, FontWeight.SOLAR_ICONS), breadcrumbIconSize,
+                RenderUtil.withAlpha(ACCENT_LIGHT, 0.94f * alpha * intro), FontWeight.SOLAR_ICONS);
         boolean clientRoot = activeTool == null && categories[activeCategory] == Category.CLIENT && searchQuery.isEmpty();
         float rootX = x + 27f * scale;
-        String rootName = "Клиент";
-        CustomFontRenderer.drawText(context, rootName, rootX, windowY + 13.2f * scale,
-                7.4f * scale, RenderUtil.withAlpha(clientRoot ? TEXT_WHITE : TEXT_DIM,
-                        (clientRoot ? 1f : 0.90f) * alpha * intro), clientRoot ? FontWeight.SEMIBOLD : FontWeight.REGULAR);
+        String rootName = ClientLanguage.text("categories.client.name", "Клиент");
+        FontWeight rootWeight = clientRoot ? FontWeight.SEMIBOLD : FontWeight.REGULAR;
+        CustomFontRenderer.drawText(context, rootName, rootX, centeredTextY(windowY, h, rootSize, rootWeight),
+                rootSize, RenderUtil.withAlpha(clientRoot ? TEXT_WHITE : TEXT_DIM,
+                        (clientRoot ? 1f : 0.90f) * alpha * intro), rootWeight);
         String current = !searchQuery.isEmpty() ? ClientLanguage.text("ui.search", "Поиск")
                 : activeTool != null ? activeTool.title() : categories[activeCategory].getDisplayName();
         if (!clientRoot) {
             float separatorX = rootX + CustomFontRenderer.getTextWidth(rootName, 7.4f * scale,
                     clientRoot ? FontWeight.SEMIBOLD : FontWeight.REGULAR) + 9f * scale;
-            CustomFontRenderer.drawText(context, ">", separatorX, windowY + 13.5f * scale,
-                    7.1f * scale, RenderUtil.withAlpha(TEXT_DIM, 0.62f * alpha * intro), FontWeight.REGULAR);
-            CustomFontRenderer.drawText(context, current, separatorX + 10f * scale, windowY + 13.2f * scale,
-                    7.7f * scale, RenderUtil.withAlpha(TEXT_WHITE, alpha * intro), FontWeight.SEMIBOLD);
+            float separatorSize = 7.2f * scale;
+            float separatorCenterX = separatorX + 3.4f * scale;
+            CustomFontRenderer.drawCenteredText(context, SolarIcons.CHEVRON_RIGHT, separatorCenterX,
+                    centeredTextY(windowY, h, separatorSize, FontWeight.SOLAR_ICONS) + 0.15f * scale,
+                    separatorSize, RenderUtil.withAlpha(TEXT_DIM, 0.62f * alpha * intro), FontWeight.SOLAR_ICONS);
+            CustomFontRenderer.drawText(context, current, separatorX + 9.5f * scale,
+                    centeredTextY(windowY, h, currentSize, FontWeight.SEMIBOLD),
+                    currentSize, RenderUtil.withAlpha(TEXT_WHITE, alpha * intro), FontWeight.SEMIBOLD);
         }
 
         float fieldW = 118f * scale;
@@ -534,11 +555,13 @@ public class MenuScreen extends Screen {
         float focus = Math.max(searchFocus, hovered ? 0.35f : 0f);
         RenderUtil.drawRoundedRect(context, fieldX, fieldY, fieldW, fieldH, fieldH * 0.5f,
                 RenderUtil.withAlpha(INSET_BG, (0.82f + 0.10f * focus) * alpha));
+        float searchIconSize = 9f * scale;
         CustomFontRenderer.drawCenteredText(context, ICON_SEARCH, fieldX + 13f * scale,
-                fieldY + (fieldH - 9f * scale) * 0.5f, 9f * scale,
-                RenderUtil.withAlpha(searchActive ? ACCENT_LIGHT : TEXT_DIM, 0.88f * alpha), FontWeight.CLICK_GUI);
+                centeredTextY(fieldY, fieldH, searchIconSize, FontWeight.SOLAR_ICONS), searchIconSize,
+                RenderUtil.withAlpha(searchActive ? ACCENT_LIGHT : TEXT_DIM, 0.88f * alpha), FontWeight.SOLAR_ICONS);
         float textX = fieldX + 25f * scale;
-        float textY = fieldY + (fieldH - 6.7f * scale) * 0.5f;
+        float searchTextSize = 6.7f * scale;
+        float textY = centeredTextY(fieldY, fieldH, searchTextSize, FontWeight.SEMIBOLD);
         if (searchQuery.isEmpty()) {
             String placeholder = activeTool == null
                     ? ClientLanguage.text("ui.search_modules", "Поиск модулей")
@@ -983,6 +1006,7 @@ public class MenuScreen extends Screen {
             dragCard.mouseReleased(mx, my, button, scale);
             dragCard = null;
         }
+        if (activeTool != null && toolPage.mouseReleased(button)) return true;
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -993,6 +1017,8 @@ public class MenuScreen extends Screen {
         float my = ScreenScaleUtil.screenToVirtual(mouseY);
         if (picker != null && !picker.isClosing() && picker.mouseDragged(mx, my)) return true;
         if (dragCard != null && dragCard.mouseDragged(mx, my, scale)) return true;
+        if (activeTool != null && toolPage.mouseDragged(mx, my, button,
+                (float) deltaX / fixedScreenScale, (float) deltaY / fixedScreenScale)) return true;
         return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
     }
 
@@ -1026,6 +1052,10 @@ public class MenuScreen extends Screen {
 
     private static boolean hit(float mx, float my, float x, float y, float w, float h) {
         return mx >= x && mx <= x + w && my >= y && my <= y + h;
+    }
+
+    private static float centeredTextY(float boxY, float boxHeight, float fontSize, FontWeight weight) {
+        return boxY + (boxHeight - CustomFontRenderer.getTextHeight(fontSize, weight)) * 0.5f;
     }
 
     private static float intro(long now, long start, long duration) {

@@ -1,20 +1,21 @@
 package fun.enoughvisuals.ui.clienttools;
 
 import fun.enoughvisuals.systems.config.ConfigSystem;
+import fun.enoughvisuals.systems.hud.HudNotificationCenter;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.SolarIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class ConfigsScreen extends ClientToolScreen {
-    public static final Identifier ICON = Identifier.of("enough", "icons/client/configs.png");
+    public static final String ICON = SolarIcons.FOLDER;
 
     private final TextBox nameBox = new TextBox(
             "config",
@@ -33,7 +34,7 @@ public class ConfigsScreen extends ClientToolScreen {
     }
 
     @Override
-    protected Identifier icon() {
+    protected String icon() {
         return ICON;
     }
 
@@ -148,8 +149,10 @@ public class ConfigsScreen extends ClientToolScreen {
             selectedId = cfg.getLastConfigName();
             nameBox.setText(selectedId);
             notifyStatus(ClientLanguage.text("ui.client_tools.configs.saved_ok", "Config saved"), true);
+            HudNotificationCenter.config("Сохранён конфиг " + selectedId);
         } else {
             notifyStatus(ClientLanguage.text("ui.client_tools.configs.save_fail", "Save failed"), false);
+            HudNotificationCenter.warning("Не удалось сохранить конфигурацию");
         }
     }
 
@@ -164,8 +167,10 @@ public class ConfigsScreen extends ClientToolScreen {
             selectedId = cfg.getLastConfigName();
             nameBox.setText(selectedId);
             notifyStatus(ClientLanguage.text("ui.client_tools.configs.saved_ok", "Config saved"), true);
+            HudNotificationCenter.config("Сохранён конфиг " + selectedId);
         } else {
             notifyStatus(ClientLanguage.text("ui.client_tools.configs.save_fail", "Save failed"), false);
+            HudNotificationCenter.warning("Не удалось сохранить конфигурацию");
         }
     }
 
@@ -179,8 +184,10 @@ public class ConfigsScreen extends ClientToolScreen {
             selectedId = cfg.getLastConfigName();
             nameBox.setText(selectedId);
             notifyStatus(ClientLanguage.text("ui.client_tools.configs.loaded", "Config loaded"), true);
+            HudNotificationCenter.config("Загружен конфиг " + selectedId);
         } else {
             notifyStatus(ClientLanguage.text("ui.client_tools.configs.load_fail", "Load failed"), false);
+            HudNotificationCenter.warning("Не удалось загрузить конфигурацию");
         }
     }
 
@@ -192,8 +199,10 @@ public class ConfigsScreen extends ClientToolScreen {
         if (ConfigSystem.getInstance().remove(row.id())) {
             selectedId = "";
             notifyStatus(ClientLanguage.text("ui.client_tools.configs.deleted", "Config deleted"), true);
+            HudNotificationCenter.config("Удалён конфиг " + row.id());
         } else {
             notifyStatus(ClientLanguage.text("ui.client_tools.configs.delete_fail", "Delete failed"), false);
+            HudNotificationCenter.warning("Не удалось удалить конфигурацию");
         }
     }
 

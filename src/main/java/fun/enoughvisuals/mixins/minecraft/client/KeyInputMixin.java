@@ -13,6 +13,7 @@ import fun.enoughvisuals.systems.modules.modules.utils.SpecBind;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.sound.EnoughSoundPlayer;
 import fun.enoughvisuals.systems.emotions.EmotionWheelManager;
+import fun.enoughvisuals.systems.graffiti.GraffitiManager;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import org.lwjgl.glfw.GLFW;
@@ -30,9 +31,16 @@ public abstract class KeyInputMixin {
 
     @Shadow @Final private MinecraftClient client;
 
-    @Inject(method = "onKey", at = @At("HEAD"))
+    @Inject(method = "onKey", at = @At("HEAD"), cancellable = true)
     private void enough$onKey(long window, int key, int scancode, int action, int modifiers, CallbackInfo ci) {
-        if (key != GLFW.GLFW_KEY_UNKNOWN && key >= 0 && EmotionWheelManager.getInstance().onKey(key, action)) return;
+        if (key != GLFW.GLFW_KEY_UNKNOWN && key >= 0 && EmotionWheelManager.getInstance().onKey(key, action)) {
+            ci.cancel();
+            return;
+        }
+        if (key != GLFW.GLFW_KEY_UNKNOWN && key >= 0 && GraffitiManager.getInstance().onKey(key, action)) {
+            ci.cancel();
+            return;
+        }
         if (action != GLFW.GLFW_PRESS) return;
         if (key == GLFW.GLFW_KEY_UNKNOWN || key < 0) return;
 
