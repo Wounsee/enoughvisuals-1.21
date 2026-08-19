@@ -155,6 +155,7 @@ public class WebPanels extends Module {
             setEnabled(false);
             return;
         }
+        WebBrowserBridge.requestInit();
         if (panels.isEmpty()) {
             spawnPanel();
         }
@@ -186,6 +187,7 @@ public class WebPanels extends Module {
         if (mc.player == null || activeCount() >= MAX_PANELS) {
             return;
         }
+        WebBrowserBridge.requestInit();
         Vec3d eye = mc.player.getEyePos();
         Vec3d fwd = mc.player.getRotationVec(1.0F).normalize();
         Panel p = new Panel();
@@ -252,7 +254,7 @@ public class WebPanels extends Module {
         RenderSystem.depthMask(true);
 
         try {
-            // Draw panel chrome / controls
+            // Draw panel chrome / controls / vector icons
             RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
             BufferBuilder colorBuf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
             for (Panel p : panels) {
@@ -290,7 +292,7 @@ public class WebPanels extends Module {
     }
 
     private void ensureBrowser(Panel p) {
-        if (p.browser != null || !WebBrowserBridge.available()) {
+        if (p.browser != null || !WebBrowserBridge.isReady()) {
             return;
         }
         p.texW = 1920;
@@ -363,19 +365,19 @@ public class WebPanels extends Module {
                 double[] h = hit(p, eye, look);
                 if (h == null) continue;
                 int region = region(p, h[0], h[1]);
-                if (region == 3) {
+                if (region == 3 || region == 9) { // Close
                     p.closing = true;
                     break;
-                } else if (region == 2) {
+                } else if (region == 2) { // Resize
                     grabbed = p;
                     grabMode = 2;
                     break;
-                } else if (region == 1) {
+                } else if (region == 1) { // Grab / Move
                     grabbed = p;
                     grabMode = 1;
                     grabDist = p.center.distanceTo(eye);
                     break;
-                } else if (region == 5) {
+                } else if (region == 5) { // Address bar modal
                     openAddress(p);
                     break;
                 } else if (region == 6) { // Back
@@ -450,40 +452,48 @@ public class WebPanels extends Module {
     }
 
     private double resizeU(Panel p) {
-        return p.halfW + 0.12;
+        return p.halfW + 0.10;
     }
 
     private double resizeV(Panel p) {
-        return -p.halfH - 0.12;
+        return -p.halfH - 0.10;
     }
 
     private int region(Panel p, double lu, double lv) {
-        double cu = closeU(p), cv = closeV(p), cr = 0.08;
-        if (lu > cu - cr && lu < cu + cr && lv > cv - cr && lv < cv + cr) {
-            return 3; // close
-        }
-        double ru = resizeU(p), rv = resizeV(p), rr = 0.10;
+        // Bottom right resize grip
+        double ru = resizeU(p), rv = resizeV(p), rr = 0.09;
         if (lu > ru - rr && lu < ru + rr && lv > rv - rr && lv < rv + rr) {
             return 2; // resize handle
-        }
-
-        // Top bar items
-        if (lv > p.halfH + 0.04 && lv < p.halfH + 0.22) {
-            double abHalfW = p.halfW * 0.55;
-            double backU = -abHalfW + 0.10;
-            double fwdU = -abHalfW + 0.25;
-            double reloadU = -abHalfW + 0.40;
-
-            if (Math.abs(lu - backU) < 0.06) return 6; // Back
-            if (Math.abs(lu - fwdU) < 0.06) return 7; // Forward
-            if (Math.abs(lu - reloadU) < 0.06) return 8; // Reload
-            if (Math.abs(lu) < abHalfW) return 5; // Address / Search bar
         }
 
         // Bottom grab bar
         if (lv < -p.halfH - 0.04 && lv > -p.halfH - 0.20 && Math.abs(lu) < p.halfW * 0.36) {
             return 1; // grab bar
         }
+
+        // Top bar items
+        if (lv > p.halfH + 0.03 && lv < p.halfH + 0.22) {
+            double abHalfW = p.halfW * 0.55;
+            if (Math.abs(lu) <= abHalfW + 0.05) {
+                double backU = -abHalfW + 0.09;
+                double fwdU = -abHalfW + 0.20;
+                double reloadU = -abHalfW + 0.31;
+                double closeTopU = abHalfW - 0.07;
+
+                if (Math.abs(lu - backU) < 0.045) return 6; // Back
+                if (Math.abs(lu - fwdU) < 0.045) return 7; // Forward
+                if (Math.abs(lu - reloadU) < 0.045) return 8; // Reload
+                if (Math.abs(lu - closeTopU) < 0.045) return 9; // Close (top right)
+                return 5; // Address / Search pill
+            }
+        }
+
+        // Close button near bottom bar
+        double cu = closeU(p), cv = closeV(p), cr = 0.08;
+        if (lu > cu - cr && lu < cu + cr && lv > cv - cr && lv < cv + cr) {
+            return 3; // close
+        }
+
         if (Math.abs(lu) <= p.halfW && Math.abs(lv) <= p.halfH) {
             return 0; // content
         }
@@ -498,64 +508,229 @@ public class WebPanels extends Module {
         double hw = p.halfW * (0.6 + 0.4 * a);
         double hh = p.halfH * (0.6 + 0.4 * a);
 
-        // Body dark frosted glass panel
-        fillRound(buf, m, c, p, n, 1, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0x10, 0x12, 0x18, (int) (220 * a));
-
-        // Subtle glowing accent border around the whole panel
         int accent = MenuScreen.ACCENT;
         int ar = (accent >> 16) & 0xFF;
         int ag = (accent >> 8) & 0xFF;
         int ab = accent & 0xFF;
-        fillOutline(buf, m, c, p, n, 2, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0.008, ar, ag, ab, (int) (120 * a));
 
-        // Bottom grabber bar (sleek frosted glass capsule)
-        boolean overBar = h != null && (region(p, h[0], h[1]) == 1 || region(p, h[0], h[1]) == 3);
-        double barH = 0.045, barGap = 0.09, barHalfW = hw * 0.32;
-        fillRound(buf, m, c, p, n, 4, 0, -hh - barGap - barH, barHalfW, barH, barH,
-                0x1A, 0x1D, 0x26, (int) (230 * a));
-        fillRound(buf, m, c, p, n, 5, 0, -hh - barGap - barH, barHalfW * 0.45, barH * 0.28, barH * 0.28,
-                ar, ag, ab, (int) ((overBar ? 255 : 180) * a));
+        int accentLight = MenuScreen.ACCENT_LIGHT;
+        int alr = (accentLight >> 16) & 0xFF;
+        int alg = (accentLight >> 8) & 0xFF;
+        int alb = accentLight & 0xFF;
 
-        // Close button circle near the bar (revealed on hover)
-        if (overBar) {
-            boolean overClose = region(p, h[0], h[1]) == 3;
-            double cu = closeU(p), cv = closeV(p);
-            fillRound(buf, m, c, p, n, 5, cu, cv, 0.065, 0.065, 0.065,
-                    overClose ? 255 : 220, overClose ? 60 : 75, overClose ? 60 : 75, (int) (245 * a));
+        // 1. Frosted Glass Body (Multi-layer depth with dark glass & specular highlight)
+        fillRound(buf, m, c, p, n, 1, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0x0A, 0x0C, 0x14, (int) (225 * a));
+        fillOutline(buf, m, c, p, n, 2, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0.012, ar, ag, ab, (int) (60 * a));
+        fillOutline(buf, m, c, p, n, 3, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0.005, alr, alg, alb, (int) (140 * a));
+
+        // Specular top edge shine (frosted glass reflection)
+        drawThickLine(buf, m, c, p, n, -hw * 0.75, hh + 0.02, hw * 0.75, hh + 0.02, 0.006, 255, 255, 255, (int) (40 * a));
+
+        // 2. Loading State (If Chromium is initializing or frame is not yet ready)
+        int glTex = p.browser != null ? WebBrowserBridge.textureId(p.browser) : 0;
+        if (glTex <= 0) {
+            float timeSec = (System.currentTimeMillis() % 100000L) / 1000f;
+            drawSpinner(buf, m, c, p, n, 0, 0.05, 0.16, timeSec * 1.5f, alr, alg, alb, (int) (230 * a));
+            drawGlobe(buf, m, c, p, n, 0, 0.05, 0.08, 255, 255, 255, (int) (180 * a));
+            // Subtle loading pill below spinner
+            fillRound(buf, m, c, p, n, 4, 0, -0.22, hw * 0.35, 0.035, 0.035, 0x14, 0x17, 0x22, (int) (200 * a));
+            fillOutline(buf, m, c, p, n, 5, 0, -0.22, hw * 0.35, 0.035, 0.035, 0.004, ar, ag, ab, (int) (100 * a));
         }
 
-        // Resize grip handle on bottom-right corner
+        // 3. Bottom Grab Bar (Apple Vision floating pill)
+        boolean overBar = h != null && (region(p, h[0], h[1]) == 1 || region(p, h[0], h[1]) == 3);
+        double barH = 0.045, barGap = 0.09, barHalfW = hw * 0.32;
+        double barY = -hh - barGap - barH;
+        fillRound(buf, m, c, p, n, 4, 0, barY, barHalfW, barH, barH, 0x12, 0x15, 0x20, (int) (235 * a));
+        fillOutline(buf, m, c, p, n, 5, 0, barY, barHalfW, barH, barH, 0.005,
+                ar, ag, ab, (int) ((overBar ? 220 : 100) * a));
+
+        // 3 Drag Dots in Grab Bar
+        double dotGap = 0.06;
+        for (int d = -1; d <= 1; d++) {
+            fillRound(buf, m, c, p, n, 6, d * dotGap, barY, 0.016, 0.016, 0.016,
+                    overBar ? alr : 200, overBar ? alg : 210, overBar ? alb : 230, (int) ((overBar ? 255 : 180) * a));
+        }
+
+        // 4. Resize Grip Handle (Bottom-Right Corner)
         boolean overGrip = h != null && region(p, h[0], h[1]) == 2;
         double gu = resizeU(p), gv = resizeV(p), gr = 0.065;
         fillRound(buf, m, c, p, n, 5, gu, gv, gr, gr, gr,
-                0x1A, 0x1D, 0x26, (int) (230 * a));
-        fillRound(buf, m, c, p, n, 6, gu, gv, gr * 0.5, gr * 0.5, gr * 0.5,
-                255, 255, 255, (int) ((overGrip ? 255 : 180) * a));
+                0x14, 0x17, 0x22, (int) (235 * a));
+        fillOutline(buf, m, c, p, n, 6, gu, gv, gr, gr, gr, 0.005,
+                ar, ag, ab, (int) ((overGrip ? 240 : 120) * a));
+        drawResizeIcon(buf, m, c, p, n, gu, gv, 0.05,
+                overGrip ? alr : 220, overGrip ? alg : 225, overGrip ? alb : 240, (int) ((overGrip ? 255 : 180) * a));
 
-        // Top Navigation & Address Bar (Capsule)
-        boolean overAddr = h != null && region(p, h[0], h[1]) >= 5;
-        double abH = 0.05, abGap = 0.09, abHalfW = hw * 0.55;
-        fillRound(buf, m, c, p, n, 4, 0, hh + abGap + abH, abHalfW, abH, abH,
-                0x15, 0x18, 0x22, (int) (240 * a));
-        fillOutline(buf, m, c, p, n, 5, 0, hh + abGap + abH, abHalfW, abH, abH, 0.005,
-                ar, ag, ab, (int) ((overAddr ? 200 : 100) * a));
-
-        // Back / Forward / Refresh indicators inside top bar
-        double backU = -abHalfW + 0.10;
-        double fwdU = -abHalfW + 0.25;
-        double reloadU = -abHalfW + 0.40;
+        // 5. Top Navigation & Address Bar (Elevated Frosted Glass Capsule)
+        double abH = 0.055, abGap = 0.09, abHalfW = hw * 0.55;
         double navY = hh + abGap + abH;
+        boolean overTop = h != null && region(p, h[0], h[1]) >= 5;
+
+        fillRound(buf, m, c, p, n, 4, 0, navY, abHalfW, abH, abH,
+                0x12, 0x15, 0x20, (int) (240 * a));
+        fillOutline(buf, m, c, p, n, 5, 0, navY, abHalfW, abH, abH, 0.005,
+                ar, ag, ab, (int) ((overTop ? 220 : 110) * a));
+
+        // Navigation Buttons geometry
+        double backU = -abHalfW + 0.09;
+        double fwdU = -abHalfW + 0.20;
+        double reloadU = -abHalfW + 0.31;
+        double closeTopU = abHalfW - 0.07;
 
         boolean overBack = h != null && region(p, h[0], h[1]) == 6;
         boolean overFwd = h != null && region(p, h[0], h[1]) == 7;
         boolean overReload = h != null && region(p, h[0], h[1]) == 8;
+        boolean overClose = h != null && (region(p, h[0], h[1]) == 9 || region(p, h[0], h[1]) == 3);
+        boolean overPill = h != null && region(p, h[0], h[1]) == 5;
 
-        fillRound(buf, m, c, p, n, 6, backU, navY, 0.035, 0.035, 0.035,
-                ar, ag, ab, (int) ((overBack ? 255 : 150) * a));
-        fillRound(buf, m, c, p, n, 6, fwdU, navY, 0.035, 0.035, 0.035,
-                ar, ag, ab, (int) ((overFwd ? 255 : 150) * a));
-        fillRound(buf, m, c, p, n, 6, reloadU, navY, 0.035, 0.035, 0.035,
-                ar, ag, ab, (int) ((overReload ? 255 : 150) * a));
+        // Button circles
+        double btnR = 0.040;
+        fillRound(buf, m, c, p, n, 6, backU, navY, btnR, btnR, btnR,
+                overBack ? 0x2A : 0x1A, overBack ? 0x2E : 0x1D, overBack ? 0x3D : 0x26, (int) (240 * a));
+        if (overBack) fillOutline(buf, m, c, p, n, 7, backU, navY, btnR, btnR, btnR, 0.004, alr, alg, alb, (int) (220 * a));
+        drawChevron(buf, m, c, p, n, backU, navY, 0.042, false,
+                overBack ? alr : 210, overBack ? alg : 215, overBack ? alb : 230, (int) ((overBack ? 255 : 180) * a));
+
+        fillRound(buf, m, c, p, n, 6, fwdU, navY, btnR, btnR, btnR,
+                overFwd ? 0x2A : 0x1A, overFwd ? 0x2E : 0x1D, overFwd ? 0x3D : 0x26, (int) (240 * a));
+        if (overFwd) fillOutline(buf, m, c, p, n, 7, fwdU, navY, btnR, btnR, btnR, 0.004, alr, alg, alb, (int) (220 * a));
+        drawChevron(buf, m, c, p, n, fwdU, navY, 0.042, true,
+                overFwd ? alr : 210, overFwd ? alg : 215, overFwd ? alb : 230, (int) ((overFwd ? 255 : 180) * a));
+
+        fillRound(buf, m, c, p, n, 6, reloadU, navY, btnR, btnR, btnR,
+                overReload ? 0x2A : 0x1A, overReload ? 0x2E : 0x1D, overReload ? 0x3D : 0x26, (int) (240 * a));
+        if (overReload) fillOutline(buf, m, c, p, n, 7, reloadU, navY, btnR, btnR, btnR, 0.004, alr, alg, alb, (int) (220 * a));
+        drawRefresh(buf, m, c, p, n, reloadU, navY, 0.022,
+                overReload ? alr : 210, overReload ? alg : 215, overReload ? alb : 230, (int) ((overReload ? 255 : 180) * a));
+
+        // URL / Domain Pill in center
+        double pillLeft = reloadU + 0.07;
+        double pillRight = closeTopU - 0.07;
+        double pillU = (pillLeft + pillRight) * 0.5;
+        double pillHW = (pillRight - pillLeft) * 0.5;
+        double pillHH = 0.038;
+
+        fillRound(buf, m, c, p, n, 6, pillU, navY, pillHW, pillHH, pillHH,
+                overPill ? 0x1E : 0x16, overPill ? 0x22 : 0x19, overPill ? 0x30 : 0x24, (int) (240 * a));
+        fillOutline(buf, m, c, p, n, 7, pillU, navY, pillHW, pillHH, pillHH, 0.004,
+                ar, ag, ab, (int) ((overPill ? 220 : 90) * a));
+
+        // Vector Globe icon on left of URL pill
+        drawGlobe(buf, m, c, p, n, pillU - pillHW + 0.05, navY, 0.020,
+                overPill ? alr : 160, overPill ? alg : 170, overPill ? alb : 190, (int) ((overPill ? 255 : 180) * a));
+
+        // Close button (Red accent circle with X on top-right)
+        fillRound(buf, m, c, p, n, 6, closeTopU, navY, btnR, btnR, btnR,
+                overClose ? 0xE0 : 0x3A, overClose ? 0x35 : 0x1E, overClose ? 0x45 : 0x24, (int) (245 * a));
+        if (overClose) fillOutline(buf, m, c, p, n, 7, closeTopU, navY, btnR, btnR, btnR, 0.004, 0xFF, 0x6B, 0x7A, (int) (230 * a));
+        drawCross(buf, m, c, p, n, closeTopU, navY, 0.032,
+                255, 255, 255, (int) ((overClose ? 255 : 200) * a));
+    }
+
+    // ----------------- Vector Drawing Helpers in 3D -----------------
+
+    private void drawChevron(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
+                             double u, double v, double size, boolean right, int r, int g, int b, int a) {
+        double dir = right ? 1.0 : -1.0;
+        double x0 = u - dir * size * 0.28, y0 = v + size * 0.40;
+        double x1 = u + dir * size * 0.22, y1 = v;
+        double x2 = u - dir * size * 0.28, y2 = v - size * 0.40;
+        double th = 0.006;
+        drawThickLine(buf, m, c, p, n, x0, y0, x1, y1, th, r, g, b, a);
+        drawThickLine(buf, m, c, p, n, x1, y1, x2, y2, th, r, g, b, a);
+    }
+
+    private void drawCross(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
+                           double u, double v, double size, int r, int g, int b, int a) {
+        double s = size * 0.35;
+        double th = 0.0055;
+        drawThickLine(buf, m, c, p, n, u - s, v - s, u + s, v + s, th, r, g, b, a);
+        drawThickLine(buf, m, c, p, n, u - s, v + s, u + s, v - s, th, r, g, b, a);
+    }
+
+    private void drawRefresh(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
+                            double u, double v, double rad, int r, int g, int b, int a) {
+        int segs = 10;
+        double startAng = Math.toRadians(35.0);
+        double totalAng = Math.toRadians(280.0);
+        double th = 0.005;
+        for (int i = 0; i < segs; i++) {
+            double a0 = startAng + totalAng * i / segs;
+            double a1 = startAng + totalAng * (i + 1) / segs;
+            double x0 = u + rad * Math.cos(a0), y0 = v + rad * Math.sin(a0);
+            double x1 = u + rad * Math.cos(a1), y1 = v + rad * Math.sin(a1);
+            drawThickLine(buf, m, c, p, n, x0, y0, x1, y1, th, r, g, b, a);
+        }
+        // Arrow head at end of arc
+        double endA = startAng + totalAng;
+        double ex = u + rad * Math.cos(endA), ey = v + rad * Math.sin(endA);
+        drawThickLine(buf, m, c, p, n, ex, ey, ex + 0.015, ey + 0.010, th, r, g, b, a);
+        drawThickLine(buf, m, c, p, n, ex, ey, ex - 0.005, ey + 0.016, th, r, g, b, a);
+    }
+
+    private void drawGlobe(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
+                          double u, double v, double rad, int r, int g, int b, int a) {
+        int segs = 12;
+        double th = 0.004;
+        // Outer circle
+        for (int i = 0; i < segs; i++) {
+            double a0 = Math.toRadians(360.0 * i / segs);
+            double a1 = Math.toRadians(360.0 * (i + 1) / segs);
+            drawThickLine(buf, m, c, p, n, u + rad * Math.cos(a0), v + rad * Math.sin(a0),
+                    u + rad * Math.cos(a1), v + rad * Math.sin(a1), th, r, g, b, a);
+        }
+        // Equator
+        drawThickLine(buf, m, c, p, n, u - rad * 0.90, v, u + rad * 0.90, v, th, r, g, b, a);
+        // Prime meridian ellipse
+        for (int i = 0; i < segs; i++) {
+            double a0 = Math.toRadians(360.0 * i / segs);
+            double a1 = Math.toRadians(360.0 * (i + 1) / segs);
+            drawThickLine(buf, m, c, p, n, u + rad * 0.45 * Math.cos(a0), v + rad * Math.sin(a0),
+                    u + rad * 0.45 * Math.cos(a1), v + rad * Math.sin(a1), th, r, g, b, (int) (a * 0.8));
+        }
+    }
+
+    private void drawResizeIcon(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
+                               double u, double v, double size, int r, int g, int b, int a) {
+        double th = 0.0045;
+        double s = size * 0.5;
+        drawThickLine(buf, m, c, p, n, u - s * 0.8, v + s * 0.8, u + s * 0.8, v - s * 0.8, th, r, g, b, a);
+        drawThickLine(buf, m, c, p, n, u - s * 0.2, v + s * 0.8, u + s * 0.8, v - s * 0.2, th, r, g, b, a);
+    }
+
+    private void drawSpinner(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
+                             double u, double v, double rad, float time, int r, int g, int b, int a) {
+        int segs = 14;
+        double startAng = time * Math.PI * 2.0;
+        double totalAng = Math.toRadians(270.0);
+        double th = 0.008;
+        for (int i = 0; i < segs; i++) {
+            float frac = (float) i / segs;
+            double a0 = startAng + totalAng * frac;
+            double a1 = startAng + totalAng * (float) (i + 1) / segs;
+            double x0 = u + rad * Math.cos(a0), y0 = v + rad * Math.sin(a0);
+            double x1 = u + rad * Math.cos(a1), y1 = v + rad * Math.sin(a1);
+            int segAlpha = (int) (a * frac * frac);
+            drawThickLine(buf, m, c, p, n, x0, y0, x1, y1, th, r, g, b, segAlpha);
+        }
+    }
+
+    private void drawThickLine(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
+                              double x0, double y0, double x1, double y1, double thickness,
+                              int r, int g, int b, int a) {
+        if (a <= 0) return;
+        double dx = x1 - x0, dy = y1 - y0;
+        double len = Math.sqrt(dx * dx + dy * dy);
+        if (len < 1e-6) return;
+        double nx = -dy / len * (thickness * 0.5);
+        double ny = dx / len * (thickness * 0.5);
+        double d = 0.008;
+
+        colorVert(buf, m, c, p, n, x0 + nx, y0 + ny, d, r, g, b, a);
+        colorVert(buf, m, c, p, n, x1 + nx, y1 + ny, d, r, g, b, a);
+        colorVert(buf, m, c, p, n, x1 - nx, y1 - ny, d, r, g, b, a);
+        colorVert(buf, m, c, p, n, x0 - nx, y0 - ny, d, r, g, b, a);
     }
 
     private void fillRound(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n, int layer,

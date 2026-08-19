@@ -58,8 +58,8 @@ public class WebUrlScreen extends Screen {
         float anim = Math.min(1f, elapsed);
         float alpha = anim;
 
-        // Background Kawase Blur
-        GlassUtil.drawScreenBackgroundBlur(context, (float) this.width, (float) this.height);
+        // Subtle backdrop tint (no full-screen blur to keep world clear)
+        context.fill(0, 0, this.width, this.height, RenderUtil.withAlpha(0x000000, 0.45f * alpha));
 
         // Main modal dialog
         int w = 460;

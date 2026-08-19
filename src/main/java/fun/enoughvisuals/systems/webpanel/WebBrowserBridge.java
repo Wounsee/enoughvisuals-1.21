@@ -17,6 +17,8 @@ public final class WebBrowserBridge {
     private static Method isInitialized;
     private static Method initialize;
 
+    private static volatile boolean initStarted = false;
+
     private WebBrowserBridge() {
     }
 
@@ -46,28 +48,52 @@ public final class WebBrowserBridge {
         return present;
     }
 
-    /** True only when MCEF is loaded AND initialized (Chromium ready). */
-    public static boolean available() {
+    /** Trigger CEF initialization once asynchronously if not yet started. */
+    public static void requestInit() {
+        if (!resolve() || initStarted) return;
+        initStarted = true;
+        try {
+            if (isInitialized != null) {
+                Object r = isInitialized.invoke(null);
+                if (r instanceof Boolean b && b) {
+                    return;
+                }
+            }
+            if (initialize != null) {
+                new Thread(() -> {
+                    try {
+                        initialize.invoke(null);
+                    } catch (Throwable ignored) {
+                    }
+                }, "MCEF-Async-Init").start();
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** Returns true only when Chromium/CEF is fully initialized and ready to create browsers. */
+    public static boolean isReady() {
         if (!resolve()) {
             return false;
         }
         try {
             if (isInitialized != null) {
                 Object r = isInitialized.invoke(null);
-                if (r instanceof Boolean b && b) {
-                    return true;
+                if (r instanceof Boolean b) {
+                    if (!b && !initStarted) {
+                        requestInit();
+                    }
+                    return b;
                 }
             }
-            if (initialize != null) {
-                Object r = initialize.invoke(null);
-                if (r instanceof Boolean b && b) {
-                    return true;
-                }
-            }
-        } catch (Throwable t) {
-            return false;
+        } catch (Throwable ignored) {
         }
-        return isInitialized == null;
+        return false;
+    }
+
+    /** True only when MCEF is loaded AND initialized (Chromium ready). */
+    public static boolean available() {
+        return isReady();
     }
 
     /** Create a browser for the URL, or null if MCEF is unavailable / failed. */
