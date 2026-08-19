@@ -11,9 +11,6 @@ import fun.enoughvisuals.systems.modules.settings.StringSetting;
 import fun.enoughvisuals.systems.webpanel.WebBrowserBridge;
 import fun.enoughvisuals.systems.webpanel.WebUrlScreen;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
-import fun.enoughvisuals.utils.font.CustomFontRenderer;
-import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
-import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.system.BindKeyUtil;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.gl.ShaderProgramKeys;
@@ -29,6 +26,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Premium Apple Vision style spatial web browser module.
+ * Features curved 3D glass panels, live Chromium rendering,
+ * browser controls (Back, Forward, Refresh, Address), and fluid interaction.
+ */
 @Register(
         name = "WebPanels",
         id = "web_panels",
@@ -38,8 +40,8 @@ import java.util.Set;
 public class WebPanels extends Module {
 
     private static final int MAX_PANELS = 3;
-    private static final double MIN_HW = 0.6, MAX_HW = 3.2;
-    private static final double MIN_HH = 0.4, MAX_HH = 2.0;
+    private static final double MIN_HW = 0.65, MAX_HW = 3.4;
+    private static final double MIN_HH = 0.45, MAX_HH = 2.2;
 
     private static WebPanels instance;
 
@@ -62,6 +64,7 @@ public class WebPanels extends Module {
     private double[] contentHit;
     private Panel focusedPanel;
     private final Set<Integer> capturedKeys = new HashSet<>();
+    private boolean prevCreateHeld;
 
     public WebPanels() {
         instance = this;
@@ -168,8 +171,6 @@ public class WebPanels extends Module {
         contentPanel = null;
     }
 
-    private boolean prevCreateHeld;
-
     @Override
     public void onTick() {
         if (createBind.isBound()) {
@@ -196,8 +197,8 @@ public class WebPanels extends Module {
             p.right = new Vec3d(1, 0, 0);
         }
         p.up = p.right.crossProduct(fwd).normalize();
-        p.halfW = 1.25;
-        p.halfH = 0.72;
+        p.halfW = 1.35;
+        p.halfH = 0.78;
         p.url = defaultUrl.get();
         panels.add(p);
     }
@@ -234,7 +235,7 @@ public class WebPanels extends Module {
 
         Matrix4f matrix = context.matrixStack().peek().getPositionMatrix();
 
-        // Browser upkeep: lazily create browser if MCEF is ready
+        // Browser upkeep
         for (Panel p : panels) {
             if (!p.closing) {
                 ensureBrowser(p);
@@ -313,7 +314,7 @@ public class WebPanels extends Module {
         double dBase = 0.0035;
         double curve = curveSetting.get() * hw;
         float alpha = a;
-        int cols = 18;
+        int cols = 20;
         for (int i = 0; i < cols; i++) {
             double u0 = -hw + 2 * hw * i / cols;
             double u1 = -hw + 2 * hw * (i + 1) / cols;
@@ -377,6 +378,15 @@ public class WebPanels extends Module {
                 } else if (region == 5) {
                     openAddress(p);
                     break;
+                } else if (region == 6) { // Back
+                    if (p.browser != null) WebBrowserBridge.goBack(p.browser);
+                    break;
+                } else if (region == 7) { // Forward
+                    if (p.browser != null) WebBrowserBridge.goForward(p.browser);
+                    break;
+                } else if (region == 8) { // Reload
+                    if (p.browser != null) WebBrowserBridge.reload(p.browser);
+                    break;
                 }
             }
         }
@@ -432,7 +442,7 @@ public class WebPanels extends Module {
     }
 
     private double closeU(Panel p) {
-        return p.halfW * 0.30 + 0.18;
+        return p.halfW * 0.32 + 0.16;
     }
 
     private double closeV(Panel p) {
@@ -448,7 +458,7 @@ public class WebPanels extends Module {
     }
 
     private int region(Panel p, double lu, double lv) {
-        double cu = closeU(p), cv = closeV(p), cr = 0.075;
+        double cu = closeU(p), cv = closeV(p), cr = 0.08;
         if (lu > cu - cr && lu < cu + cr && lv > cv - cr && lv < cv + cr) {
             return 3; // close
         }
@@ -456,10 +466,22 @@ public class WebPanels extends Module {
         if (lu > ru - rr && lu < ru + rr && lv > rv - rr && lv < rv + rr) {
             return 2; // resize handle
         }
-        if (lv > p.halfH + 0.04 && lv < p.halfH + 0.22 && Math.abs(lu) < p.halfW * 0.6) {
-            return 5; // address bar
+
+        // Top bar items
+        if (lv > p.halfH + 0.04 && lv < p.halfH + 0.22) {
+            double abHalfW = p.halfW * 0.55;
+            double backU = -abHalfW + 0.10;
+            double fwdU = -abHalfW + 0.25;
+            double reloadU = -abHalfW + 0.40;
+
+            if (Math.abs(lu - backU) < 0.06) return 6; // Back
+            if (Math.abs(lu - fwdU) < 0.06) return 7; // Forward
+            if (Math.abs(lu - reloadU) < 0.06) return 8; // Reload
+            if (Math.abs(lu) < abHalfW) return 5; // Address / Search bar
         }
-        if (lv < -p.halfH - 0.04 && lv > -p.halfH - 0.20 && Math.abs(lu) < p.halfW * 0.34) {
+
+        // Bottom grab bar
+        if (lv < -p.halfH - 0.04 && lv > -p.halfH - 0.20 && Math.abs(lu) < p.halfW * 0.36) {
             return 1; // grab bar
         }
         if (Math.abs(lu) <= p.halfW && Math.abs(lv) <= p.halfH) {
@@ -476,36 +498,64 @@ public class WebPanels extends Module {
         double hw = p.halfW * (0.6 + 0.4 * a);
         double hh = p.halfH * (0.6 + 0.4 * a);
 
-        // Body backing (dark glass when browser is not loaded)
-        if (p.browser == null) {
-            fillRound(buf, m, c, p, n, 1, 0, 0, hw, hh, 0.11, 0x0A, 0x0B, 0x0E, (int) (180 * a));
-        }
+        // Body dark frosted glass panel
+        fillRound(buf, m, c, p, n, 1, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0x10, 0x12, 0x18, (int) (220 * a));
 
-        // Bottom grabber bar (rounded pill)
+        // Subtle glowing accent border around the whole panel
+        int accent = MenuScreen.ACCENT;
+        int ar = (accent >> 16) & 0xFF;
+        int ag = (accent >> 8) & 0xFF;
+        int ab = accent & 0xFF;
+        fillOutline(buf, m, c, p, n, 2, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0.008, ar, ag, ab, (int) (120 * a));
+
+        // Bottom grabber bar (sleek frosted glass capsule)
         boolean overBar = h != null && (region(p, h[0], h[1]) == 1 || region(p, h[0], h[1]) == 3);
-        double barH = 0.05, barGap = 0.10, barHalfW = hw * 0.30;
+        double barH = 0.045, barGap = 0.09, barHalfW = hw * 0.32;
         fillRound(buf, m, c, p, n, 4, 0, -hh - barGap - barH, barHalfW, barH, barH,
-                232, 236, 244, (int) ((overBar ? 220 : 130) * a));
+                0x1A, 0x1D, 0x26, (int) (230 * a));
+        fillRound(buf, m, c, p, n, 5, 0, -hh - barGap - barH, barHalfW * 0.45, barH * 0.28, barH * 0.28,
+                ar, ag, ab, (int) ((overBar ? 255 : 180) * a));
 
-        // Close button circle near the bar (only on hover)
+        // Close button circle near the bar (revealed on hover)
         if (overBar) {
             boolean overClose = region(p, h[0], h[1]) == 3;
             double cu = closeU(p), cv = closeV(p);
-            fillRound(buf, m, c, p, n, 5, cu, cv, 0.075, 0.075, 0.075,
-                    overClose ? 255 : 220, overClose ? 70 : 80, overClose ? 70 : 80, (int) (240 * a));
+            fillRound(buf, m, c, p, n, 5, cu, cv, 0.065, 0.065, 0.065,
+                    overClose ? 255 : 220, overClose ? 60 : 75, overClose ? 60 : 75, (int) (245 * a));
         }
 
-        // Separate WHITE resize handle on bottom-right corner
+        // Resize grip handle on bottom-right corner
         boolean overGrip = h != null && region(p, h[0], h[1]) == 2;
-        double gu = resizeU(p), gv = resizeV(p), gr = 0.075;
+        double gu = resizeU(p), gv = resizeV(p), gr = 0.065;
         fillRound(buf, m, c, p, n, 5, gu, gv, gr, gr, gr,
+                0x1A, 0x1D, 0x26, (int) (230 * a));
+        fillRound(buf, m, c, p, n, 6, gu, gv, gr * 0.5, gr * 0.5, gr * 0.5,
                 255, 255, 255, (int) ((overGrip ? 255 : 180) * a));
 
-        // Address / search bar above the panel
-        boolean overAddr = h != null && region(p, h[0], h[1]) == 5;
-        double abH = 0.05, abGap = 0.10, abHalfW = hw * 0.55;
+        // Top Navigation & Address Bar (Capsule)
+        boolean overAddr = h != null && region(p, h[0], h[1]) >= 5;
+        double abH = 0.05, abGap = 0.09, abHalfW = hw * 0.55;
         fillRound(buf, m, c, p, n, 4, 0, hh + abGap + abH, abHalfW, abH, abH,
-                overAddr ? 255 : 240, overAddr ? 255 : 240, 255, (int) ((overAddr ? 240 : 160) * a));
+                0x15, 0x18, 0x22, (int) (240 * a));
+        fillOutline(buf, m, c, p, n, 5, 0, hh + abGap + abH, abHalfW, abH, abH, 0.005,
+                ar, ag, ab, (int) ((overAddr ? 200 : 100) * a));
+
+        // Back / Forward / Refresh indicators inside top bar
+        double backU = -abHalfW + 0.10;
+        double fwdU = -abHalfW + 0.25;
+        double reloadU = -abHalfW + 0.40;
+        double navY = hh + abGap + abH;
+
+        boolean overBack = h != null && region(p, h[0], h[1]) == 6;
+        boolean overFwd = h != null && region(p, h[0], h[1]) == 7;
+        boolean overReload = h != null && region(p, h[0], h[1]) == 8;
+
+        fillRound(buf, m, c, p, n, 6, backU, navY, 0.035, 0.035, 0.035,
+                ar, ag, ab, (int) ((overBack ? 255 : 150) * a));
+        fillRound(buf, m, c, p, n, 6, fwdU, navY, 0.035, 0.035, 0.035,
+                ar, ag, ab, (int) ((overFwd ? 255 : 150) * a));
+        fillRound(buf, m, c, p, n, 6, reloadU, navY, 0.035, 0.035, 0.035,
+                ar, ag, ab, (int) ((overReload ? 255 : 150) * a));
     }
 
     private void fillRound(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n, int layer,
@@ -532,6 +582,36 @@ public class WebPanels extends Module {
             colorVert(buf, m, c, p, n, a0[0], a0[1], d, r, g, b, a);
             colorVert(buf, m, c, p, n, a1[0], a1[1], d, r, g, b, a);
             colorVert(buf, m, c, p, n, a1[0], a1[1], d, r, g, b, a);
+        }
+    }
+
+    private void fillOutline(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n, int layer,
+                            double cu, double cv, double hw, double hh, double cr, double thickness, int r, int g, int b, int a) {
+        if (a <= 0) return;
+        double d = layer * 0.0015;
+        cr = Math.min(cr, Math.min(hw, hh));
+        int seg = 4;
+        double[][] corners = {
+                {hw - cr, hh - cr, 0}, {-hw + cr, hh - cr, 90}, {-hw + cr, -hh + cr, 180}, {hw - cr, -hh + cr, 270}
+        };
+        List<double[]> outer = new ArrayList<>();
+        List<double[]> inner = new ArrayList<>();
+        for (double[] cn : corners) {
+            for (int i = 0; i <= seg; i++) {
+                double ang = Math.toRadians(cn[2] + 90.0 * i / seg);
+                double cos = Math.cos(ang), sin = Math.sin(ang);
+                outer.add(new double[]{cu + cn[0] + cr * cos, cv + cn[1] + cr * sin});
+                inner.add(new double[]{cu + cn[0] + (cr - thickness) * cos, cv + cn[1] + (cr - thickness) * sin});
+            }
+        }
+        int sz = outer.size();
+        for (int i = 0; i < sz; i++) {
+            double[] o0 = outer.get(i), o1 = outer.get((i + 1) % sz);
+            double[] i0 = inner.get(i), i1 = inner.get((i + 1) % sz);
+            colorVert(buf, m, c, p, n, o0[0], o0[1], d, r, g, b, a);
+            colorVert(buf, m, c, p, n, o1[0], o1[1], d, r, g, b, a);
+            colorVert(buf, m, c, p, n, i1[0], i1[1], d, r, g, b, a);
+            colorVert(buf, m, c, p, n, i0[0], i0[1], d, r, g, b, a);
         }
     }
 

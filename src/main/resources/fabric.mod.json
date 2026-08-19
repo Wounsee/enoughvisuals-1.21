@@ -27,6 +27,9 @@
     },
     {
       "file": "META-INF/jars/pulse-cosmetics.jar"
+    },
+    {
+      "file": "META-INF/jars/mcef.jar"
     }
   ],
   "depends": {

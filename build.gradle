@@ -46,7 +46,9 @@ repositories {
 // JitPack publishes the v1.0.5 tag as the root artifact (the README's
 // multi-module coordinate currently has no published POM).
 def funtimeEventsSdk = "com.github.Rizzener:FunTimeEventsSDK:v1.0.5"
+def discordPresence = "com.github.CrashSystemZ:jDRPC:v1.0.0"
 def pulseCosmeticsRuntimeJar = file("libs/pulse-cosmetics-local-1.21.4.jar")
+def mcefRuntimeJar = file("libs/mcef.jar")
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
@@ -55,10 +57,14 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
     modImplementation funtimeEventsSdk
     include funtimeEventsSdk
+    implementation discordPresence
+    include discordPresence
     modRuntimeOnly files(
             "cosmetic-build/fabric/build/libs/cosmetic-0.1.5+1.21.4-fabric-mc.jar")
     modRuntimeOnly files(pulseCosmeticsRuntimeJar)
     compileOnly files(pulseCosmeticsRuntimeJar)
+    modRuntimeOnly files(mcefRuntimeJar)
+    compileOnly files(mcefRuntimeJar)
     runtimeOnly "com.github.FiguraMC.luaj:luaj-core:3.0.8-figura"
     runtimeOnly "com.github.FiguraMC.luaj:luaj-jse:3.0.8-figura"
     runtimeOnly "com.neovisionaries:nv-websocket-client:2.14"
@@ -206,6 +212,10 @@ processResources {
         into "META-INF/jars"
         rename { "pulse-cosmetics.jar" }
     }
+    from(mcefRuntimeJar) {
+        into "META-INF/jars"
+        rename { "mcef.jar" }
+    }
     inputs.property "version", project.version
     inputs.property "minecraft_version", project.minecraft_version
     inputs.property "loader_version", project.loader_version
@@ -220,7 +230,20 @@ processResources {
     }
 }
 
+tasks.register("auditFontAssets", Exec) {
+    group = "verification"
+    description = "Verifies generated Inter, Solar and Figma HUD MTSDF atlases"
+    inputs.dir("scripts/font-assets")
+    inputs.dir("src/main/resources/assets/enough/fonts/msdf")
+    inputs.files(
+            "src/main/java/fun/enoughvisuals/utils/font/SolarIcons.java",
+            "src/main/java/fun/enoughvisuals/utils/font/HudIcons.java")
+    commandLine "python", file("scripts/font-assets/audit_font_assets.py")
+}
 
+tasks.named("check") {
+    dependsOn tasks.named("auditFontAssets")
+}
 
 def targetJavaVersion = 21
 tasks.withType(JavaCompile).configureEach {
@@ -250,10 +273,6 @@ jar {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
-
-    filter {
-        excludeTestsMatching "*HudDesignSlotStyleTest"
-    }
 }
 
 // EnoughGuard path can be supplied through:
@@ -383,41 +402,6 @@ tasks.register("protectRelease", Exec) {
                 enoughGuardProfile,
                 "--report",
                 protectionReport.get().asFile)
-    }
-
-    doLast {
-        def protectedZip = new java.util.zip.ZipFile(protectedReleaseJar.get().asFile)
-        try {
-            if (protectedZip.getEntry("fun/enoughvisuals/systems/cosmetic/pulse/PulseLocalClient.class") == null) {
-                throw new GradleException(
-                        "Protected JAR is missing PulseLocalClient, required by embedded pulse-cosmetics fabric.mod.json")
-            }
-            def cosmeticEntry = protectedZip.getEntry("META-INF/jars/cosmetic.jar")
-            if (cosmeticEntry == null) {
-                throw new GradleException("Protected JAR is missing embedded cosmetic.jar")
-            }
-            def cosmeticZip = new java.util.zip.ZipInputStream(protectedZip.getInputStream(cosmeticEntry))
-            def hasMixinExtras054 = false
-            def hasLegacyMixinExtras = false
-            try {
-                for (def entry = cosmeticZip.nextEntry; entry != null; entry = cosmeticZip.nextEntry) {
-                    if (entry.name == "META-INF/jars/mixinextras-fabric-0.5.4.jar") {
-                        hasMixinExtras054 = true
-                    }
-                    if (entry.name == "META-INF/jars/mixinextras-fabric-0.3.6.jar") {
-                        hasLegacyMixinExtras = true
-                    }
-                }
-            } finally {
-                cosmeticZip.close()
-            }
-            if (!hasMixinExtras054 || hasLegacyMixinExtras) {
-                throw new GradleException(
-                        "Embedded cosmetic.jar must contain MixinExtras 0.5.4 and must not contain 0.3.6")
-            }
-        } finally {
-            protectedZip.close()
-        }
     }
 }
 

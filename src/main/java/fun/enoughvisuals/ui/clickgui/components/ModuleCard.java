@@ -47,8 +47,8 @@ public final class ModuleCard {
     private static final float CHOICE_OPTION_H = 15f;
     private static final float SLIDER_TRACK_X = 4f;
     private static final float SLIDER_TRACK_RIGHT = 4f;
-    private static final String ICON_GEAR = "\uF007";
-    private static final String ICON_BIND = "\uF005";
+    private static final String ICON_GEAR = SolarIcons.SETTINGS;
+    private static final String ICON_BIND = SolarIcons.BIND;
 
     private final Module module;
     private final MenuScreen screen;
@@ -315,7 +315,7 @@ public final class ModuleCard {
         CustomFontRenderer.drawCenteredText(context, ICON_BIND, bindIconX, drawY + 7.1f * scale, 10f * scale,
                 RenderUtil.lerpColor(RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.72f * alpha),
                         RenderUtil.withAlpha(moduleBinding ? MenuScreen.ACCENT_LIGHT : MenuScreen.TEXT_WHITE, alpha),
-                        Math.max(bindHover, moduleBinding ? 1f : 0f)), FontWeight.CLICK_GUI);
+                        Math.max(bindHover, moduleBinding ? 1f : 0f)), FontWeight.SOLAR_ICONS);
         if (!bindLabel.isEmpty()) {
             CustomFontRenderer.drawText(context, bindLabel, bindIconX + 7f * scale, drawY + 9.8f * scale,
                     5.2f * scale, RenderUtil.withAlpha(moduleBinding ? MenuScreen.ACCENT_LIGHT : MenuScreen.TEXT_GRAY,
@@ -325,7 +325,7 @@ public final class ModuleCard {
             CustomFontRenderer.drawCenteredText(context, ICON_GEAR, gearX, drawY + 15.1f * scale, 9f * scale,
                     RenderUtil.lerpColor(RenderUtil.withAlpha(MenuScreen.TEXT_DIM, 0.74f * alpha),
                             RenderUtil.withAlpha(expanded ? MenuScreen.ACCENT_LIGHT : MenuScreen.TEXT_WHITE, alpha),
-                            Math.max(gearHover, expanded ? 0.72f : 0f)), FontWeight.CLICK_GUI);
+                            Math.max(gearHover, expanded ? 0.72f : 0f)), FontWeight.SOLAR_ICONS);
         }
 
         renderAnimatedToggle(context, toggleX, toggleY, toggleW, toggleH, toggleAnimation,

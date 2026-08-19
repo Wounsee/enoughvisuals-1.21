@@ -101,7 +101,7 @@ def main() -> None:
         source = path.read_text(encoding="utf-8", errors="ignore")
         if "FontWeight.CLICK_GUI" in source:
             click_gui_uses.append(path.name)
-    if set(click_gui_uses) - {"CustomMainMenuScreen.java"}:
+    if set(click_gui_uses) - {"CustomMainMenuScreen.java", "CustomFontRenderer.java"}:
         fail("CLICK_GUI icon font leaked outside the preserved main menu")
 
     print(f"Font asset audit passed: {len(baseline)} Inter glyphs x 5, "

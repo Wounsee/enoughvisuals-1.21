@@ -1,12 +1,13 @@
 package fun.enoughvisuals.systems.webpanel;
 
+import net.minecraft.util.Identifier;
+
 import java.lang.reflect.Method;
 
 /**
  * Reflection bridge to MCEF (Minecraft Chromium Embedded Framework).
  * Allows compiling and running without MCEF on the compile classpath.
- * If MCEF is present in the mods folder, WebPanels will render a live Chromium browser.
- * Otherwise, a clean placeholder is shown.
+ * When MCEF is present, WebPanels will render a live Chromium browser.
  */
 public final class WebBrowserBridge {
 
@@ -14,6 +15,7 @@ public final class WebBrowserBridge {
     private static Class<?> mcefClass;
     private static Method createBrowser;
     private static Method isInitialized;
+    private static Method initialize;
 
     private WebBrowserBridge() {
     }
@@ -26,6 +28,10 @@ public final class WebBrowserBridge {
             mcefClass = Class.forName("com.cinemamod.mcef.MCEF");
             try {
                 isInitialized = mcefClass.getMethod("isInitialized");
+            } catch (NoSuchMethodException ignored) {
+            }
+            try {
+                initialize = mcefClass.getMethod("initialize");
             } catch (NoSuchMethodException ignored) {
             }
             try {
@@ -45,15 +51,23 @@ public final class WebBrowserBridge {
         if (!resolve()) {
             return false;
         }
-        if (isInitialized == null) {
-            return true;
-        }
         try {
-            Object r = isInitialized.invoke(null);
-            return r instanceof Boolean b && b;
+            if (isInitialized != null) {
+                Object r = isInitialized.invoke(null);
+                if (r instanceof Boolean b && b) {
+                    return true;
+                }
+            }
+            if (initialize != null) {
+                Object r = initialize.invoke(null);
+                if (r instanceof Boolean b && b) {
+                    return true;
+                }
+            }
         } catch (Throwable t) {
             return false;
         }
+        return isInitialized == null;
     }
 
     /** Create a browser for the URL, or null if MCEF is unavailable / failed. */
@@ -95,6 +109,43 @@ public final class WebBrowserBridge {
         }
     }
 
+    /** The Minecraft Identifier of the browser's current frame texture, or null. */
+    public static Identifier textureIdentifier(Object browser) {
+        if (browser == null) {
+            return null;
+        }
+        try {
+            Object id = invoke(browser, "getTextureIdentifier");
+            if (id instanceof Identifier ident) {
+                return ident;
+            }
+            Object renderer = invoke(browser, "getRenderer");
+            if (renderer != null) {
+                Object rId = invoke(renderer, "getTextureIdentifier");
+                if (rId instanceof Identifier ident) {
+                    return ident;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    public static boolean isTextureReady(Object browser) {
+        if (browser == null) return false;
+        try {
+            Object ready = invoke(browser, "isTextureReady");
+            if (ready instanceof Boolean b) return b;
+            Object renderer = invoke(browser, "getRenderer");
+            if (renderer != null) {
+                Object rReady = invoke(renderer, "isTextureReady");
+                if (rReady instanceof Boolean b) return b;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
     public static void resize(Object browser, int w, int h) {
         call(browser, "resize", new Class<?>[]{int.class, int.class}, w, h);
     }
@@ -118,15 +169,19 @@ public final class WebBrowserBridge {
     }
 
     public static void keyPress(Object browser, int keyCode, int scanCode, int modifiers) {
-        call(browser, "sendKeyPress", new Class<?>[]{int.class, long.class, int.class}, keyCode, (long) scanCode, modifiers);
+        if (!call(browser, "sendKeyPress", new Class<?>[]{int.class, long.class, int.class}, keyCode, (long) scanCode, modifiers)) {
+            call(browser, "sendKeyPress", new Class<?>[]{int.class, int.class, int.class}, keyCode, scanCode, modifiers);
+        }
     }
 
     public static void keyRelease(Object browser, int keyCode, int scanCode, int modifiers) {
-        call(browser, "sendKeyRelease", new Class<?>[]{int.class, long.class, int.class}, keyCode, (long) scanCode, modifiers);
+        if (!call(browser, "sendKeyRelease", new Class<?>[]{int.class, long.class, int.class}, keyCode, (long) scanCode, modifiers)) {
+            call(browser, "sendKeyRelease", new Class<?>[]{int.class, int.class, int.class}, keyCode, scanCode, modifiers);
+        }
     }
 
-    public static void keyTyped(Object browser, char c, int modifiers) {
-        call(browser, "sendKeyTyped", new Class<?>[]{char.class, int.class}, c, modifiers);
+    public static void keyTyped(Object browser, char chr, int modifiers) {
+        call(browser, "sendKeyTyped", new Class<?>[]{char.class, int.class}, chr, modifiers);
     }
 
     public static void loadUrl(Object browser, String url) {
@@ -135,23 +190,50 @@ public final class WebBrowserBridge {
         }
     }
 
+    public static void goBack(Object browser) {
+        call(browser, "goBack", new Class<?>[]{});
+    }
+
+    public static void goForward(Object browser) {
+        call(browser, "goForward", new Class<?>[]{});
+    }
+
+    public static void reload(Object browser) {
+        if (!call(browser, "reload", new Class<?>[]{boolean.class}, false)) {
+            call(browser, "reload", new Class<?>[]{});
+        }
+    }
+
+    public static String getUrl(Object browser) {
+        if (browser == null) return null;
+        Object url = invoke(browser, "getURL");
+        if (url == null) {
+            url = invoke(browser, "getUrl");
+        }
+        return url instanceof String s ? s : null;
+    }
+
     public static void close(Object browser) {
         call(browser, "close", new Class<?>[]{});
     }
 
-    // ---- reflection helpers ----
-
-    private static Object invoke(Object target, String name) throws Exception {
-        Method m = target.getClass().getMethod(name);
-        return m.invoke(target);
+    private static Object invoke(Object target, String method) {
+        try {
+            Method m = target.getClass().getMethod(method);
+            m.setAccessible(true);
+            return m.invoke(target);
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
-    private static boolean call(Object target, String name, Class<?>[] sig, Object... args) {
+    private static boolean call(Object target, String method, Class<?>[] types, Object... args) {
         if (target == null) {
             return false;
         }
         try {
-            Method m = target.getClass().getMethod(name, sig);
+            Method m = target.getClass().getMethod(method, types);
+            m.setAccessible(true);
             m.invoke(target, args);
             return true;
         } catch (Throwable t) {
