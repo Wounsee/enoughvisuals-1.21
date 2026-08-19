@@ -8,6 +8,7 @@ import fun.enoughvisuals.systems.emotions.render.BobjSpace;
 import fun.enoughvisuals.systems.emotions.render.PulseEmotionRenderer;
 import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.modules.client.Emotions;
+import fun.enoughvisuals.systems.network.RemoteConfig;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.ui.screen.EmotionWheelScreen;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
@@ -148,6 +149,19 @@ public final class EmotionWheelManager {
         active.clear();
     }
 
+    /** Stops only this client's playback; remote users must remain visible even when the module is off. */
+    public void stopLocalOnly() {
+        close(true);
+        if (mc.currentScreen instanceof EmotionWheelScreen) mc.setScreen(null);
+        if (mc.player != null) {
+            UUID uuid = mc.player.getUuid();
+            ActiveEmotion emotion = active.get(uuid);
+            if (emotion != null && emotion.local) stopLocal(uuid, emotion);
+        } else {
+            restorePerspective();
+        }
+    }
+
     /** Clears data and GPU caches after client resources are reloaded. */
     public void reloadResources() {
         synchronized (models) {
@@ -195,10 +209,14 @@ public final class EmotionWheelManager {
         mc.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
         active.put(uuid, new ActiveEmotion(type, UUID.randomUUID().toString(), System.currentTimeMillis(),
                 savedPerspective, true, mc.player.getPos()));
+        RemoteConfig.getInstance().requestImmediateSync();
     }
 
     private void stopLocal(UUID uuid, ActiveEmotion emotion) {
-        if (active.remove(uuid, emotion)) restorePerspective();
+        if (active.remove(uuid, emotion)) {
+            restorePerspective();
+            RemoteConfig.getInstance().requestImmediateSync();
+        }
     }
 
     private void restorePerspective() {

@@ -11,8 +11,9 @@ import fun.enoughvisuals.systems.modules.modules.utils.ItemSwap;
 import fun.enoughvisuals.systems.modules.modules.utils.Macros;
 import fun.enoughvisuals.systems.modules.modules.utils.SendCord;
 import fun.enoughvisuals.systems.modules.modules.utils.SpecBind;
-import fun.enoughvisuals.systems.modules.modules.visual.Zoom;
 import fun.enoughvisuals.systems.modules.modules.visual.FreeLook;
+import fun.enoughvisuals.systems.modules.modules.visual.Zoom;
+import fun.enoughvisuals.systems.modules.modules.visual.WebPanels;
 import fun.enoughvisuals.utils.system.BindKeyUtil;
 import net.minecraft.client.Mouse;
 import net.minecraft.client.MinecraftClient;
@@ -40,6 +41,12 @@ public class MouseMixin {
     private void enough$onMouseButton(long window, int button, int action, int mods, CallbackInfo ci) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null) return;
+
+        WebPanels webPanels = WebPanels.getInstance();
+        if (webPanels != null && webPanels.isHovering() && client.currentScreen == null) {
+            ci.cancel();
+            return;
+        }
 
         if (action == GLFW.GLFW_PRESS && button == GLFW.GLFW_MOUSE_BUTTON_RIGHT
                 && GraffitiManager.getInstance().deleteLookedAtOwn()) {
@@ -69,6 +76,13 @@ public class MouseMixin {
 
     @Inject(method = "onMouseScroll", at = @At("HEAD"), cancellable = true)
     private void onMouseScroll(long window, double horizontal, double vertical, CallbackInfo ci) {
+        WebPanels webPanels = WebPanels.getInstance();
+        if (webPanels != null && (webPanels.isMoving() || webPanels.isHoveringContent())) {
+            webPanels.scroll(vertical);
+            ci.cancel();
+            return;
+        }
+
         Zoom zoom = Zoom.getInstance();
 
         if (zoom != null && zoom.isZoomKeyHeld()) {

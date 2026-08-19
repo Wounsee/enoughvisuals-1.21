@@ -11,11 +11,38 @@ import java.util.Deque;
 public class StencilUtil {
 
     private static final Deque<float[]> scissorStack = new ArrayDeque<>();
+    private static float localScale = 1.0f;
+    private static float localOriginX;
+    private static float localOriginY;
+
+    public static float[] setLocalScissorTransform(float scale, float originX, float originY) {
+        float[] previous = {localScale, localOriginX, localOriginY};
+        localScale = Math.max(0.001f, scale);
+        localOriginX = originX;
+        localOriginY = originY;
+        return previous;
+    }
+
+    public static void restoreLocalScissorTransform(float[] previous) {
+        if (previous == null || previous.length < 3) {
+            localScale = 1.0f;
+            localOriginX = 0.0f;
+            localOriginY = 0.0f;
+            return;
+        }
+        localScale = previous[0];
+        localOriginX = previous[1];
+        localOriginY = previous[2];
+    }
 
     public static void enableScissor(float x, float y, float width, float height) {
         net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
         float scale = (float) mc.getWindow().getScaleFactor();
         float hudScale = HudElement.activeScissorScale();
+        x = localOriginX + (x - localOriginX) * localScale;
+        y = localOriginY + (y - localOriginY) * localScale;
+        width *= localScale;
+        height *= localScale;
         x *= hudScale;
         y *= hudScale;
         width *= hudScale;

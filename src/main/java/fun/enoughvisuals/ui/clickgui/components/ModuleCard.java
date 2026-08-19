@@ -114,6 +114,32 @@ public final class ModuleCard {
         return module;
     }
 
+    public TransientState captureTransientState() {
+        String openSettingId = openChoice == null ? null : openChoice.getId();
+        int savedOptionScroll = openChoice == null ? 0 : optionScroll.getOrDefault(openChoice, 0);
+        return new TransientState(openSettingId, savedOptionScroll);
+    }
+
+    public void restoreTransientState(TransientState state) {
+        expanded = true;
+        expansionValue = 1f;
+        expansionFrom = 1f;
+        expansionTarget = 1f;
+        expansionStartedAt = System.currentTimeMillis();
+        expansionDuration = 1L;
+        openChoice = null;
+        dropdownAnimations.clear();
+        if (state == null || state.openSettingId() == null) return;
+        Setting<?> setting = module.getSettingById(state.openSettingId());
+        if (setting == null || !setting.isVisible()) return;
+        openChoice = setting;
+        dropdownAnimations.put(setting, 1f);
+        if (state.optionScroll() > 0) optionScroll.put(setting, state.optionScroll());
+    }
+
+    public record TransientState(String openSettingId, int optionScroll) {
+    }
+
     public void beginIntro(long start, int direction) {
         introStart = start;
         introDirection = direction == 0 ? (column == 0 ? -1 : 1) : direction;
@@ -158,7 +184,7 @@ public final class ModuleCard {
         float baseWidth = Math.max(150f, (width > 0f ? width : screen.colWidth()) / Math.max(0.01f, scale) - 16f);
         float total = contentHeight(baseWidth);
         float e = Math.max(0f, expansionValue());
-        return (HEADER_H + (total + 7f) * e) * scale;
+        return (HEADER_H + (total + 2f) * e) * scale;
     }
 
     public boolean contains(float mouseX, float mouseY, float scale) {
@@ -177,11 +203,10 @@ public final class ModuleCard {
             wasOffscreen = false;
             viewportEnteredAt = now;
         }
-        float intro = clamp((now - introStart) / 470f);
-        float viewport = clamp((now - viewportEnteredAt) / 410f);
-        float reveal = Math.min(intro, viewport);
+        float intro = clamp((now - introStart) / 360f);
+        float reveal = intro;
         drawX = x;
-        drawY = y + (1f - RenderUtil.easeOutQuart(reveal)) * 11f * scale;
+        drawY = y + (1f - RenderUtil.easeOutQuart(reveal)) * 14f * scale;
         float alpha = parentAlpha * RenderUtil.easeOutExpo(reveal);
         float frame = RenderUtil.getFrameDelta();
         updateDropdownAnimations(frame);
@@ -1142,7 +1167,7 @@ public final class ModuleCard {
     }
 
     private float contentHeight(float width) {
-        float height = 9f;
+        float height = 5f;
         for (Setting<?> setting : displaySettings()) height += rowHeight(setting, width);
         return height;
     }

@@ -190,6 +190,76 @@ public abstract class InGameHudMixin {
         }
     }
 
+    @WrapOperation(
+            method = "renderMainHud",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/gui/hud/InGameHud;renderStatusBars(Lnet/minecraft/client/gui/DrawContext;)V"
+            )
+    )
+    private void enough$renderStatusBarsAboveChat(
+            InGameHud instance,
+            DrawContext context,
+            Operation<Void> original
+    ) {
+        enough$renderAboveChat(context, () -> original.call(instance, context));
+    }
+
+    @WrapOperation(
+            method = "renderMainHud",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/gui/hud/InGameHud;renderExperienceBar(Lnet/minecraft/client/gui/DrawContext;I)V"
+            )
+    )
+    private void enough$renderExperienceBarAboveChat(
+            InGameHud instance,
+            DrawContext context,
+            int x,
+            Operation<Void> original
+    ) {
+        enough$renderAboveChat(context, () -> original.call(instance, context, x));
+    }
+
+    // Experience level is registered as a render-layer method reference, not
+    // invoked directly from renderMainHud. Inject into the layer method itself
+    // so the translation survives that indirection.
+    @Inject(method = "renderExperienceLevel", at = @At("HEAD"))
+    private void enough$beginExperienceLevelAboveChat(
+            DrawContext context,
+            RenderTickCounter tickCounter,
+            CallbackInfo ci
+    ) {
+        context.getMatrices().push();
+        context.getMatrices().translate(0f, -HudBottomInset.current(), 0f);
+    }
+
+    @Inject(method = "renderExperienceLevel", at = @At("RETURN"))
+    private void enough$endExperienceLevelAboveChat(
+            DrawContext context,
+            RenderTickCounter tickCounter,
+            CallbackInfo ci
+    ) {
+        context.getMatrices().pop();
+    }
+
+    @Unique
+    private void enough$renderAboveChat(DrawContext context, Runnable render) {
+        float inset = HudBottomInset.current();
+        if (inset <= 0.01f) {
+            render.run();
+            return;
+        }
+
+        context.getMatrices().push();
+        try {
+            context.getMatrices().translate(0f, -inset, 0f);
+            render.run();
+        } finally {
+            context.getMatrices().pop();
+        }
+    }
+
     @Inject(method = "renderOverlay", at = @At("HEAD"), cancellable = true)
     private void onRenderOverlay(DrawContext context, Identifier texture, float opacity, CallbackInfo ci) {
         if (texture.getPath().contains("pumpkinblur") && NoRender.INSTANCE != null && NoRender.INSTANCE.isEnabled() && NoRender.INSTANCE.pumpkin.get()) {

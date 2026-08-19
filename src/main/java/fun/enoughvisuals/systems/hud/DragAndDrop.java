@@ -62,6 +62,8 @@ public class DragAndDrop {
     private float dragTargetY;
     private long handCursorHandle = 0L;
     private boolean handCursorApplied = false;
+    private float viewportWidth = -1f;
+    private float viewportHeight = -1f;
 
     public static DragAndDrop getInstance() {
         return INSTANCE;
@@ -82,6 +84,7 @@ public class DragAndDrop {
     }
 
     public HudElement addElement(String id, float x, float y) {
+        syncViewport();
         HudEntry entry = entryMap.get(id);
         if (entry == null || activeTypeIds.contains(id)) {
             return null;
@@ -158,6 +161,7 @@ public class DragAndDrop {
     }
 
     public void renderAll(DrawContext ctx, float delta) {
+        syncViewport();
         long now = System.currentTimeMillis();
         HudElement targetHud = null;
         for (int i = activeElements.size() - 1; i >= 0; i--) {
@@ -354,6 +358,47 @@ public class DragAndDrop {
         element.setY(Math.max(0f, Math.min(screenH - element.getHeight(), element.getY())));
     }
 
+    /**
+     * Reflows positions when the scaled Minecraft viewport changes. Element
+     * dimensions stay untouched, so switching fullscreen, resolution or GUI
+     * scale cannot inflate the HUD.
+     */
+    private void syncViewport() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null || client.getWindow() == null) return;
+
+        float nextWidth = HudElement.hudScreenWidth();
+        float nextHeight = HudElement.hudScreenHeight();
+        if (!Float.isFinite(nextWidth) || !Float.isFinite(nextHeight)
+                || nextWidth <= 0f || nextHeight <= 0f) {
+            return;
+        }
+
+        if (viewportWidth > 0f && viewportHeight > 0f
+                && (Math.abs(nextWidth - viewportWidth) > 0.01f
+                || Math.abs(nextHeight - viewportHeight) > 0.01f)) {
+            for (HudElement element : activeElements) {
+                element.setX(HudViewport.remap(
+                        element.getX(), element.getWidth(), viewportWidth, nextWidth));
+                element.setY(HudViewport.remap(
+                        element.getY(), element.getHeight(), viewportHeight, nextHeight));
+            }
+            if (dragging != null) {
+                dragTargetX = HudViewport.remap(
+                        dragTargetX, dragging.getWidth(), viewportWidth, nextWidth);
+                dragTargetY = HudViewport.remap(
+                        dragTargetY, dragging.getHeight(), viewportHeight, nextHeight);
+            }
+        }
+
+        viewportWidth = nextWidth;
+        viewportHeight = nextHeight;
+    }
+
+    public void synchronizeViewport() {
+        syncViewport();
+    }
+
     private void clampTargetsToScreen(HudElement element) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.getWindow() == null) {
@@ -388,6 +433,12 @@ public class DragAndDrop {
         Map<String, Object> map = rememberedSettings.computeIfAbsent(typeId, k -> new HashMap<>());
         map.put("__x", element.getX());
         map.put("__y", element.getY());
+        map.put("__nx", HudViewport.normalizedPosition(
+                element.getX(), element.getWidth(), HudElement.hudScreenWidth()));
+        map.put("__ny", HudViewport.normalizedPosition(
+                element.getY(), element.getHeight(), HudElement.hudScreenHeight()));
+        map.put("__viewportWidth", HudElement.hudScreenWidth());
+        map.put("__viewportHeight", HudElement.hudScreenHeight());
         for (Setting<?> setting : element.getSettings()) {
             map.put(setting.getId(), setting.serialize());
         }
@@ -407,11 +458,25 @@ public class DragAndDrop {
         if (map == null || map.isEmpty()) return;
         Object x = map.get("__x");
         Object y = map.get("__y");
-        if (x instanceof Number nx) {
-            element.setX(nx.floatValue());
+        Object normalizedX = map.get("__nx");
+        Object normalizedY = map.get("__ny");
+        Object savedWidth = map.get("__viewportWidth");
+        Object savedHeight = map.get("__viewportHeight");
+        boolean sameWidth = savedWidth instanceof Number width
+                && Math.abs(width.floatValue() - HudElement.hudScreenWidth()) <= 0.01f;
+        boolean sameHeight = savedHeight instanceof Number height
+                && Math.abs(height.floatValue() - HudElement.hudScreenHeight()) <= 0.01f;
+        if (!sameWidth && normalizedX instanceof Number nx) {
+            element.setX(HudViewport.positionFromNormalized(
+                    nx.floatValue(), element.getWidth(), HudElement.hudScreenWidth()));
+        } else if (x instanceof Number oldX) {
+            element.setX(oldX.floatValue());
         }
-        if (y instanceof Number ny) {
-            element.setY(ny.floatValue());
+        if (!sameHeight && normalizedY instanceof Number ny) {
+            element.setY(HudViewport.positionFromNormalized(
+                    ny.floatValue(), element.getHeight(), HudElement.hudScreenHeight()));
+        } else if (y instanceof Number oldY) {
+            element.setY(oldY.floatValue());
         }
         for (Setting<?> setting : element.getSettings()) {
             if (!map.containsKey(setting.getId())) continue;

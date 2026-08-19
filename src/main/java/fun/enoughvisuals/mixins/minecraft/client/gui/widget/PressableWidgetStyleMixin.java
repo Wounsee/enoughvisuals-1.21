@@ -18,8 +18,8 @@ public abstract class PressableWidgetStyleMixin {
     @Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true)
     private void enoughvisuals$renderCustomButton(DrawContext context, int mouseX, int mouseY,
                                                    float delta, CallbackInfo ci) {
-        if (!VanillaScreenStyle.shouldStyle()) return;
         ClickableWidget widget = (ClickableWidget) (Object) this;
+        if (!VanillaScreenStyle.shouldStyleButton(widget)) return;
         long now = System.nanoTime();
         enoughvisuals$hover = VanillaScreenStyle.animateHover(enoughvisuals$hover,
                 widget.isHovered(), now - enoughvisuals$lastFrame);

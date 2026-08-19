@@ -35,23 +35,6 @@ vec3 sampleScene(vec2 uv) {
     return texture(uScene, sceneUv(uv)).rgb;
 }
 
-vec3 acesFilm(vec3 x) {
-    const float a = 2.51;
-    const float b = 0.03;
-    const float c = 2.43;
-    const float d = 0.59;
-    const float e = 0.14;
-    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
-}
-
-vec3 toLinear(vec3 c) {
-    return pow(max(c, vec3(0.0)), vec3(2.2));
-}
-
-vec3 toGamma(vec3 c) {
-    return pow(max(c, vec3(0.0)), vec3(1.0 / 2.2));
-}
-
 vec3 applyTemp(vec3 c, float k) {
     vec3 warm = vec3(1.06, 0.98, 0.86);
     vec3 cool = vec3(0.86, 0.96, 1.08);
@@ -68,7 +51,7 @@ vec3 applyTint(vec3 c, float t) {
 
 vec3 applySaturation(vec3 c, float s) {
     float l = dot(c, LUMA);
-    return mix(vec3(l), c, 1.0 + s);
+    return mix(vec3(l), c, max(0.0, 1.0 + s));
 }
 
 vec3 applyVibrance(vec3 c, float v) {
@@ -76,8 +59,8 @@ vec3 applyVibrance(vec3 c, float v) {
     float minC = min(c.r, min(c.g, c.b));
     float sat = maxC - minC;
     float l = dot(c, LUMA);
-    float weight = (1.0 - clamp(sat, 0.0, 1.0));
-    return mix(vec3(l), c, 1.0 + v * weight * 1.4);
+    float weight = 1.0 - clamp(sat, 0.0, 1.0);
+    return mix(vec3(l), c, max(0.0, 1.0 + v * weight * 1.2));
 }
 
 vec3 liftGammaGain(vec3 c, vec3 lift, vec3 gamma, vec3 gain) {
@@ -88,8 +71,8 @@ vec3 liftGammaGain(vec3 c, vec3 lift, vec3 gamma, vec3 gain) {
 }
 
 vec3 applyContrast(vec3 c, float k) {
-    float t = 1.0 + k * 0.85;
-    return clamp((c - 0.5) * t + 0.5, 0.0, 16.0);
+    float t = 1.0 + k * 0.5;
+    return clamp((c - 0.5) * t + 0.5, 0.0, 1.0);
 }
 
 vec3 sampleBloom(vec2 uv) {
@@ -126,36 +109,38 @@ void main() {
         col = casSharpen(uv, col, uSharpness);
     }
 
-    vec3 lin = toLinear(col);
-    lin *= pow(2.0, uExposure);
-    lin = liftGammaGain(lin,
-                        uLift * 0.18,
-                        vec3(1.0) + uGammaRgb * 0.6,
-                        vec3(1.0) + uGain * 0.6);
-    lin = applyTemp(lin, uTemperature * 0.8);
-    lin = applyTint(lin, uTint * 0.6);
-    vec3 mapped = acesFilm(lin);
-    col = toGamma(mapped);
+    // Exposure & color balancing (in gentle perceptual space to preserve Minecraft lighting)
+    col *= pow(2.0, uExposure);
+    col = liftGammaGain(col,
+                        uLift * 0.12,
+                        vec3(1.0) + uGammaRgb * 0.35,
+                        vec3(1.0) + uGain * 0.35);
+    col = applyTemp(col, uTemperature * 0.5);
+    col = applyTint(col, uTint * 0.4);
 
+    // Bloom addition
     if (uBloomIntensity > 0.001) {
         vec3 bloom = sampleBloom(uv);
-        bloom = toGamma(bloom);
         float maxC = max(orig.r, max(orig.g, orig.b));
         float minC = min(orig.r, min(orig.g, orig.b));
         float chroma = maxC - minC;
         float neutralHighlight = smoothstep(0.70, 1.0, dot(orig, LUMA)) * (1.0 - smoothstep(0.045, 0.22, chroma));
-        col = col + bloom * uBloomIntensity * mix(2.4, 0.82, neutralHighlight);
+        col = col + bloom * uBloomIntensity * mix(1.8, 0.8, neutralHighlight);
     }
 
-    col = pow(max(col, vec3(0.0)), vec3(1.0 / max(0.05, 1.0 + uGamma * 0.55)));
+    // Gamma, saturation, vibrance & contrast
+    if (abs(uGamma) > 0.001) {
+        col = pow(max(col, vec3(0.0)), vec3(1.0 / max(0.1, 1.0 + uGamma * 0.4)));
+    }
     col = applySaturation(col, uSaturation);
     col = applyVibrance(col, uVibrance);
     col = applyContrast(col, uContrast);
 
+    // Vignette
     if (uVignette > 0.001) {
         vec2 vc = uv - 0.5;
-        float vig = 1.0 - dot(vc, vc) * (uVignette * 1.4);
-        col *= clamp(vig, 0.55, 1.0);
+        float vig = 1.0 - dot(vc, vc) * (uVignette * 1.2);
+        col *= clamp(vig, 0.6, 1.0);
     }
 
     col = clamp(col, 0.0, 1.0);

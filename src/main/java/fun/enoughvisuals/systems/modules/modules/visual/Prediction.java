@@ -56,8 +56,8 @@ public class Prediction extends Module {
     private static final int FLYING_MAX_TICKS = 200;
     private static final long LABEL_TTL_MS = 10_000L;
     private static final double LABEL_HIT_SMOOTH = 0.28;
-    private static final float PREDICT_TUBE_RADIUS = 0.035f;
-    private static final int PREDICT_TUBE_SIDES = 8;
+    private static final float PREDICT_TUBE_RADIUS = 0.030f;
+    private static final int PREDICT_TUBE_SIDES = 24;
     private static final float HELD_LINE_WIDTH = 2.0f;
 
     public Prediction() {
@@ -335,49 +335,95 @@ public class Prediction extends Module {
 
     private boolean drawPredictionTube(BufferBuilder buffer, Matrix4f matrix, Vec3d camPos,
                                        PredictionResult result, float r, float g, float b, float a) {
+        if (result.path.size() < 2) return false;
         float radius = result.isFlying ? PREDICT_TUBE_RADIUS * 0.82f : PREDICT_TUBE_RADIUS;
-        boolean wroteAny = false;
-        for (int i = 0; i < result.path.size() - 1; i++) {
-            wroteAny |= addTubeSegment(buffer, matrix, camPos, result.path.get(i), result.path.get(i + 1), radius, r, g, b, a);
+        int ringCount = result.path.size();
+        Vec3d[][] rings = new Vec3d[ringCount][PREDICT_TUBE_SIDES];
+        Vec3d previousRight = null;
+        Vec3d previousUp = null;
+
+        for (int point = 0; point < ringCount; point++) {
+            Vec3d tangent = pathTangent(result.path, point);
+            if (tangent.lengthSquared() < 1.0E-7) return false;
+
+            Vec3d right;
+            if (previousRight == null) {
+                Vec3d reference = Math.abs(tangent.y) > 0.86
+                        ? new Vec3d(1.0, 0.0, 0.0)
+                        : new Vec3d(0.0, 1.0, 0.0);
+                right = tangent.crossProduct(reference).normalize();
+            } else {
+                // Parallel-transport the previous ring onto the new tangent.
+                // This keeps adjacent rings aligned and removes the visible
+                // twisting seams produced by rebuilding every segment alone.
+                right = previousRight.subtract(tangent.multiply(previousRight.dotProduct(tangent)));
+                if (right.lengthSquared() < 1.0E-7 && previousUp != null) {
+                    right = previousUp.subtract(tangent.multiply(previousUp.dotProduct(tangent)));
+                }
+                if (right.lengthSquared() < 1.0E-7) {
+                    Vec3d reference = Math.abs(tangent.y) > 0.86
+                            ? new Vec3d(1.0, 0.0, 0.0)
+                            : new Vec3d(0.0, 1.0, 0.0);
+                    right = tangent.crossProduct(reference);
+                }
+                right = right.normalize();
+            }
+            Vec3d up = right.crossProduct(tangent).normalize();
+            previousRight = right;
+            previousUp = up;
+
+            Vec3d center = result.path.get(point);
+            double distance = Math.sqrt(center.squaredDistanceTo(camPos));
+            float nearCamera = smoothstep(0.16f, 0.72f, (float) distance);
+            float ringRadius = radius * (0.10f + nearCamera * 0.90f);
+            for (int side = 0; side < PREDICT_TUBE_SIDES; side++) {
+                double angle = Math.PI * 2.0 * side / PREDICT_TUBE_SIDES;
+                rings[point][side] = center
+                        .add(right.multiply(Math.cos(angle) * ringRadius))
+                        .add(up.multiply(Math.sin(angle) * ringRadius));
+            }
         }
-        return wroteAny;
-    }
 
-    private boolean addTubeSegment(BufferBuilder buffer, Matrix4f matrix, Vec3d camPos, Vec3d p1, Vec3d p2,
-                                   float radius, float r, float g, float b, float a) {
-        Vec3d dir = p2.subtract(p1);
-        if (dir.lengthSquared() < 1.0E-7) return false;
-
-        dir = dir.normalize();
-        Vec3d basis = Math.abs(dir.y) > 0.88 ? new Vec3d(1.0, 0.0, 0.0) : new Vec3d(0.0, 1.0, 0.0);
-        Vec3d right = dir.crossProduct(basis);
-        if (right.lengthSquared() < 1.0E-7) {
-            right = new Vec3d(1.0, 0.0, 0.0);
-        } else {
-            right = right.normalize();
-        }
-        Vec3d up = right.crossProduct(dir).normalize();
-
-        for (int side = 0; side < PREDICT_TUBE_SIDES; side++) {
-            double a1 = (Math.PI * 2.0 * side) / PREDICT_TUBE_SIDES;
-            double a2 = (Math.PI * 2.0 * (side + 1)) / PREDICT_TUBE_SIDES;
-            Vec3d o1 = right.multiply(Math.cos(a1) * radius).add(up.multiply(Math.sin(a1) * radius));
-            Vec3d o2 = right.multiply(Math.cos(a2) * radius).add(up.multiply(Math.sin(a2) * radius));
-
-            Vec3d v1 = p1.add(o1);
-            Vec3d v2 = p2.add(o1);
-            Vec3d v3 = p2.add(o2);
-            Vec3d v4 = p1.add(o2);
-
-            float shade = 0.70f + 0.30f * (float) ((Math.sin((a1 + a2) * 0.5) + 1.0) * 0.5);
-            tubeVertex(buffer, matrix, camPos, v1, r * shade, g * shade, b * shade, a);
-            tubeVertex(buffer, matrix, camPos, v2, r * shade, g * shade, b * shade, a);
-            tubeVertex(buffer, matrix, camPos, v3, r * shade, g * shade, b * shade, a);
-            tubeVertex(buffer, matrix, camPos, v1, r * shade, g * shade, b * shade, a);
-            tubeVertex(buffer, matrix, camPos, v3, r * shade, g * shade, b * shade, a);
-            tubeVertex(buffer, matrix, camPos, v4, r * shade, g * shade, b * shade, a);
+        for (int ring = 0; ring < ringCount - 1; ring++) {
+            for (int side = 0; side < PREDICT_TUBE_SIDES; side++) {
+                int nextSide = (side + 1) % PREDICT_TUBE_SIDES;
+                Vec3d v1 = rings[ring][side];
+                Vec3d v2 = rings[ring + 1][side];
+                Vec3d v3 = rings[ring + 1][nextSide];
+                Vec3d v4 = rings[ring][nextSide];
+                float shade1 = tubeShade(side);
+                float shade2 = tubeShade(nextSide);
+                tubeVertex(buffer, matrix, camPos, v1, r * shade1, g * shade1, b * shade1, a);
+                tubeVertex(buffer, matrix, camPos, v2, r * shade1, g * shade1, b * shade1, a);
+                tubeVertex(buffer, matrix, camPos, v3, r * shade2, g * shade2, b * shade2, a);
+                tubeVertex(buffer, matrix, camPos, v1, r * shade1, g * shade1, b * shade1, a);
+                tubeVertex(buffer, matrix, camPos, v3, r * shade2, g * shade2, b * shade2, a);
+                tubeVertex(buffer, matrix, camPos, v4, r * shade2, g * shade2, b * shade2, a);
+            }
         }
         return true;
+    }
+
+    private static Vec3d pathTangent(List<Vec3d> path, int index) {
+        Vec3d tangent;
+        if (index <= 0) {
+            tangent = path.get(1).subtract(path.get(0));
+        } else if (index >= path.size() - 1) {
+            tangent = path.get(index).subtract(path.get(index - 1));
+        } else {
+            tangent = path.get(index + 1).subtract(path.get(index - 1));
+        }
+        return tangent.lengthSquared() < 1.0E-7 ? Vec3d.ZERO : tangent.normalize();
+    }
+
+    private static float tubeShade(int side) {
+        double angle = Math.PI * 2.0 * side / PREDICT_TUBE_SIDES;
+        return 0.76f + 0.24f * (float) ((Math.cos(angle) * 0.68 + Math.sin(angle) * 0.32 + 1.0) * 0.5);
+    }
+
+    private static float smoothstep(float edge0, float edge1, float value) {
+        float t = Math.max(0f, Math.min(1f, (value - edge0) / (edge1 - edge0)));
+        return t * t * (3f - 2f * t);
     }
 
     private void tubeVertex(BufferBuilder buffer, Matrix4f matrix, Vec3d camPos, Vec3d pos,

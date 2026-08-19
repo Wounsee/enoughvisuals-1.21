@@ -3,13 +3,15 @@ package fun.enoughvisuals.systems.modules.modules.visual;
 import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
+import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.ColorSetting;
 import fun.enoughvisuals.systems.modules.settings.ModeSetting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.utils.render.SkyBoxRenderer;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
-@Register(name = "Shader Sky", id = "skybox", description = "Шейдерное небо", category = Category.VISUAL)
+@Register(name = "Shader Sky", id = "skybox", description = "Шейдерное процедурное небо", category = Category.VISUAL)
 public class SkyBox extends Module {
 
     public static SkyBox INSTANCE;
@@ -19,7 +21,13 @@ public class SkyBox extends Module {
             "Режим",
             "mode",
             "Вид шейдерного неба",
-            "Caustic",
+            "Aurora",
+            "Aurora",
+            "Night",
+            "Snow",
+            "Sky",
+            "Star",
+            "Glow",
             "Caustic",
             "Clouds"
     ));
@@ -27,8 +35,8 @@ public class SkyBox extends Module {
     public final SliderSetting speed = add(new SliderSetting(
             "Скорость",
             "speed",
-            "Скорость движения каустики",
-            0.1,
+            "Скорость движения шейдера",
+            1.0,
             0.0,
             5.0,
             0.05
@@ -38,20 +46,30 @@ public class SkyBox extends Module {
             "Масштаб",
             "scale",
             "Размер узора неба",
-            18.0,
-            1.0,
-            30.0,
-            0.5
+            1.1,
+            0.1,
+            10.0,
+            0.05
     ));
 
     public final SliderSetting intensity = add(new SliderSetting(
             "Интенсивность",
             "intensity",
             "Сила шейдерного свечения",
-            0.2,
-            0.001,
-            0.5,
-            0.001
+            1.0,
+            0.01,
+            2.0,
+            0.05
+    ));
+
+    public final SliderSetting stars = add(new SliderSetting(
+            "Звёзды",
+            "stars",
+            "Количество и мерцание звёзд",
+            0.75,
+            0.0,
+            1.0,
+            0.05
     ));
 
     public final SliderSetting alpha = add(new SliderSetting(
@@ -64,19 +82,59 @@ public class SkyBox extends Module {
             0.05
     ));
 
-    public final ColorSetting color = add(new ColorSetting(
-            "Цвет",
-            "color",
-            "Основной цвет каустики",
-            0xFF3BE8E0
+    public final ColorSetting color1 = add(new ColorSetting(
+            "Цвет 1",
+            "color1",
+            "Первый цвет неба",
+            0xFF79E6FF
+    ));
+
+    public final ColorSetting color2 = add(new ColorSetting(
+            "Цвет 2",
+            "color2",
+            "Второй цвет неба",
+            0xFFFF7AE6
+    ));
+
+    public final BooleanSetting vanillaBlend = add(new BooleanSetting(
+            "Ванильное небо",
+            "vanilla_sky",
+            "Смешивать с ванильным небом",
+            false
     ));
 
     public SkyBox() {
         INSTANCE = this;
+        stars.visibleWhen(this::isProceduralSky);
+
         if (!eventRegistered) {
             WorldRenderEvents.BEFORE_ENTITIES.register(SkyBoxRenderer::drawOverlay);
             eventRegistered = true;
         }
+    }
+
+    public boolean isProceduralSky() {
+        String m = mode.get();
+        return !m.equals("Caustic") && !m.equals("Clouds");
+    }
+
+    public float getModeIndex() {
+        return switch (mode.get()) {
+            case "Aurora" -> 0.0f;
+            case "Night" -> 1.0f;
+            case "Snow" -> 2.0f;
+            case "Sky" -> 3.0f;
+            case "Star" -> 4.0f;
+            default -> 5.0f;
+        };
+    }
+
+    public int getSkyColor1() {
+        return color1.get();
+    }
+
+    public int getSkyColor2() {
+        return color2.get();
     }
 
     @Override
@@ -90,12 +148,6 @@ public class SkyBox extends Module {
     }
 
     public static SkyBox active() {
-        if (INSTANCE == null || !INSTANCE.isEnabled()) {
-            return null;
-        }
-
-        return INSTANCE;
+        return INSTANCE != null && INSTANCE.isEnabled() ? INSTANCE : null;
     }
 }
-
-

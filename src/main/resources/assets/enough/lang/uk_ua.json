@@ -1463,5 +1463,13 @@
   "ui.search": "Пошук",
   "values.мобы": "Моби",
   "values.предметы": "Предмети",
-  "values.себя": "Себе"
+  "values.себя": "Себе",
+  "modules.web_panels.name": "WebPanels",
+  "modules.web_panels.description": "Плаваючі вікна браузера у світі (Apple Vision)",
+  "settings.web_panels.default_url.name": "Стартовий сайт",
+  "settings.web_panels.default_url.description": "URL, що відкривається при створенні вікна",
+  "settings.web_panels.create_bind.name": "Створити вікно",
+  "settings.web_panels.create_bind.description": "Клавіша для створення нового вікна",
+  "settings.web_panels.curve.name": "Вигин",
+  "settings.web_panels.curve.description": "Вигнутість екрана"
 }

@@ -141,7 +141,6 @@ public final class UIHelper {
         // backup entity variables
         float headX = entity.getXRot();
         float headY = entity.yHeadRot;
-        boolean invisible = entity.isInvisible();
 
         float bodyY = entity.yBodyRot; // not truly a backup
         if (entity.getVehicle() instanceof LivingEntity l) {
@@ -173,10 +172,6 @@ public final class UIHelper {
 
                 // lightning
                 Lighting.setupForEntityInInventory();
-
-                // invisibility
-                if (Configs.PAPERDOLL_INVISIBLE.value)
-                    entity.setInvisible(false);
             }
             case FIGURA_GUI -> {
                 // rotations
@@ -195,9 +190,6 @@ public final class UIHelper {
                 Lighting.setupForFlatItems();
                 RenderSystem.setShaderLights(Util.make(new Vector3f(-0.2f, -1f, 1f), Vector3f::normalize), Util.make(new Vector3f(-0.2f, 0.4f, 0.3f), Vector3f::normalize));
                 // 1.20.5 invered the z for lights
-
-                // invisibility
-                entity.setInvisible(false);
             }
             default -> {
                 // rotations
@@ -218,10 +210,6 @@ public final class UIHelper {
                 Lighting.setupForEntityInInventory();
             }
         }
-
-        // previews only want the avatar geometry, so the vanilla body is switched off
-        if (previewHideVanillaModel)
-            entity.setInvisible(true);
 
         // apply matrix transformers
         PoseStack pose = gui.pose();
@@ -283,7 +271,6 @@ public final class UIHelper {
         // restore entity data
         entity.setXRot(headX);
         entity.yHeadRot = headY;
-        entity.setInvisible(invisible);
     }
 
     public static void enableBlend() {

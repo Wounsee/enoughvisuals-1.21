@@ -1,0 +1,4195 @@
+{
+  "name": "Balloon Wings",
+  "id": 211,
+  "category": 1,
+  "author": "EnoughVisuals",
+  "pos": 1,
+  "version": 1,
+  "texture": "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAKxElEQVR4Acyaf4xUVxXHzxt0oX8Ihh9l2QEaWxSxhVAqWqW6aqQq/xhjtLEhRuPGatCYGIPxZ1s1MaIx0QZ/ZY3EYJWqMfpHbbtERYu2bAsEWpG0tGnZGXZhIbLGLF3DPu/nzJzdO7cz837Mmy2E7zvnnl/vnHvvue/N7JQkw7+H9/8kBhlcUpkOXOyJ+05KDJUDS2PZt64G43ffGAtIEY04xDBKTB9hiEwT0Lt8uYAwSBHjbb09GmZg44RI7zkF/MC7T8nA9idFll5SfdKFOH2942I0yT7TBCQFy6u/f3Qq2XV8QbJN3YLiiVkdXVqXtCaZJmB0bExA63D5NGGirKCMLmsMlnIHUDiOTILGYdAGmSagTZzOVK7YwaMLxU9exhfI4APX1eB0rW5Ar1uPw4d2xCQ2cqXuXFG7Os00Ac+frgogWF40JOuS0AOvSTD6vm/jCT0LZtQcjs6HGBQBra6VaHDRlIJVB9hTbPXoOqnuv1Gkf1z1UICP0UwTQOBOwYoQg0R1i9YPPHhk6LABVdfDyJH5MB3UlzfwblcNuAM06fDMNAGnR8YENNwo44CicCF55V2i4gCPDB08MDmUllDUbZGpDQ7NMF5rIX2iNNPXZZkmoO7TMaHQqlvdMBAydDNydocrWIvgEAROprvCUbVzLaFt5N4TBvdeP3tm3HBa1fLEKtF3iHr71ISz10wTsGrlcgGz7jk4VxCFqqfjdVXH3SMO3qHKxDjKCivG6zoocAXR2zP+rr/lthOR7DhSAzwyAB/K1XH2kmkC2P5g1j0HR1IkB+DrCQ64fgVC8RSKDqA3Cg8Ym3+OFHyXEq+2Tx//fQzgwb0/uysG3/r6J2NgvDna2HSM8QPEAfDAfFJTtjZbPbVDZ4alW9758WjN+vcq4MHtH70rAp//yg8j4PPhGB3AD4SxEtOr9yaPLZ77MzvA9bT2dmKAzgwytUBnt2rh7bbz5Kb58tTLLsjktgkZjk7Ig5NHFMp/R+K9n6mhRYQG8VMHS/HwfRIbnfxPOfbRYOwGL/0EuCT4v3LDCojc8J6yLF4tCvi33lGW93+jLMvcYa4GCRfivLJcEqMJ5nJFTMDIsTNJecq5+lMt0dAZUDwx/12ZdqPG/+HoipiAMFFW8MLzjamm3QEUjieTQBz4drgiJoBin/hjRfzkWfG//rgiAF2rIuh163H40I6Y5g/1zwfs53wC/GRJ5kF3yIVJM6bvr31TSc8CxgBbfIhB8tBXb5mOrnpFRcGqA2wp9pl/TMuj903L5g+K6qEAH6NzPgGsCAmSKFvUDjx4ZOiwAbQGcmQ+TAf15T7PruIATWqdOZ8AiiJRkocnUQCPDB08MDmUlgDwvg77ZsCW9mGCm+lN1pUJ4A3RbuDzJqNQirCxUWTobEzyFAxlJQE8uwKKHS1Ba/Cu8Nsvz54Za7egFTl5UAQdNtjWpLNXnQB7lZ0Vd8bxgYnCAbwfjYIoFBk8KwXgATqowXRQQEH0tvnTy+/6nETbv1cDPDIAH8rx81GieAR802M8407AqzGFA3g/FkmRHIC3BOlXQOEUig6gNwoPGJu/HzsPrzsgj2OSD58aQZJdqGdrs9VDebfGpdWr+sRHUTdi9UFSPOtNHlscWrYDrG+T/DvVl9j6PjoNmNWf7bz/26Oy51OH5fA+R780JA98/x7FHsdvj+6Jt8lORZrYO64+HH9o/lBs9JubR2MfYYyu7AD/ewCfD2/uj1de06fDDRvWy+We1yrgr3/9B+Qtmz8ri6N0n4aIs3jREjGqQdtcSvypy0cb20wqDj+QxmnkuWqi2YU4/achiifmhYvnE+N25RDkixG7s8+bLKRhoqzgvKl/NZil3QEUjiOTQBz4dijxpy4f7Yy7paPYY8eOi588K/7kY78WgK7Vvel163H40I6Y5g/1zwfs9SsxVskQBih67CdLMhxyze5B3y9atkXPAtNjiw8xSB66++ym6AvDvQpWHWBPsRfPHZRnz/5KfvnCVtVDAT5Gu9ICJNAKrAg6EmWL2oEHjwwdNoDWQI7Mh+mgvtzn2VUcoEmtk2kCONGBf6OsPEXhQ/LwJArgkaGDByZX6g5B2kJ5d7gZxb4ZsKV9mOBmepNlmgB7WphzXkqhFBj6I0NncpKnUCgrCZR3jzkodrQErcG7wt+GvztzZiyavxW1XHxhSNBhg60KvUumCfD8crMURKEEUN5bWR3XVxcesJJG4SmI3jZ/enlv/OnoftmlgEcG4EM5fj4yTYA9LfwAWXmSIjkAbwnSr8CKRQfQG4UHjM0/6/1D+0wTUFQLhEn4Y7Y2W92XdZPPNAFF7ICwGOtNHlscWrYDrG9D+6LHmSag6JsTj+08/oNNcuiLZRkbvF3+cMda2d//GgV8T/9gLGu/VgMOCbju7n/GCz/xUGx060/Pxz5C90wTYJ8awyBFjK91f3onzhs33yQL1q1WwPd/+H2ydecO6entQ50I4ixbsVKMJjlkmoCkYHn1z4yMJbpOjSZ/YLIgFE/Mc2dGTNSSZpoAvuEBLaPlVISJsoKXTjT+aSjtDqBw0mASiAPfDpkmoF2gTnQU++jw4+Inz4of+PnvBKBrFZ9etx6HD+2Iaf5Q/3zA/kU/kPB/3MCXpIBvd4EFh0cOeDUG5gcFyID5GPWTJRk95EzpUfp+1TverGeBibHFhxgkDz115+uioY8tUbDqAHuKPf2nv8upe38jEz+6VfVQgI9R/TS4xvuBBLx9MuQLDcCPIkIgB2ZrflBgcpLxwYowJlG2qB148MjQYQNoDeTIfJgO6st9nl3FAZrUOnPeAhRFoiQPT6IAHhk6eGByKC0B4H0d9s2ALe3DBDfTm2zOJ4AbUyhFwPtAhs5kJE/BUFYSwLMroNjRErQG7wpDu3YLRbP9F779ZtQy8edHBB022KrQu8z5BFAQhZIDPCsF4AE6qMF0UEBB9Lb508tTBwYiOflVBTwyAB/K8fMx5xNAUiQH4C1B+hVQOIWiA+iNwgPGM/5+NTn4OZ+ApBzZ2mz1JLui9F2bgMlby/HTK6IYeuBqifcsKSmMv3uhxMB6k76lf20HWN9SKHHwM0pMH9jkRdcmgITK62vv72/YWJZXzZtWwN920wrZeXNZrnl5SWw725ZmzDYHyrtAxCnPi8SoExX2v2sTUDme/O7+3P+Sf8VllVI8MSuXYxMVQrs3AUGirOCzlxtvxw5IUwWFY8ckEAe+KGhGvNLy+lpUUOJQ7KGjFfGTZ8X3PX5GADrsmoFetx6HD22Iaf5Q/3xoZh/6++OZH0gceuyIMBG+Mi3vJ0syHHjNfOn7W3piPQtMjy0+xCB56JozcXTVQxWFrnr9LKHYh6ci+cV/Y+k/K6qHAnyMWuw0VHdAGsN2NqwIek3WHVZ24LFdkaHDRuFaAzkyH6aD+nKfZ1dxgKZtHd+3FV/MBLiiuAHJc0iRKIBHpjpnw9jkUFoCwPs67JsBW9qHCW6mzyMr7PcBFEoRYRLI0Jmc5CkYykoCeHYFFDtagtbgPWHXI5WZM+NtC9CK/OWSCDpssK1J810L+YUIBVEoKcCzUgAeoIMaTAcFFERvmz+9/JHz09GdE6KARwbgQzl+eVHIDiApkgPwliD9CiicQtEB9EbhAWPzz1tMHr9CzoCkG7O12epJdi+FvisTYL3JY4tDy3aA9W2RhXYa6/8AAAD//46WQdMAAAAGSURBVAMAyCF19aOLCnAAAAAASUVORK5CYII=",
+  "model": {
+    "format_version": "1.12.0",
+    "minecraft:geometry": [
+      {
+        "description": {
+          "identifier": "geometry.unknown",
+          "texture_width": 64,
+          "texture_height": 64,
+          "visible_bounds_width": 5,
+          "visible_bounds_height": 4.5,
+          "visible_bounds_offset": [
+            0,
+            1.75,
+            0
+          ]
+        },
+        "bones": [
+          {
+            "name": "balloons",
+            "pivot": [
+              0,
+              20,
+              2
+            ]
+          },
+          {
+            "name": "balloons_left",
+            "parent": "balloons",
+            "pivot": [
+              1,
+              20,
+              2
+            ]
+          },
+          {
+            "name": "balloon_left",
+            "parent": "balloons_left",
+            "pivot": [
+              2,
+              20,
+              2
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  1.5,
+                  19.5,
+                  2
+                ],
+                "size": [
+                  1,
+                  1,
+                  11
+                ],
+                "pivot": [
+                  2,
+                  20,
+                  2
+                ],
+                "rotation": [
+                  33.78652,
+                  35.38949,
+                  5.10392
+                ],
+                "uv": [
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left2",
+            "parent": "balloon_left",
+            "pivot": [
+              8,
+              25.5,
+              9.2
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  7.2852,
+                  25.22986,
+                  8.71933
+                ],
+                "size": [
+                  1,
+                  8,
+                  1
+                ],
+                "pivot": [
+                  7.7852,
+                  25.72986,
+                  8.71933
+                ],
+                "rotation": [
+                  -1.71604,
+                  12.06754,
+                  22.84721
+                ],
+                "uv": [
+                  0,
+                  22
+                ]
+              },
+              {
+                "origin": [
+                  9.89083,
+                  31.80512,
+                  9.71177
+                ],
+                "size": [
+                  3,
+                  8,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  11.39083,
+                  35.80512,
+                  9.71177
+                ],
+                "rotation": [
+                  -4.94014,
+                  -30.96757,
+                  13.4995
+                ],
+                "uv": [
+                  20,
+                  21
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left3",
+            "parent": "balloon_left2",
+            "pivot": [
+              12,
+              39.5,
+              9.95
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  11,
+                  39.5,
+                  8.95
+                ],
+                "size": [
+                  2,
+                  1,
+                  2
+                ],
+                "uv": [
+                  32,
+                  23
+                ]
+              },
+              {
+                "origin": [
+                  10.5,
+                  40.25,
+                  8.45
+                ],
+                "size": [
+                  3,
+                  1,
+                  3
+                ],
+                "uv": [
+                  48,
+                  18
+                ]
+              },
+              {
+                "origin": [
+                  9.5,
+                  41,
+                  7.45
+                ],
+                "size": [
+                  5,
+                  5,
+                  5
+                ],
+                "uv": [
+                  28,
+                  13
+                ]
+              },
+              {
+                "origin": [
+                  10,
+                  46,
+                  7.95
+                ],
+                "size": [
+                  4,
+                  1,
+                  4
+                ],
+                "uv": [
+                  48,
+                  13
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left4",
+            "parent": "balloons_left",
+            "pivot": [
+              2,
+              18,
+              2
+            ],
+            "rotation": [
+              -12.5,
+              25,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  1.5,
+                  17.5,
+                  2
+                ],
+                "size": [
+                  1,
+                  1,
+                  11
+                ],
+                "pivot": [
+                  2,
+                  18,
+                  2
+                ],
+                "rotation": [
+                  33.78652,
+                  35.38949,
+                  5.10392
+                ],
+                "uv": [
+                  0,
+                  33
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left5",
+            "parent": "balloon_left4",
+            "pivot": [
+              8,
+              23.5,
+              9.2
+            ],
+            "rotation": [
+              13.55583,
+              -3.2245,
+              6.53181
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  7.2852,
+                  23.22986,
+                  8.71933
+                ],
+                "size": [
+                  1,
+                  8,
+                  1
+                ],
+                "pivot": [
+                  7.7852,
+                  23.72986,
+                  8.71933
+                ],
+                "rotation": [
+                  -1.71604,
+                  12.06754,
+                  22.84721
+                ],
+                "uv": [
+                  0,
+                  55
+                ]
+              },
+              {
+                "origin": [
+                  9.89083,
+                  29.80512,
+                  9.71177
+                ],
+                "size": [
+                  3,
+                  8,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  11.39083,
+                  33.80512,
+                  9.71177
+                ],
+                "rotation": [
+                  -4.94014,
+                  -30.96757,
+                  13.4995
+                ],
+                "uv": [
+                  20,
+                  21
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left6",
+            "parent": "balloon_left5",
+            "pivot": [
+              12,
+              37.5,
+              9.95
+            ],
+            "rotation": [
+              0,
+              0,
+              -5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  11,
+                  37.5,
+                  8.95
+                ],
+                "size": [
+                  2,
+                  1,
+                  2
+                ],
+                "uv": [
+                  32,
+                  10
+                ]
+              },
+              {
+                "origin": [
+                  10.5,
+                  38.25,
+                  8.45
+                ],
+                "size": [
+                  3,
+                  1,
+                  3
+                ],
+                "uv": [
+                  48,
+                  5
+                ]
+              },
+              {
+                "origin": [
+                  9.5,
+                  39,
+                  7.45
+                ],
+                "size": [
+                  5,
+                  5,
+                  5
+                ],
+                "uv": [
+                  28,
+                  0
+                ]
+              },
+              {
+                "origin": [
+                  10,
+                  44,
+                  7.95
+                ],
+                "size": [
+                  4,
+                  1,
+                  4
+                ],
+                "uv": [
+                  48,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left7",
+            "parent": "balloons_left",
+            "pivot": [
+              1,
+              19,
+              2
+            ],
+            "rotation": [
+              -6.0784,
+              -26.94462,
+              -11.23348
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  0.5,
+                  18.5,
+                  2
+                ],
+                "size": [
+                  1,
+                  1,
+                  11
+                ],
+                "pivot": [
+                  1,
+                  19,
+                  2
+                ],
+                "rotation": [
+                  33.78652,
+                  35.38949,
+                  5.10392
+                ],
+                "uv": [
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left8",
+            "parent": "balloon_left7",
+            "pivot": [
+              7,
+              24.5,
+              9.2
+            ],
+            "rotation": [
+              -4.69986,
+              1.70818,
+              19.9299
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  6.2852,
+                  24.22986,
+                  8.71933
+                ],
+                "size": [
+                  1,
+                  8,
+                  1
+                ],
+                "pivot": [
+                  6.7852,
+                  24.72986,
+                  8.71933
+                ],
+                "rotation": [
+                  -1.71604,
+                  12.06754,
+                  22.84721
+                ],
+                "uv": [
+                  0,
+                  22
+                ]
+              },
+              {
+                "origin": [
+                  8.89083,
+                  30.80512,
+                  9.71177
+                ],
+                "size": [
+                  3,
+                  8,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  10.39083,
+                  34.80512,
+                  9.71177
+                ],
+                "rotation": [
+                  -4.94014,
+                  -30.96757,
+                  13.4995
+                ],
+                "uv": [
+                  20,
+                  21
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left9",
+            "parent": "balloon_left8",
+            "pivot": [
+              11,
+              38.5,
+              9.95
+            ],
+            "rotation": [
+              19.5623,
+              4.2453,
+              -11.76782
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  10,
+                  38.5,
+                  8.95
+                ],
+                "size": [
+                  2,
+                  1,
+                  2
+                ],
+                "uv": [
+                  32,
+                  36
+                ]
+              },
+              {
+                "origin": [
+                  9.5,
+                  39.25,
+                  8.45
+                ],
+                "size": [
+                  3,
+                  1,
+                  3
+                ],
+                "uv": [
+                  48,
+                  31
+                ]
+              },
+              {
+                "origin": [
+                  8.5,
+                  40,
+                  7.45
+                ],
+                "size": [
+                  5,
+                  5,
+                  5
+                ],
+                "uv": [
+                  28,
+                  26
+                ]
+              },
+              {
+                "origin": [
+                  9,
+                  45,
+                  7.95
+                ],
+                "size": [
+                  4,
+                  1,
+                  4
+                ],
+                "uv": [
+                  48,
+                  26
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left10",
+            "parent": "balloons_left",
+            "pivot": [
+              2,
+              17,
+              2
+            ],
+            "rotation": [
+              16.61569,
+              -22.57265,
+              -10.8595
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  1.5,
+                  16.5,
+                  2
+                ],
+                "size": [
+                  1,
+                  1,
+                  11
+                ],
+                "pivot": [
+                  2,
+                  17,
+                  2
+                ],
+                "rotation": [
+                  33.78652,
+                  35.38949,
+                  5.10392
+                ],
+                "uv": [
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left11",
+            "parent": "balloon_left10",
+            "pivot": [
+              8,
+              22.5,
+              9.2
+            ],
+            "rotation": [
+              -12.60443,
+              -7.32123,
+              1.63219
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  7.2852,
+                  22.22986,
+                  8.71933
+                ],
+                "size": [
+                  1,
+                  8,
+                  1
+                ],
+                "pivot": [
+                  7.7852,
+                  22.72986,
+                  8.71933
+                ],
+                "rotation": [
+                  -1.71604,
+                  12.06754,
+                  22.84721
+                ],
+                "uv": [
+                  0,
+                  22
+                ]
+              },
+              {
+                "origin": [
+                  9.89083,
+                  28.80512,
+                  9.71177
+                ],
+                "size": [
+                  3,
+                  8,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  11.39083,
+                  32.80512,
+                  9.71177
+                ],
+                "rotation": [
+                  -4.94014,
+                  -30.96757,
+                  13.4995
+                ],
+                "uv": [
+                  20,
+                  21
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left12",
+            "parent": "balloon_left11",
+            "pivot": [
+              12,
+              36.5,
+              9.95
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  11,
+                  36.5,
+                  8.95
+                ],
+                "size": [
+                  2,
+                  1,
+                  2
+                ],
+                "uv": [
+                  32,
+                  10
+                ]
+              },
+              {
+                "origin": [
+                  10.5,
+                  37.25,
+                  8.45
+                ],
+                "size": [
+                  3,
+                  1,
+                  3
+                ],
+                "uv": [
+                  48,
+                  5
+                ]
+              },
+              {
+                "origin": [
+                  9.5,
+                  38,
+                  7.45
+                ],
+                "size": [
+                  5,
+                  5,
+                  5
+                ],
+                "uv": [
+                  28,
+                  0
+                ]
+              },
+              {
+                "origin": [
+                  10,
+                  43,
+                  7.95
+                ],
+                "size": [
+                  4,
+                  1,
+                  4
+                ],
+                "uv": [
+                  48,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left13",
+            "parent": "balloons_left",
+            "pivot": [
+              2,
+              20,
+              2
+            ],
+            "rotation": [
+              -39.72135,
+              39.17817,
+              3.24076
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  1.5,
+                  19.5,
+                  2
+                ],
+                "size": [
+                  1,
+                  1,
+                  11
+                ],
+                "pivot": [
+                  2,
+                  20,
+                  2
+                ],
+                "rotation": [
+                  33.78652,
+                  35.38949,
+                  5.10392
+                ],
+                "uv": [
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left14",
+            "parent": "balloon_left13",
+            "pivot": [
+              8,
+              25.5,
+              9.2
+            ],
+            "rotation": [
+              19.37006,
+              -5.07855,
+              14.13272
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  7.2852,
+                  25.22986,
+                  8.71933
+                ],
+                "size": [
+                  1,
+                  8,
+                  1
+                ],
+                "pivot": [
+                  7.7852,
+                  25.72986,
+                  8.71933
+                ],
+                "rotation": [
+                  -1.71604,
+                  12.06754,
+                  22.84721
+                ],
+                "uv": [
+                  0,
+                  22
+                ]
+              },
+              {
+                "origin": [
+                  9.89083,
+                  31.80512,
+                  9.71177
+                ],
+                "size": [
+                  3,
+                  8,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  11.39083,
+                  35.80512,
+                  9.71177
+                ],
+                "rotation": [
+                  -4.94014,
+                  -30.96757,
+                  13.4995
+                ],
+                "uv": [
+                  20,
+                  21
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left15",
+            "parent": "balloon_left14",
+            "pivot": [
+              12,
+              39.5,
+              9.95
+            ],
+            "rotation": [
+              25.11904,
+              -9.73158,
+              -15.17317
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  11,
+                  39.5,
+                  8.95
+                ],
+                "size": [
+                  2,
+                  1,
+                  2
+                ],
+                "uv": [
+                  32,
+                  49
+                ]
+              },
+              {
+                "origin": [
+                  10.5,
+                  40.25,
+                  8.45
+                ],
+                "size": [
+                  3,
+                  1,
+                  3
+                ],
+                "uv": [
+                  48,
+                  44
+                ]
+              },
+              {
+                "origin": [
+                  9.5,
+                  41,
+                  7.45
+                ],
+                "size": [
+                  5,
+                  5,
+                  5
+                ],
+                "uv": [
+                  28,
+                  39
+                ]
+              },
+              {
+                "origin": [
+                  10,
+                  46,
+                  7.95
+                ],
+                "size": [
+                  4,
+                  1,
+                  4
+                ],
+                "uv": [
+                  48,
+                  39
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left16",
+            "parent": "balloons_left",
+            "pivot": [
+              2,
+              16,
+              2
+            ],
+            "rotation": [
+              -12.31594,
+              2.15393,
+              9.76758
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  1.5,
+                  15.5,
+                  2
+                ],
+                "size": [
+                  1,
+                  1,
+                  11
+                ],
+                "pivot": [
+                  2,
+                  16,
+                  2
+                ],
+                "rotation": [
+                  33.78652,
+                  35.38949,
+                  5.10392
+                ],
+                "uv": [
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left17",
+            "parent": "balloon_left16",
+            "pivot": [
+              8,
+              21.5,
+              9.2
+            ],
+            "rotation": [
+              -7.47178,
+              0.65182,
+              4.95744
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  7.2852,
+                  21.22986,
+                  8.71933
+                ],
+                "size": [
+                  1,
+                  8,
+                  1
+                ],
+                "pivot": [
+                  7.7852,
+                  21.72986,
+                  8.71933
+                ],
+                "rotation": [
+                  -1.71604,
+                  12.06754,
+                  22.84721
+                ],
+                "uv": [
+                  0,
+                  22
+                ]
+              },
+              {
+                "origin": [
+                  9.89083,
+                  27.80512,
+                  9.71177
+                ],
+                "size": [
+                  3,
+                  8,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  11.39083,
+                  31.80512,
+                  9.71177
+                ],
+                "rotation": [
+                  -4.94014,
+                  -30.96757,
+                  13.4995
+                ],
+                "uv": [
+                  20,
+                  21
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_left18",
+            "parent": "balloon_left17",
+            "pivot": [
+              12,
+              35.5,
+              9.95
+            ],
+            "rotation": [
+              24.24769,
+              6.27967,
+              -13.64973
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  11,
+                  35.5,
+                  8.95
+                ],
+                "size": [
+                  2,
+                  1,
+                  2
+                ],
+                "uv": [
+                  21,
+                  61
+                ]
+              },
+              {
+                "origin": [
+                  10.5,
+                  36.25,
+                  8.45
+                ],
+                "size": [
+                  3,
+                  1,
+                  3
+                ],
+                "uv": [
+                  37,
+                  56
+                ]
+              },
+              {
+                "origin": [
+                  9.5,
+                  37,
+                  7.45
+                ],
+                "size": [
+                  5,
+                  5,
+                  5
+                ],
+                "uv": [
+                  17,
+                  51
+                ]
+              },
+              {
+                "origin": [
+                  10,
+                  42,
+                  7.95
+                ],
+                "size": [
+                  4,
+                  1,
+                  4
+                ],
+                "uv": [
+                  37,
+                  51
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloons_right",
+            "parent": "balloons",
+            "pivot": [
+              -1,
+              20,
+              2
+            ]
+          },
+          {
+            "name": "balloon_right",
+            "parent": "balloons_right",
+            "pivot": [
+              -2,
+              20,
+              2
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -2.5,
+                  19.5,
+                  2
+                ],
+                "size": [
+                  1,
+                  1,
+                  11
+                ],
+                "pivot": [
+                  -2,
+                  20,
+                  2
+                ],
+                "rotation": [
+                  33.78652,
+                  -35.38949,
+                  -5.10392
+                ],
+                "uv": [
+                  0,
+                  0
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "balloon_right2",
+            "parent": "balloon_right",
+            "pivot": [
+              -8,
+              25.5,
+              9.2
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -8.2852,
+                  25.22986,
+                  8.71933
+                ],
+                "size": [
+                  1,
+                  8,
+                  1
+                ],
+                "pivot": [
+                  -7.7852,
+                  25.72986,
+                  8.71933
+                ],
+                "rotation": [
+                  -1.71604,
+                  -12.06754,
+                  -22.84721
+                ],
+                "uv": [
+                  0,
+                  22
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -12.89083,
+                  31.80512,
+                  9.71177
+                ],
+                "size": [
+                  3,
+                  8,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  -11.39083,
+                  35.80512,
+                  9.71177
+                ],
+                "rotation": [
+                  -4.94014,
+                  30.96757,
+                  -13.4995
+                ],
+                "uv": [
+                  20,
+                  21
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "balloon_right3",
+            "parent": "balloon_right2",
+            "pivot": [
+              -12,
+              39.5,
+              9.95
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -13,
+                  39.5,
+                  8.95
+                ],
+                "size": [
+                  2,
+                  1,
+                  2
+                ],
+                "uv": [
+                  21,
+                  61
+                ]
+              },
+              {
+                "origin": [
+                  -13.5,
+                  40.25,
+                  8.45
+                ],
+                "size": [
+                  3,
+                  1,
+                  3
+                ],
+                "uv": [
+                  37,
+                  56
+                ]
+              },
+              {
+                "origin": [
+                  -14.5,
+                  41,
+                  7.45
+                ],
+                "size": [
+                  5,
+                  5,
+                  5
+                ],
+                "uv": [
+                  17,
+                  51
+                ]
+              },
+              {
+                "origin": [
+                  -14,
+                  46,
+                  7.95
+                ],
+                "size": [
+                  4,
+                  1,
+                  4
+                ],
+                "uv": [
+                  37,
+                  51
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_right4",
+            "parent": "balloons_right",
+            "pivot": [
+              -2,
+              18,
+              2
+            ],
+            "rotation": [
+              -12.5,
+              -25,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -2.5,
+                  17.5,
+                  2
+                ],
+                "size": [
+                  1,
+                  1,
+                  11
+                ],
+                "pivot": [
+                  -2,
+                  18,
+                  2
+                ],
+                "rotation": [
+                  33.78652,
+                  -35.38949,
+                  -5.10392
+                ],
+                "uv": [
+                  0,
+                  33
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "balloon_right5",
+            "parent": "balloon_right4",
+            "pivot": [
+              -8,
+              23.5,
+              9.2
+            ],
+            "rotation": [
+              13.55583,
+              3.2245,
+              -6.53181
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -8.2852,
+                  23.22986,
+                  8.71933
+                ],
+                "size": [
+                  1,
+                  8,
+                  1
+                ],
+                "pivot": [
+                  -7.7852,
+                  23.72986,
+                  8.71933
+                ],
+                "rotation": [
+                  -1.71604,
+                  -12.06754,
+                  -22.84721
+                ],
+                "uv": [
+                  0,
+                  55
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -12.89083,
+                  29.80512,
+                  9.71177
+                ],
+                "size": [
+                  3,
+                  8,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  -11.39083,
+                  33.80512,
+                  9.71177
+                ],
+                "rotation": [
+                  -4.94014,
+                  30.96757,
+                  -13.4995
+                ],
+                "uv": [
+                  20,
+                  21
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "balloon_right6",
+            "parent": "balloon_right5",
+            "pivot": [
+              -12,
+              37.5,
+              9.95
+            ],
+            "rotation": [
+              0,
+              0,
+              5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -13,
+                  37.5,
+                  8.95
+                ],
+                "size": [
+                  2,
+                  1,
+                  2
+                ],
+                "uv": [
+                  32,
+                  36
+                ]
+              },
+              {
+                "origin": [
+                  -13.5,
+                  38.25,
+                  8.45
+                ],
+                "size": [
+                  3,
+                  1,
+                  3
+                ],
+                "uv": [
+                  48,
+                  31
+                ]
+              },
+              {
+                "origin": [
+                  -14.5,
+                  39,
+                  7.45
+                ],
+                "size": [
+                  5,
+                  5,
+                  5
+                ],
+                "uv": [
+                  28,
+                  26
+                ]
+              },
+              {
+                "origin": [
+                  -14,
+                  44,
+                  7.95
+                ],
+                "size": [
+                  4,
+                  1,
+                  4
+                ],
+                "uv": [
+                  48,
+                  26
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_right7",
+            "parent": "balloons_right",
+            "pivot": [
+              -1,
+              19,
+              2
+            ],
+            "rotation": [
+              -6.0784,
+              26.94462,
+              11.23348
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -1.5,
+                  18.5,
+                  2
+                ],
+                "size": [
+                  1,
+                  1,
+                  11
+                ],
+                "pivot": [
+                  -1,
+                  19,
+                  2
+                ],
+                "rotation": [
+                  33.78652,
+                  -35.38949,
+                  -5.10392
+                ],
+                "uv": [
+                  0,
+                  0
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "balloon_right8",
+            "parent": "balloon_right7",
+            "pivot": [
+              -7,
+              24.5,
+              9.2
+            ],
+            "rotation": [
+              -4.69986,
+              -1.70818,
+              -19.9299
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -7.2852,
+                  24.22986,
+                  8.71933
+                ],
+                "size": [
+                  1,
+                  8,
+                  1
+                ],
+                "pivot": [
+                  -6.7852,
+                  24.72986,
+                  8.71933
+                ],
+                "rotation": [
+                  -1.71604,
+                  -12.06754,
+                  -22.84721
+                ],
+                "uv": [
+                  0,
+                  22
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -11.89083,
+                  30.80512,
+                  9.71177
+                ],
+                "size": [
+                  3,
+                  8,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  -10.39083,
+                  34.80512,
+                  9.71177
+                ],
+                "rotation": [
+                  -4.94014,
+                  30.96757,
+                  -13.4995
+                ],
+                "uv": [
+                  20,
+                  21
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "balloon_right9",
+            "parent": "balloon_right8",
+            "pivot": [
+              -11,
+              38.5,
+              9.95
+            ],
+            "rotation": [
+              19.5623,
+              -4.2453,
+              11.76782
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -12,
+                  38.5,
+                  8.95
+                ],
+                "size": [
+                  2,
+                  1,
+                  2
+                ],
+                "uv": [
+                  32,
+                  49
+                ]
+              },
+              {
+                "origin": [
+                  -12.5,
+                  39.25,
+                  8.45
+                ],
+                "size": [
+                  3,
+                  1,
+                  3
+                ],
+                "uv": [
+                  48,
+                  44
+                ]
+              },
+              {
+                "origin": [
+                  -13.5,
+                  40,
+                  7.45
+                ],
+                "size": [
+                  5,
+                  5,
+                  5
+                ],
+                "uv": [
+                  28,
+                  39
+                ]
+              },
+              {
+                "origin": [
+                  -13,
+                  45,
+                  7.95
+                ],
+                "size": [
+                  4,
+                  1,
+                  4
+                ],
+                "uv": [
+                  48,
+                  39
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_right10",
+            "parent": "balloons_right",
+            "pivot": [
+              -2,
+              17,
+              2
+            ],
+            "rotation": [
+              16.61569,
+              22.57265,
+              10.8595
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -2.5,
+                  16.5,
+                  2
+                ],
+                "size": [
+                  1,
+                  1,
+                  11
+                ],
+                "pivot": [
+                  -2,
+                  17,
+                  2
+                ],
+                "rotation": [
+                  33.78652,
+                  -35.38949,
+                  -5.10392
+                ],
+                "uv": [
+                  0,
+                  0
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "balloon_right11",
+            "parent": "balloon_right10",
+            "pivot": [
+              -8,
+              22.5,
+              9.2
+            ],
+            "rotation": [
+              -12.60443,
+              7.32123,
+              -1.63219
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -8.2852,
+                  22.22986,
+                  8.71933
+                ],
+                "size": [
+                  1,
+                  8,
+                  1
+                ],
+                "pivot": [
+                  -7.7852,
+                  22.72986,
+                  8.71933
+                ],
+                "rotation": [
+                  -1.71604,
+                  -12.06754,
+                  -22.84721
+                ],
+                "uv": [
+                  0,
+                  22
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -12.89083,
+                  28.80512,
+                  9.71177
+                ],
+                "size": [
+                  3,
+                  8,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  -11.39083,
+                  32.80512,
+                  9.71177
+                ],
+                "rotation": [
+                  -4.94014,
+                  30.96757,
+                  -13.4995
+                ],
+                "uv": [
+                  20,
+                  21
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "balloon_right12",
+            "parent": "balloon_right11",
+            "pivot": [
+              -12,
+              36.5,
+              9.95
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -13,
+                  36.5,
+                  8.95
+                ],
+                "size": [
+                  2,
+                  1,
+                  2
+                ],
+                "uv": [
+                  32,
+                  23
+                ]
+              },
+              {
+                "origin": [
+                  -13.5,
+                  37.25,
+                  8.45
+                ],
+                "size": [
+                  3,
+                  1,
+                  3
+                ],
+                "uv": [
+                  48,
+                  18
+                ]
+              },
+              {
+                "origin": [
+                  -14.5,
+                  38,
+                  7.45
+                ],
+                "size": [
+                  5,
+                  5,
+                  5
+                ],
+                "uv": [
+                  28,
+                  13
+                ]
+              },
+              {
+                "origin": [
+                  -14,
+                  43,
+                  7.95
+                ],
+                "size": [
+                  4,
+                  1,
+                  4
+                ],
+                "uv": [
+                  48,
+                  13
+                ]
+              }
+            ]
+          },
+          {
+            "name": "balloon_right13",
+            "parent": "balloons_right",
+            "pivot": [
+              -2,
+              20,
+              2
+            ],
+            "rotation": [
+              -39.72135,
+              -39.17817,
+              -3.24076
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -2.5,
+                  19.5,
+                  2
+                ],
+                "size": [
+                  1,
+                  1,
+                  11
+                ],
+                "pivot": [
+                  -2,
+                  20,
+                  2
+                ],
+                "rotation": [
+                  33.78652,
+                  -35.38949,
+                  -5.10392
+                ],
+                "uv": [
+                  0,
+                  0
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "balloon_right14",
+            "parent": "balloon_right13",
+            "pivot": [
+              -8,
+              25.5,
+              9.2
+            ],
+            "rotation": [
+              19.37006,
+              5.07855,
+              -14.13272
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -8.2852,
+                  25.22986,
+                  8.71933
+                ],
+                "size": [
+                  1,
+                  8,
+                  1
+                ],
+                "pivot": [
+                  -7.7852,
+                  25.72986,
+                  8.71933
+                ],
+                "rotation": [
+                  -1.71604,
+                  -12.06754,
+                  -22.84721
+                ],
+                "uv": [
+                  0,
+                  22
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -12.89083,
+                  31.80512,
+                  9.71177
+                ],
+                "size": [
+                  3,
+                  8,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  -11.39083,
+                  35.80512,
+                  9.71177
+                ],
+                "rotation": [
+                  -4.94014,
+                  30.96757,
+                  -13.4995
+                ],
+                "uv": [
+                  20,
+                  21
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "balloon_right15",
+            "parent": "balloon_right14",
+            "pivot": [
+              -12,
+              39.5,
+              9.95
+            ],
+            "rotation": [
+              25.11904,
+              9.73158,
+              15.17317
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -13,
+                  39.5,
+                  8.95
+                ],
+                "size": [
+                  2,
+                  1,
+                  2
+                ],
+                "uv": [
+                  32,
+                  49
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -13.5,
+                  40.25,
+                  8.45
+                ],
+                "size": [
+                  3,
+                  1,
+                  3
+                ],
+                "uv": [
+                  48,
+                  44
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -14.5,
+                  41,
+                  7.45
+                ],
+                "size": [
+                  5,
+                  5,
+                  5
+                ],
+                "uv": [
+                  28,
+                  39
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -14,
+                  46,
+                  7.95
+                ],
+                "size": [
+                  4,
+                  1,
+                  4
+                ],
+                "uv": [
+                  48,
+                  39
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "balloon_right16",
+            "parent": "balloons_right",
+            "pivot": [
+              -2,
+              16,
+              2
+            ],
+            "rotation": [
+              -12.31594,
+              -2.15393,
+              -9.76758
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -2.5,
+                  15.5,
+                  2
+                ],
+                "size": [
+                  1,
+                  1,
+                  11
+                ],
+                "pivot": [
+                  -2,
+                  16,
+                  2
+                ],
+                "rotation": [
+                  33.78652,
+                  -35.38949,
+                  -5.10392
+                ],
+                "uv": [
+                  0,
+                  0
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "balloon_right17",
+            "parent": "balloon_right16",
+            "pivot": [
+              -8,
+              21.5,
+              9.2
+            ],
+            "rotation": [
+              -7.47178,
+              -0.65182,
+              -4.95744
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -8.2852,
+                  21.22986,
+                  8.71933
+                ],
+                "size": [
+                  1,
+                  8,
+                  1
+                ],
+                "pivot": [
+                  -7.7852,
+                  21.72986,
+                  8.71933
+                ],
+                "rotation": [
+                  -1.71604,
+                  -12.06754,
+                  -22.84721
+                ],
+                "uv": [
+                  0,
+                  22
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -12.89083,
+                  27.80512,
+                  9.71177
+                ],
+                "size": [
+                  3,
+                  8,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  -11.39083,
+                  31.80512,
+                  9.71177
+                ],
+                "rotation": [
+                  -4.94014,
+                  30.96757,
+                  -13.4995
+                ],
+                "uv": [
+                  20,
+                  21
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "balloon_right18",
+            "parent": "balloon_right17",
+            "pivot": [
+              -12,
+              35.5,
+              9.95
+            ],
+            "rotation": [
+              24.24769,
+              -6.27967,
+              13.64973
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -13,
+                  35.5,
+                  8.95
+                ],
+                "size": [
+                  2,
+                  1,
+                  2
+                ],
+                "uv": [
+                  32,
+                  10
+                ]
+              },
+              {
+                "origin": [
+                  -13.5,
+                  36.25,
+                  8.45
+                ],
+                "size": [
+                  3,
+                  1,
+                  3
+                ],
+                "uv": [
+                  48,
+                  5
+                ]
+              },
+              {
+                "origin": [
+                  -14.5,
+                  37,
+                  7.45
+                ],
+                "size": [
+                  5,
+                  5,
+                  5
+                ],
+                "uv": [
+                  28,
+                  0
+                ]
+              },
+              {
+                "origin": [
+                  -14,
+                  42,
+                  7.95
+                ],
+                "size": [
+                  4,
+                  1,
+                  4
+                ],
+                "uv": [
+                  48,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "height": 0.1,
+  "scale": 0.9,
+  "x": 0.0,
+  "y": -1.0,
+  "z": 0.0,
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "roll": 0.0,
+  "previewY": 0.0,
+  "previewScale": 1.0,
+  "animation": {
+    "format_version": "1.8.0",
+    "animations": {
+      "animation.balloon_wings": {
+        "loop": true,
+        "animation_length": 2,
+        "bones": {
+          "balloon_left": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -6.25,
+                    0,
+                    3.75
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    -12.5,
+                    0,
+                    7.5
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -6.25,
+                    0,
+                    3.75
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -6.25,
+                    0,
+                    3.75
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left2": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    6.77,
+                    -15.32,
+                    -9.83
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.75": {
+                "post": {
+                  "vector": [
+                    0.8835,
+                    -20.864,
+                    -3.03
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -0.45,
+                    -10.18,
+                    -0.39
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.25": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.75": {
+                "post": {
+                  "vector": [
+                    7.5607,
+                    -12.4879,
+                    -10.554
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    6.77,
+                    -15.32,
+                    -9.83
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left3": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -5.05,
+                    -7.12,
+                    -6.39
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    12.3953,
+                    -14.2399,
+                    -25.2838
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -5.05,
+                    -7.12,
+                    -6.39
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    -22.5,
+                    0,
+                    12.5
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -5.05,
+                    -7.12,
+                    -6.39
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left4": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -5,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -5,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    -10,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -5,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left5": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -4.26,
+                    -10.66,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.25": {
+                "post": {
+                  "vector": [
+                    -5,
+                    -12.5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -0.78,
+                    -1.95,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.25": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -4.26,
+                    -10.66,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left6": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -0.57,
+                    3.14,
+                    -0.38
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    -13.6498,
+                    6.2799,
+                    11.7478
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -0.57,
+                    3.14,
+                    -0.38
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    12.5,
+                    0,
+                    -12.5
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -0.57,
+                    3.14,
+                    -0.38
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left7": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -14.57,
+                    -1.13,
+                    6.51
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    -12.7663,
+                    -2.8106,
+                    12.5649
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -14.57,
+                    -1.13,
+                    6.51
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    -15,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -14.57,
+                    -1.13,
+                    6.51
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left8": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    1.02,
+                    0.27,
+                    -1.82
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.25": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    5.82,
+                    1.56,
+                    -10.43
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.25": {
+                "post": {
+                  "vector": [
+                    6.9011,
+                    1.8534,
+                    -12.3581
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    1.02,
+                    0.27,
+                    -1.82
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left9": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -12.29,
+                    -8.24,
+                    12.04
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    -24.5832,
+                    -16.4833,
+                    14.0865
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -12.29,
+                    -8.24,
+                    12.04
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    10
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -12.29,
+                    -8.24,
+                    12.04
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left10": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -8.35,
+                    -0.18,
+                    5.42
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -8.35,
+                    -0.18,
+                    5.42
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    -16.7022,
+                    -0.3527,
+                    10.8394
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -8.35,
+                    -0.18,
+                    5.42
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left11": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    -20.76,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.25": {
+                "post": {
+                  "vector": [
+                    0,
+                    -25,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    -5.37,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.25": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.75": {
+                "post": {
+                  "vector": [
+                    0,
+                    -12.5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    -20.76,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left12": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    15.11,
+                    -7.03,
+                    11.73
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    12.316,
+                    -2.154,
+                    27.2675
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    15.11,
+                    -7.03,
+                    11.73
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    17.8981,
+                    -11.9127,
+                    -3.8139
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    15.11,
+                    -7.03,
+                    11.73
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left13": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -7.1003,
+                    3.7338,
+                    4.4123
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -7.1003,
+                    3.7338,
+                    4.4123
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left14": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    6.61,
+                    -6.79,
+                    -6.26
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.25": {
+                "post": {
+                  "vector": [
+                    5.1617,
+                    -7.9621,
+                    -5.6113
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    13.46,
+                    -1.24,
+                    -9.31
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.25": {
+                "post": {
+                  "vector": [
+                    15,
+                    0,
+                    -10
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    6.61,
+                    -6.79,
+                    -6.26
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left15": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -26.2786,
+                    -20.1144,
+                    19.2051
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left16": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -6.25,
+                    5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    -12.5,
+                    10,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -6.25,
+                    5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -6.25,
+                    5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left17": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    10.57,
+                    -5.82,
+                    -6.92
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.25": {
+                "post": {
+                  "vector": [
+                    12.3998,
+                    -6.8226,
+                    -8.1154
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    1.94,
+                    -1.07,
+                    -1.27
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.25": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    10.57,
+                    -5.82,
+                    -6.92
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_left18": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    1.81,
+                    -1.93,
+                    -0.23
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    12.5,
+                    0,
+                    -15
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    1.81,
+                    -1.93,
+                    -0.23
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    -8.8897,
+                    -3.8532,
+                    14.5417
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    1.81,
+                    -1.93,
+                    -0.23
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -6.25,
+                    0,
+                    -3.75
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -6.25,
+                    0,
+                    -3.75
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    -12.5,
+                    0,
+                    -7.5
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -6.25,
+                    0,
+                    -3.75
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right2": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -0.45,
+                    10.18,
+                    0.39
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.25": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.75": {
+                "post": {
+                  "vector": [
+                    7.5607,
+                    12.4879,
+                    10.554
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.75": {
+                "post": {
+                  "vector": [
+                    0.8835,
+                    20.864,
+                    3.03
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -0.45,
+                    10.18,
+                    0.39
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right3": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -5.05,
+                    7.12,
+                    6.39
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    -22.5,
+                    0,
+                    -12.5
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -5.05,
+                    7.12,
+                    6.39
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    12.3953,
+                    14.2399,
+                    25.2838
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -5.05,
+                    7.12,
+                    6.39
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right4": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -5,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    -10,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -5,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -5,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right5": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -0.78,
+                    1.95,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.25": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.25": {
+                "post": {
+                  "vector": [
+                    -5,
+                    12.5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -0.78,
+                    1.95,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right6": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -0.57,
+                    -3.14,
+                    0.38
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    12.5,
+                    0,
+                    12.5
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -0.57,
+                    -3.14,
+                    0.38
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    -13.6498,
+                    -6.2799,
+                    -11.7478
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -0.57,
+                    -3.14,
+                    0.38
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right7": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -14.57,
+                    1.13,
+                    -6.51
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    -15,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -14.57,
+                    1.13,
+                    -6.51
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    -12.7663,
+                    2.8106,
+                    -12.5649
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -14.57,
+                    1.13,
+                    -6.51
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right8": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    5.82,
+                    -1.56,
+                    10.43
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.25": {
+                "post": {
+                  "vector": [
+                    6.9011,
+                    -1.8534,
+                    12.3581
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.25": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    5.82,
+                    -1.56,
+                    10.43
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right9": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -12.29,
+                    8.24,
+                    -12.04
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    -10
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -12.29,
+                    8.24,
+                    -12.04
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    -24.5832,
+                    16.4833,
+                    -14.0865
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -12.29,
+                    8.24,
+                    -12.04
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right10": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -8.35,
+                    0.18,
+                    -5.42
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    -16.7022,
+                    0.3527,
+                    -10.8394
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -8.35,
+                    0.18,
+                    -5.42
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -8.35,
+                    0.18,
+                    -5.42
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right11": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    5.37,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.25": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.75": {
+                "post": {
+                  "vector": [
+                    0,
+                    12.5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.25": {
+                "post": {
+                  "vector": [
+                    0,
+                    25,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    5.37,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right12": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    15.11,
+                    7.03,
+                    -11.73
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    17.8981,
+                    11.9127,
+                    3.8139
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    15.11,
+                    7.03,
+                    -11.73
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    12.316,
+                    2.154,
+                    -27.2675
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    15.11,
+                    7.03,
+                    -11.73
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right13": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -7.1003,
+                    -3.7338,
+                    -4.4123
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right14": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    13.46,
+                    1.24,
+                    9.31
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.25": {
+                "post": {
+                  "vector": [
+                    15,
+                    0,
+                    10
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.25": {
+                "post": {
+                  "vector": [
+                    5.1617,
+                    7.9621,
+                    5.6113
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    13.46,
+                    1.24,
+                    9.31
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right15": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -26.2786,
+                    20.1144,
+                    -19.2051
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -26.2786,
+                    20.1144,
+                    -19.2051
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right16": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -6.25,
+                    -5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    -6.25,
+                    -5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    -12.5,
+                    -10,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -6.25,
+                    -5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right17": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    1.94,
+                    1.07,
+                    1.27
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.25": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.25": {
+                "post": {
+                  "vector": [
+                    12.3998,
+                    6.8226,
+                    8.1154
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    1.94,
+                    1.07,
+                    1.27
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "balloon_right18": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    1.81,
+                    1.93,
+                    0.23
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    -8.8897,
+                    3.8532,
+                    -14.5417
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    1.81,
+                    1.93,
+                    0.23
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    12.5,
+                    0,
+                    15
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    1.81,
+                    1.93,
+                    0.23
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

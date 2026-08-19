@@ -84,6 +84,14 @@ public class ServerUtil {
         return hasServerSegment("holyworld");
     }
 
+    public static boolean isReallyWorldServer() {
+        return hasServerSegment("reallyworld");
+    }
+
+    public static boolean isHolyOrReallyWorldServer() {
+        return isHolyWorldServer() || isReallyWorldServer();
+    }
+
     public static boolean isHolyWorldEventsServer() {
         return HOLYWORLD_HOST.matcher(getCurrentServerHost()).matches();
     }

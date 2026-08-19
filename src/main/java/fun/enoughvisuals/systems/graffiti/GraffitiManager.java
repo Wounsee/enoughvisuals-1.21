@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.modules.client.Graffiti;
+import fun.enoughvisuals.systems.network.RemoteConfig;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.ui.screen.GraffitiWheelScreen;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
@@ -48,12 +49,13 @@ public final class GraffitiManager {
     private static final int PAGE_SIZE = 8;
     private static final int LOCAL_LIMIT = 25;
     private static final long TTL_MS = 30L * 60L * 1000L;
+    private static final long PLACE_COOLDOWN_MS = 5_000L;
     private static final double MAX_PLACE_DISTANCE = 6.0;
     private static final double MAX_RENDER_DISTANCE_SQ = 96.0 * 96.0;
     private static final float INNER_RADIUS = 48f;
     private static final float OUTER_RADIUS = 108f;
     private static final float GAP_DEGREES = 3.2f;
-    private static final float DECAL_HALF_SIZE = 0.72f;
+    private static final float DECAL_HALF_SIZE = 0.5f;
     private static final float SURFACE_OFFSET = 0.0035f;
 
     private final MinecraftClient mc = MinecraftClient.getInstance();
@@ -69,6 +71,7 @@ public final class GraffitiManager {
     private double cursorY;
     private int page;
     private int hoveredSlot = -1;
+    private long nextPlacementAtMs;
 
     private GraffitiManager() {
     }
@@ -156,15 +159,22 @@ public final class GraffitiManager {
         if (!(result instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) return;
 
         long now = System.currentTimeMillis();
+        if (now < nextPlacementAtMs) return;
         Direction side = hit.getSide();
-        float rotation = side.getAxis() == Direction.Axis.Y ? MathHelper.wrapDegrees(mc.player.getYaw()) : 0f;
-        if (overlapsExisting(hit.getPos(), side, rotation)) return;
+        net.minecraft.util.math.BlockPos blockPos = hit.getBlockPos();
+        Vec3d center = Vec3d.ofCenter(blockPos).add(Vec3d.of(side.getVector()).multiply(0.5));
+        float rotation = side.getAxis() == Direction.Axis.Y
+                ? (float) (Math.round(MathHelper.wrapDegrees(mc.player.getYaw()) / 90f) * 90f)
+                : 0f;
+        if (overlapsExisting(center, side, rotation)) return;
+        nextPlacementAtMs = now + PLACE_COOLDOWN_MS;
         String id = UUID.randomUUID().toString();
         Placement placement = new Placement(id, mc.player.getUuid().toString(), entry.id(), dimensionId(),
-                hit.getPos(), side, rotation, now, now + TTL_MS);
+                center, side, rotation, now, now + TTL_MS);
         placements.put(id, placement);
         enforceLocalLimit(mc.player.getUuid().toString());
         pendingActions.addLast(PendingAction.place(placement));
+        RemoteConfig.getInstance().requestImmediateSync();
         Graffiti module = Graffiti.getInstance();
         if (module != null) module.rememberAsset(entry.id());
     }
@@ -210,6 +220,7 @@ public final class GraffitiManager {
         if (nearest == null) return false;
         placements.remove(nearest.id);
         pendingActions.addLast(PendingAction.delete(nearest.id));
+        RemoteConfig.getInstance().requestImmediateSync();
         return true;
     }
 
@@ -227,20 +238,7 @@ public final class GraffitiManager {
     static boolean overlaps(Vec3d firstPosition, Direction firstSide, float firstRotation,
                             Vec3d secondPosition, Direction secondSide, float secondRotation) {
         if (firstSide != secondSide) return false;
-        Basis first = basis(firstSide, firstRotation);
-        Basis second = basis(secondSide, secondRotation);
-        Vec3d delta = secondPosition.subtract(firstPosition);
-        if (Math.abs(delta.dotProduct(first.normal)) > 0.045) return false;
-        Vec3d[] axes = {first.right, first.up, second.right, second.up};
-        for (Vec3d axis : axes) {
-            double centerDistance = Math.abs(delta.dotProduct(axis));
-            double firstRadius = DECAL_HALF_SIZE * (Math.abs(first.right.dotProduct(axis))
-                    + Math.abs(first.up.dotProduct(axis)));
-            double secondRadius = DECAL_HALF_SIZE * (Math.abs(second.right.dotProduct(axis))
-                    + Math.abs(second.up.dotProduct(axis)));
-            if (centerDistance >= firstRadius + secondRadius - 0.01) return false;
-        }
-        return true;
+        return firstPosition.squaredDistanceTo(secondPosition) < 0.25;
     }
 
     public void appendSync(JsonObject request) {
@@ -378,13 +376,16 @@ public final class GraffitiManager {
 
     public void renderWorld(WorldRenderContext context) {
         Graffiti module = Graffiti.getInstance();
-        if (module == null || !module.isEnabled() || mc.world == null || context.camera() == null
+        if (mc.world == null || context.camera() == null
                 || context.matrixStack() == null || placements.isEmpty()) return;
+        boolean localEnabled = module != null && module.isEnabled();
+        String localUuid = mc.player == null ? "" : mc.player.getUuidAsString();
         String dimension = dimensionId();
         Vec3d camera = context.camera().getPos();
         long now = System.currentTimeMillis();
         Map<Identifier, RenderBatch> batches = new HashMap<>();
         for (Placement placement : placements.values()) {
+            if (!localEnabled && placement.owner.equalsIgnoreCase(localUuid)) continue;
             if (!placement.dimension.equals(dimension) || placement.expiresAt <= now
                     || placement.position.squaredDistanceTo(camera) > MAX_RENDER_DISTANCE_SQ) continue;
             GraffitiCatalog.Entry entry = GraffitiCatalog.find(placement.asset);

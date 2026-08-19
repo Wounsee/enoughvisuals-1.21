@@ -1,0 +1,359 @@
+{
+  "name": "Bear Hat",
+  "id": 201,
+  "category": 2,
+  "author": "EnoughVisuals",
+  "pos": 2,
+  "version": 1,
+  "texture": "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAFuElEQVR4AezbTahVVRQH8H2PkB/PnhppmIFlz4IEIUtyUlDawFEQDappk6RBY2kcjhtEo8Y1iKKRhDopgsqPQDJIzRDKUMOP1/OjHLzeb9e6nHffve8owj3n3O6D/11rr7X3PmutvfY+e+/7bpEq/vY+98gs7Nv9xCx8+NqOTMng4DsvzS6Giu5rV1cGYHJieZra8EBat3oyPf7Yg2nNupWZ3/7ko1leuwd3aUBlAKav3UgXrkx3HzO5ciIH4fKFmXT6t/NdeVuZygDIAKNv5DnPUVRZZii3GZUBaLNzt2N7ZQB6Rz86jSyIcltpZQDMf/N9eubaPB+VyecJW1ioDEBkQNk3zo9MBniXe78Hxce7Hi073o8XjLNnzqeg+ENfHU9B9QvlfvFk0K/PYcpyBhjlWO3xVnivv2OnziY49PWJJN05CfjPvvgukYPXYWSEtr1vh+h746Z/9xOeQTZMRwc9q2AIoxmFAmeOXFmSzi+5L+Pk3xO5PTkokIVeXSMeOn2oo2+IvskEgZ6MjqxOFEb68Pc/583OTyfPdUf6hQ33pM1Lr2fgGR6GcuDVLfdnnTp4OkHQB8gKfQOejB7wZHTa1Yli35e/dGDv/h878MZH33Refu9g5smnr9/M9jFc+oMp4O1AB6YJh8hU5hg56AOib/3jyUD9OpHXgMUMeGjtmrR92+YkA6Q44Mm2bd6Ym6pj3jsrSG08WVY2/KMyABxazIfJFcuyev+ZP9OBHy4n9MiFW1kWulxo6EdlAMz3KtvLQVq7clm6OHMznxir2tWh731mZQCkfG+jKAtOrORXb/yVHQ8daiqgTUZlACx+gxywGFrwYvGLIKBkFsZBbZsirwwARxYz1kpP71W45/mH0+s71ic8WejwTUVlAIzw4WOnFtgvM2KE1REoGQF4sgWNGigo3np6fb7js+//9O1d+X4PH/v1sJnDZZ6TylZ6c91CaE0gw5Phe/v3jOifTp06kTPg14uX8/WWHaHRNrJkUjjjv2sxQQDOG+Gsm9soxUbI6GsLZOGYvsjsAAFPFvo6afH+kd87YDUHxtjb2+sDnR2b3RunGM959ZwFbHiijl2eukBWBpk+AB86/dSJnAEMkLZ2d+iq5UuJUlCFfunqHCAY/XTatAGFuW5Olo3dvene5AD05q6pFHf+oZcdMiWgHLo20nwaNKch5jfeyJYdsthBOSvolcnxbURhBI9e6iT4+MQfmeLJyw6Zt/DJtyfySdFcBmXyct028cWB46c7nIBefte7n3cCbXLqTmztLoIvbp2afeWZLbN7dj6VcSedtLluNwDmspPc6YtXFxxq2uxgle1FjHxUnFq7KrOygS4XRvij4LDTGzjHg0wAurb7XmV/8cGhox2LH1gIgay4ei6tvnUpubu3V0BteOzl+6HqQU3Vd9eAXgO92212yO0O8WTKo4TBAZhYnq+1OO6UJwij5Hj4UgTTS+0EHXw4HtdigtFbr+3lgQHgGIeNfmyRBYV8lDAwAJyP0ReEzM9Ni1Fyni/5RsgKHyt98JTgmyA04ELDxUlQvC9IvSGiLQpk0a6pNF+IOMw42KCABxccviYDPBlEHRTicgMfejx5Ux0PuwZOgagw6nQcgFEf4Sr/xhlQFaFR148zYNRHuMq/kcuAKod79eMA9Ebk/1aedxaI80BQe3mwr3cLRA54MjrAkwcNng5CjkJZX3fAC7c8cfLzX17Bo1m3Ylmyr3cesM8HPFno1Y3Toj6CL+vJ1YMuP9d3/QGYO+IyiCEcY7zjr7KfxQC+H+iAThtt9aGsT87ufHZr/qkNuS9fAU9Pp26dKMIgDjDE/wAyMJzBk/cDHURdbdXTF7m+fbMUN0p4UIcseOW6UIQRDGZElB1/lW8HUTfa9vYV8nJf/WRl/bD48WtwWJFu6nPGGdDUkRmWXeMMGFakm/qccQY0dWSGZVfrM+BuA/UPAAAA//9dOC56AAAABklEQVQDAByLyq5BtsYDAAAAAElFTkSuQmCC",
+  "model": {
+    "format_version": "1.12.0",
+    "minecraft:geometry": [
+      {
+        "description": {
+          "identifier": "geometry.bear_hat",
+          "texture_width": 64,
+          "texture_height": 64,
+          "visible_bounds_width": 5,
+          "visible_bounds_height": 4.5,
+          "visible_bounds_offset": [
+            0,
+            1.75,
+            0
+          ]
+        },
+        "bones": [
+          {
+            "name": "hat",
+            "pivot": [
+              0,
+              27,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -4,
+                  34.75,
+                  -4
+                ],
+                "size": [
+                  8,
+                  1,
+                  8
+                ],
+                "inflate": 0.7,
+                "uv": {
+                  "north": {
+                    "uv": [
+                      8,
+                      20
+                    ],
+                    "uv_size": [
+                      8,
+                      2
+                    ]
+                  },
+                  "east": {
+                    "uv": [
+                      0,
+                      20
+                    ],
+                    "uv_size": [
+                      8,
+                      2
+                    ]
+                  },
+                  "south": {
+                    "uv": [
+                      24,
+                      20
+                    ],
+                    "uv_size": [
+                      8,
+                      2
+                    ]
+                  },
+                  "west": {
+                    "uv": [
+                      16,
+                      20
+                    ],
+                    "uv_size": [
+                      8,
+                      2
+                    ]
+                  },
+                  "up": {
+                    "uv": [
+                      8,
+                      12
+                    ],
+                    "uv_size": [
+                      8,
+                      8
+                    ]
+                  },
+                  "down": {
+                    "uv": [
+                      16,
+                      20
+                    ],
+                    "uv_size": [
+                      8,
+                      -8
+                    ]
+                  }
+                }
+              },
+              {
+                "origin": [
+                  -4,
+                  29,
+                  -4
+                ],
+                "size": [
+                  8,
+                  4.35,
+                  8
+                ],
+                "inflate": 0.69,
+                "uv": {
+                  "north": {
+                    "uv": [
+                      8,
+                      50
+                    ],
+                    "uv_size": [
+                      8,
+                      4
+                    ]
+                  },
+                  "east": {
+                    "uv": [
+                      0,
+                      50
+                    ],
+                    "uv_size": [
+                      8,
+                      4
+                    ]
+                  },
+                  "south": {
+                    "uv": [
+                      24,
+                      50
+                    ],
+                    "uv_size": [
+                      8,
+                      4
+                    ]
+                  },
+                  "west": {
+                    "uv": [
+                      16,
+                      50
+                    ],
+                    "uv_size": [
+                      8,
+                      4
+                    ]
+                  },
+                  "up": {
+                    "uv": [
+                      8,
+                      42
+                    ],
+                    "uv_size": [
+                      8,
+                      8
+                    ]
+                  },
+                  "down": {
+                    "uv": [
+                      16,
+                      50
+                    ],
+                    "uv_size": [
+                      8,
+                      -8
+                    ]
+                  }
+                }
+              },
+              {
+                "origin": [
+                  -4,
+                  36.40115,
+                  -4.22429
+                ],
+                "size": [
+                  8,
+                  4,
+                  8
+                ],
+                "uv": [
+                  0,
+                  0
+                ]
+              },
+              {
+                "origin": [
+                  -3,
+                  40.40115,
+                  -3.22429
+                ],
+                "size": [
+                  6,
+                  1,
+                  6
+                ],
+                "uv": [
+                  0,
+                  32
+                ]
+              },
+              {
+                "origin": [
+                  -1.5,
+                  35.13582,
+                  -6.32071
+                ],
+                "size": [
+                  3,
+                  3,
+                  2
+                ],
+                "pivot": [
+                  0,
+                  38.6227,
+                  -2.83513
+                ],
+                "rotation": [
+                  5,
+                  0,
+                  0
+                ],
+                "uv": [
+                  0,
+                  22
+                ]
+              },
+              {
+                "origin": [
+                  -1,
+                  36.63582,
+                  -6.82071
+                ],
+                "size": [
+                  2,
+                  2,
+                  2
+                ],
+                "pivot": [
+                  0,
+                  38.6227,
+                  -2.83513
+                ],
+                "rotation": [
+                  5,
+                  0,
+                  0
+                ],
+                "uv": [
+                  0,
+                  28
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ear_left",
+            "parent": "hat",
+            "pivot": [
+              0.25,
+              37.5,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  2.89799,
+                  38.62393,
+                  -0.20651
+                ],
+                "size": [
+                  3,
+                  3,
+                  1
+                ],
+                "pivot": [
+                  4.39799,
+                  40.12393,
+                  0.29349
+                ],
+                "rotation": [
+                  -15.22074,
+                  -9.65594,
+                  30.11298
+                ],
+                "uv": [
+                  10,
+                  22
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ear_right",
+            "parent": "hat",
+            "pivot": [
+              -0.25,
+              37.5,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -5.89799,
+                  38.62393,
+                  -0.20651
+                ],
+                "size": [
+                  3,
+                  3,
+                  1
+                ],
+                "pivot": [
+                  -4.39799,
+                  40.12393,
+                  0.29349
+                ],
+                "rotation": [
+                  -15.22074,
+                  9.65594,
+                  -30.11298
+                ],
+                "uv": [
+                  10,
+                  22
+                ],
+                "mirror": true
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "height": 0.1,
+  "scale": 1.0,
+  "x": 0.0,
+  "y": -1.5,
+  "z": 0.0,
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "roll": 0.0,
+  "previewY": 0.0,
+  "previewScale": 1.0
+}

@@ -89,7 +89,8 @@ public class ChatComponentMixin {
             message = Emojis.applyEmojis(message);
 
         // nameplates
-        int config = Configs.CHAT_NAMEPLATE.value;
+        // EnoughVisuals owns the chat marker; Figura badges/nameplates stay disabled.
+        int config = 0;
         if (config == 0)
             return message;
 

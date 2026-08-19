@@ -21,6 +21,7 @@
     { "constant": "SAVE", "file": "save.svg", "codepoint": "F210", "node": "151:171" },
     { "constant": "BELL", "file": "bell.svg", "codepoint": "F211", "node": "151:140" },
     { "constant": "WARNING", "file": "warning.svg", "codepoint": "F212", "node": "151:158" },
-    { "constant": "PLAY", "file": "play.svg", "codepoint": "F213", "node": "runtime-state" }
+    { "constant": "PLAY", "file": "play.svg", "codepoint": "F213", "node": "runtime-state" },
+    { "constant": "CLOCK", "file": "clock.svg", "codepoint": "F214", "node": "solar--clock-circle-bold" }
   ]
 }

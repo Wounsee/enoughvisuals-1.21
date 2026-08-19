@@ -20,5 +20,6 @@ public abstract class LivingEntityJumpMixin {
         if (MinecraftClient.getInstance().player != clientPlayer) return;
         JumpEffect.onLocalPlayerJump();
         JumpCircle.onLocalPlayerJump();
+        fun.enoughvisuals.systems.modules.modules.visual.JumpCube.onPlayerJump();
     }
 }

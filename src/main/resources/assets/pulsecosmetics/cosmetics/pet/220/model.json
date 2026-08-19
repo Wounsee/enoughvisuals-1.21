@@ -1,0 +1,936 @@
+{
+  "name": "Axolotl Pet",
+  "id": 220,
+  "category": 3,
+  "author": "EnoughVisuals",
+  "pos": 1,
+  "version": 1,
+  "texture": "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",
+  "model": {
+    "format_version": "1.12.0",
+    "minecraft:geometry": [
+      {
+        "description": {
+          "identifier": "geometry.unknown",
+          "texture_width": 64,
+          "texture_height": 64,
+          "visible_bounds_width": 3,
+          "visible_bounds_height": 2.5,
+          "visible_bounds_offset": [
+            0,
+            0.75,
+            0
+          ]
+        },
+        "bones": [
+          {
+            "name": "bucket",
+            "pivot": [
+              0,
+              0,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -3,
+                  0,
+                  -4
+                ],
+                "size": [
+                  6,
+                  1,
+                  6
+                ],
+                "uv": [
+                  26,
+                  9
+                ]
+              },
+              {
+                "origin": [
+                  -4,
+                  1,
+                  -5
+                ],
+                "size": [
+                  8,
+                  1,
+                  8
+                ],
+                "uv": [
+                  0,
+                  0
+                ]
+              },
+              {
+                "origin": [
+                  -4,
+                  5,
+                  -5
+                ],
+                "size": [
+                  8,
+                  1,
+                  8
+                ],
+                "uv": [
+                  0,
+                  55
+                ]
+              },
+              {
+                "origin": [
+                  4,
+                  2,
+                  -5
+                ],
+                "size": [
+                  1,
+                  6,
+                  8
+                ],
+                "uv": [
+                  0,
+                  19
+                ]
+              },
+              {
+                "origin": [
+                  -4,
+                  2,
+                  -6
+                ],
+                "size": [
+                  8,
+                  6,
+                  1
+                ],
+                "uv": [
+                  32,
+                  0
+                ]
+              },
+              {
+                "origin": [
+                  -4,
+                  2,
+                  3
+                ],
+                "size": [
+                  8,
+                  6,
+                  1
+                ],
+                "uv": [
+                  18,
+                  33
+                ]
+              },
+              {
+                "origin": [
+                  -4.5,
+                  9.75,
+                  -0.75
+                ],
+                "size": [
+                  0,
+                  8,
+                  1
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  0.5,
+                  9.75,
+                  -4.75
+                ],
+                "rotation": [
+                  -45,
+                  0,
+                  0
+                ],
+                "uv": [
+                  62,
+                  5
+                ]
+              },
+              {
+                "origin": [
+                  4.5,
+                  9.75,
+                  -0.75
+                ],
+                "size": [
+                  0,
+                  8,
+                  1
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  -0.5,
+                  9.75,
+                  -4.75
+                ],
+                "rotation": [
+                  -45,
+                  0,
+                  0
+                ],
+                "uv": [
+                  62,
+                  5
+                ]
+              },
+              {
+                "origin": [
+                  -4.5,
+                  17.75,
+                  -0.75
+                ],
+                "size": [
+                  9,
+                  0,
+                  1
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  0.5,
+                  9.75,
+                  -4.75
+                ],
+                "rotation": [
+                  -45,
+                  0,
+                  0
+                ],
+                "uv": [
+                  5,
+                  54
+                ]
+              },
+              {
+                "origin": [
+                  -5,
+                  2,
+                  -5
+                ],
+                "size": [
+                  1,
+                  6,
+                  8
+                ],
+                "uv": [
+                  18,
+                  19
+                ]
+              }
+            ]
+          },
+          {
+            "name": "main",
+            "parent": "bucket",
+            "pivot": [
+              0,
+              3,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  0,
+                  3,
+                  1
+                ],
+                "size": [
+                  0,
+                  7,
+                  5
+                ],
+                "inflate": 0.01,
+                "uv": [
+                  36,
+                  28
+                ]
+              },
+              {
+                "origin": [
+                  1.25,
+                  1,
+                  -1.25
+                ],
+                "size": [
+                  3,
+                  4,
+                  0
+                ],
+                "pivot": [
+                  2.75,
+                  3,
+                  -1.25
+                ],
+                "rotation": [
+                  -45,
+                  0,
+                  -30
+                ],
+                "uv": [
+                  0,
+                  43
+                ]
+              },
+              {
+                "origin": [
+                  -4.25,
+                  1,
+                  -1.25
+                ],
+                "size": [
+                  3,
+                  4,
+                  0
+                ],
+                "pivot": [
+                  -2.75,
+                  3,
+                  -1.25
+                ],
+                "rotation": [
+                  -45,
+                  0,
+                  30
+                ],
+                "uv": [
+                  0,
+                  43
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "parent": "main",
+            "pivot": [
+              1.25,
+              4,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -3,
+                  3,
+                  -2
+                ],
+                "size": [
+                  6,
+                  7,
+                  3
+                ],
+                "uv": [
+                  0,
+                  33
+                ]
+              }
+            ]
+          },
+          {
+            "name": "head",
+            "parent": "body",
+            "pivot": [
+              0,
+              10,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -4,
+                  10,
+                  -4
+                ],
+                "size": [
+                  8,
+                  5,
+                  5
+                ],
+                "uv": [
+                  0,
+                  9
+                ]
+              }
+            ]
+          },
+          {
+            "name": "shades",
+            "parent": "head",
+            "pivot": [
+              0,
+              13.5,
+              -1.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -4,
+                  11,
+                  -4
+                ],
+                "size": [
+                  8,
+                  5,
+                  5
+                ],
+                "inflate": 0.1,
+                "pivot": [
+                  0,
+                  13.5,
+                  -1.5
+                ],
+                "rotation": [
+                  -7.5,
+                  0,
+                  0
+                ],
+                "uv": [
+                  38,
+                  54
+                ]
+              }
+            ]
+          },
+          {
+            "name": "gills",
+            "parent": "head",
+            "pivot": [
+              0,
+              10,
+              0
+            ]
+          },
+          {
+            "name": "leftgills",
+            "parent": "gills",
+            "pivot": [
+              2,
+              13,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  1,
+                  14,
+                  -1
+                ],
+                "size": [
+                  5,
+                  4,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  3.5,
+                  16,
+                  -1
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  -12.5
+                ],
+                "uv": [
+                  18,
+                  40
+                ]
+              },
+              {
+                "origin": [
+                  4,
+                  12,
+                  -1.25
+                ],
+                "size": [
+                  5,
+                  4,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  6.5,
+                  13,
+                  -1.25
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  2.5
+                ],
+                "uv": [
+                  28,
+                  40
+                ]
+              },
+              {
+                "origin": [
+                  3,
+                  9,
+                  -1
+                ],
+                "size": [
+                  5,
+                  4,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  5.5,
+                  10,
+                  -1
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  15
+                ],
+                "uv": [
+                  38,
+                  40
+                ]
+              }
+            ]
+          },
+          {
+            "name": "rightgills",
+            "parent": "gills",
+            "pivot": [
+              -2,
+              13,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -6,
+                  14,
+                  -1
+                ],
+                "size": [
+                  5,
+                  4,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  -3.5,
+                  16,
+                  -1
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  12.5
+                ],
+                "uv": [
+                  18,
+                  40
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -9,
+                  12,
+                  -1.25
+                ],
+                "size": [
+                  5,
+                  4,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  -6.5,
+                  13,
+                  -1.25
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  -2.5
+                ],
+                "uv": [
+                  28,
+                  40
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -8,
+                  9,
+                  -1
+                ],
+                "size": [
+                  5,
+                  4,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  -5.5,
+                  10,
+                  -1
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  -15
+                ],
+                "uv": [
+                  38,
+                  40
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "arm_left",
+            "parent": "main",
+            "pivot": [
+              2.25,
+              8,
+              -1
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  1.25,
+                  8,
+                  -6
+                ],
+                "size": [
+                  3,
+                  0,
+                  6
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  2.25,
+                  8,
+                  -1
+                ],
+                "rotation": [
+                  0,
+                  -12.5,
+                  0
+                ],
+                "uv": [
+                  36,
+                  16
+                ]
+              }
+            ]
+          },
+          {
+            "name": "arm_right",
+            "parent": "main",
+            "pivot": [
+              -2.25,
+              8,
+              -1
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -4.25,
+                  8,
+                  -6
+                ],
+                "size": [
+                  3,
+                  0,
+                  6
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  -2.25,
+                  8,
+                  -1
+                ],
+                "rotation": [
+                  0,
+                  12.5,
+                  0
+                ],
+                "uv": [
+                  36,
+                  22
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "height": 0.1,
+  "scale": 1.0,
+  "x": 0.0,
+  "y": 0.0,
+  "z": 0.0,
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "roll": 0.0,
+  "previewY": 0.0,
+  "previewScale": 1.0,
+  "animation": {
+    "format_version": "1.8.0",
+    "animations": {
+      "animation.neon_axolotl": {
+        "loop": true,
+        "animation_length": 2,
+        "bones": {
+          "leftgills": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    -5.7,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.75": {
+                "post": {
+                  "vector": [
+                    0,
+                    17.5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.75": {
+                "post": {
+                  "vector": [
+                    0,
+                    -10,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    -5.7,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "rightgills": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    5.7,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.75": {
+                "post": {
+                  "vector": [
+                    0,
+                    -17.5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.75": {
+                "post": {
+                  "vector": [
+                    0,
+                    10,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    5.7,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "head": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    -3.13,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.25": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.25": {
+                "post": {
+                  "vector": [
+                    -20,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    -3.13,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.25": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "body": {
+            "rotation": {
+              "vector": [
+                17.5,
+                0,
+                0
+              ]
+            },
+            "position": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    -0.5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    -0.5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    -1,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    -0.5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "shades": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    7.5,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

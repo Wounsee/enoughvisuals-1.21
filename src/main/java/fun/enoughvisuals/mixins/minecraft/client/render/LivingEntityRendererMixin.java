@@ -12,7 +12,6 @@ import fun.enoughvisuals.systems.emotions.render.EmotionAttachmentContext;
 import fun.enoughvisuals.systems.emotions.render.EmotionPlayerModelScope;
 import fun.enoughvisuals.systems.emotions.render.PulseEmotionRenderer;
 import fun.enoughvisuals.systems.modules.modules.utils.CustomSphereSkin;
-import fun.enoughvisuals.utils.render.PetRenderer;
 import fun.enoughvisuals.utils.render.ShaderEspRenderer;
 import net.minecraft.client.model.Model;
 import net.minecraft.client.model.ModelTransform;
@@ -174,9 +173,6 @@ public class LivingEntityRendererMixin {
 
         if (state instanceof PlayerEntityRenderState playerState) {
             MinecraftClient client = MinecraftClient.getInstance();
-            if (!(client.currentScreen instanceof InventoryScreen)) {
-                PetRenderer.renderWorldPet(playerState.id, playerState.pose, matrices, vertexConsumers, light);
-            }
             if (client.player == null || playerState.id != client.player.getId() || playerState.wearingSkullType == null) {
                 return;
             }

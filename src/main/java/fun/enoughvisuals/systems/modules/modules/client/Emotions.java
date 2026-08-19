@@ -7,7 +7,7 @@ import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BindSetting;
 import org.lwjgl.glfw.GLFW;
 
-@Register(name = "Emotions", id = "emotions", description = "Колесо анимаций персонажа", category = Category.CLIENT)
+@Register(name = "Emotions", id = "emotions", description = "Колесо анимаций персонажа", category = Category.CLIENT, enabledByDefault = true)
 public final class Emotions extends Module {
     private static Emotions instance;
     private final BindSetting wheelBind = add(new BindSetting(
@@ -33,6 +33,6 @@ public final class Emotions extends Module {
 
     @Override
     protected void onDisable() {
-        EmotionWheelManager.getInstance().stopAll();
+        EmotionWheelManager.getInstance().stopLocalOnly();
     }
 }

@@ -229,17 +229,47 @@ public final class MenuBackgroundManager {
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        context.drawTexture(RenderLayer::getGuiTextured, background, 0, 0, sourceX, sourceY,
-                width, height, sourceWidth, sourceHeight, imageWidth, imageHeight);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, 0f, 0f, 1f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, 0.45f, 0f, 0.055f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, -0.45f, 0f, 0.055f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, 0f, 0.45f, 0.055f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, 0f, -0.45f, 0.055f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, 0.35f, 0.35f, 0.035f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, -0.35f, 0.35f, 0.035f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, 0.35f, -0.35f, 0.035f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, -0.35f, -0.35f, 0.035f);
         context.draw();
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         RenderSystem.disableBlend();
+        drawBackgroundDim(context, width, height);
+    }
+
+    public static void drawBackgroundDim(DrawContext context, int width, int height) {
         RenderUtil.drawRect(context, 0f, 0f, width, height, 0x4A000000);
         RenderUtil.drawGradientRect(context, 0f, 0f, width, height * 0.30f,
                 0x5C000000, 0x00000000);
         RenderUtil.drawGradientRect(context, 0f, height * 0.66f, width, height * 0.34f,
                 0x00000000, 0x6A000000);
+    }
+
+    private static void drawBackgroundPass(DrawContext context, Identifier background, int width, int height,
+                                           float sourceX, float sourceY, int sourceWidth, int sourceHeight,
+                                           int imageWidth, int imageHeight, float offsetX, float offsetY, float alpha) {
+        RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+        context.getMatrices().push();
+        context.getMatrices().translate(offsetX, offsetY, 0f);
+        context.drawTexture(RenderLayer::getGuiTextured, background, 0, 0, sourceX, sourceY,
+                width, height, sourceWidth, sourceHeight, imageWidth, imageHeight);
+        context.getMatrices().pop();
     }
 
     public static boolean isCached(MinecraftClient client, Entry entry) {

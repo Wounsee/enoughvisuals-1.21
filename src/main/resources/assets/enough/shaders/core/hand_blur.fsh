@@ -150,6 +150,40 @@ void main() {
             vec3 glowColor = mix(TintColor.rgb, vec3(1.0), 0.22 + energy * 0.28);
             OutColor = vec4(glowColor, clamp(pow(glow, 0.55) * outlineAlpha, 0.0, 1.0));
         }
+    } else if (Mode == 3) { // Aurora
+        if (mask < 0.01) discard;
+        vec2 auv = uv * 3.0;
+        float w1 = sin(auv.x * 2.0 + Time * 2.0 + fbm(auv * 1.2));
+        float w2 = cos(auv.y * 1.5 - Time * 1.5 + fbm(auv * 0.9));
+        float wave = pow(clamp(0.5 + 0.5 * (w1 * 0.6 + w2 * 0.4), 0.0, 1.0), 2.0);
+        vec3 col = mix(TintColor.rgb * 0.2, mix(TintColor.rgb, vec3(0.3, 1.0, 0.8), 0.7), wave);
+        OutColor = vec4(col, mask * outlineAlpha);
+    } else if (Mode == 4) { // Stars
+        if (mask < 0.01) discard;
+        vec2 suv = uv * 6.0;
+        float starField = pow(hash(floor(suv * 8.0)), 16.0) * (0.5 + 0.5 * sin(Time * 4.0 + suv.x * 10.0));
+        float neb = fbm(suv * 0.4 + vec2(Time * 0.05, -Time * 0.03));
+        vec3 col = mix(TintColor.rgb * 0.3, TintColor.rgb, neb) + vec3(starField * 1.5);
+        OutColor = vec4(col, mask * outlineAlpha);
+    } else if (Mode == 5) { // Glow
+        if (mask < 0.01) discard;
+        vec2 guv = (uv - vec2(0.5)) * 4.0;
+        float g = 0.5 + 0.5 * sin(length(guv) * 2.0 - Time * 3.0);
+        vec3 col = mix(TintColor.rgb * 0.35, mix(TintColor.rgb, vec3(1.0), 0.8), pow(g, 2.2));
+        OutColor = vec4(col, mask * outlineAlpha);
+    } else if (Mode == 6) { // Caustic
+        if (mask < 0.01) discard;
+        vec2 cuv = uv * 4.0;
+        float c1 = sin(cuv.x * 3.0 + Time * 2.0) + sin(cuv.y * 3.0 + Time * 2.0);
+        float c2 = sin((cuv.x + cuv.y) * 2.5 - Time * 1.5);
+        float caust = pow(clamp(0.5 + 0.25 * (c1 + c2), 0.0, 1.0), 3.0);
+        vec3 col = mix(TintColor.rgb * 0.3, mix(TintColor.rgb, vec3(1.0), 0.85), caust);
+        OutColor = vec4(col, mask * outlineAlpha);
+    } else if (Mode == 7) { // Clouds
+        if (mask < 0.01) discard;
+        float cloud = fbm(uv * 3.0 + vec2(Time * 0.1, Time * 0.06));
+        vec3 col = mix(TintColor.rgb * 0.3, mix(TintColor.rgb, vec3(0.95, 0.98, 1.0), 0.6), smoothstep(0.3, 0.75, cloud));
+        OutColor = vec4(col, mask * outlineAlpha);
     } else {
         discard;
     }

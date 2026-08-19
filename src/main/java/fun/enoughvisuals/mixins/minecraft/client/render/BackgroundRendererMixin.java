@@ -1,6 +1,6 @@
 package fun.enoughvisuals.mixins.minecraft.client.render;
 
-import fun.enoughvisuals.systems.modules.modules.visual.CustomWorld;
+import fun.enoughvisuals.systems.modules.modules.visual.WorldTweaks;
 import net.minecraft.client.render.BackgroundRenderer;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.Fog;
@@ -21,7 +21,7 @@ public class BackgroundRendererMixin {
                                               int viewDistance,
                                               float skyDarkness,
                                               CallbackInfoReturnable<Vector4f> cir) {
-        CustomWorld customWorld = CustomWorld.active();
+        WorldTweaks customWorld = WorldTweaks.active();
         if (customWorld != null && customWorld.shouldApplyFog(camera, BackgroundRenderer.FogType.FOG_TERRAIN)) {
             cir.setReturnValue(customWorld.fogColorVector());
         }
@@ -35,7 +35,7 @@ public class BackgroundRendererMixin {
                                          boolean thickenFog,
                                          float tickDelta,
                                          CallbackInfoReturnable<Fog> cir) {
-        CustomWorld customWorld = CustomWorld.active();
+        WorldTweaks customWorld = WorldTweaks.active();
         if (customWorld != null && customWorld.shouldApplyFog(camera, fogType)) {
             cir.setReturnValue(customWorld.applyFog(cir.getReturnValue()));
         }

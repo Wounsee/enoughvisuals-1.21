@@ -91,7 +91,8 @@ public abstract class PlayerRendererMixin extends LivingEntityRenderer<AbstractC
 
     @ModifyArg(method = "renderNameTag(Lnet/minecraft/client/renderer/entity/state/PlayerRenderState;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/LivingEntityRenderer;renderNameTag(Lnet/minecraft/client/renderer/entity/state/EntityRenderState;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V", ordinal = 1))
     private Component modifyPlayerNameText(Component text, @Local(argsOnly = true) PlayerRenderState player) {
-        int config = Configs.ENTITY_NAMEPLATE.value;
+        // EnoughVisuals renders the only player marker used above entities.
+        int config = 0;
         if (config == 0 || AvatarManager.panic)
             return text;
 
@@ -138,7 +139,7 @@ public abstract class PlayerRendererMixin extends LivingEntityRenderer<AbstractC
     @Inject(method = "renderNameTag(Lnet/minecraft/client/renderer/entity/state/PlayerRenderState;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V", at = @At("HEAD"), cancellable = true)
     private void renderNameTag(PlayerRenderState playerRenderState, Component component, PoseStack matrices, MultiBufferSource vertexConsumers, int i, CallbackInfo ci) {
         // return on config or high entity distance
-        int config = Configs.ENTITY_NAMEPLATE.value;
+        int config = 0;
         Entity entity = Minecraft.getInstance().level.getEntity(playerRenderState.id);
 
         if (config == 0 || AvatarManager.panic || !(entity instanceof Player player) || this.entityRenderDispatcher.distanceToSqr(player) > 4096)

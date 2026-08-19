@@ -60,6 +60,7 @@ public final class CosmeticCatalog {
     private static final Map<String, Identifier> PREVIEWS = new HashMap<>();
     private static final EnumMap<Kind, String> EQUIPPED = new EnumMap<>(Kind.class);
     private static final Map<UUID, String> REMOTE_SIGNATURES = new HashMap<>();
+    private static final Map<UUID, EnumMap<Kind, Integer>> REMOTE_PULSE = new HashMap<>();
     private static final String GENERIC_PREVIEW_SHA256 =
             "22c2e8c2358322d34941d1c6df6f6155c423ac3cb5183535a2daef5197674557";
     private static final Set<String> MODEL_OVERRIDES = Set.of(
@@ -78,15 +79,47 @@ public final class CosmeticCatalog {
             "PET:132"
     );
     /** Display names that replace the ones baked into the Pulse runtime. */
-    private static final Map<String, String> PULSE_NAMES = Map.of(
-            "WINGS:82", "Chains",
-            "WINGS:86", "Trident",
-            "WINGS:91", "Aqua",
-            "WINGS:136", "Yellow",
-            "HAT:80", "Shlapa",
-            "HAT:85", "Face",
-            "HAT:88", "Pinguin",
-            "HAT:125", "Hat"
+    private static final Map<String, String> PULSE_NAMES = Map.ofEntries(
+            Map.entry("WINGS:82", "Chains"),
+            Map.entry("WINGS:86", "Trident"),
+            Map.entry("WINGS:91", "Aqua"),
+            Map.entry("WINGS:136", "Yellow"),
+            Map.entry("HAT:80", "Shlapa"),
+            Map.entry("HAT:85", "Face"),
+            Map.entry("HAT:88", "Pinguin"),
+            Map.entry("HAT:125", "Hat"),
+
+            // New Hats from pasta
+            Map.entry("HAT:201", "Bear"),
+            Map.entry("HAT:202", "Blackhole Halo"),
+            Map.entry("HAT:203", "Frog"),
+            Map.entry("HAT:204", "Pilot"),
+
+            // New Wings from pasta
+            Map.entry("WINGS:210", "Archangel"),
+            Map.entry("WINGS:211", "Balloon"),
+            Map.entry("WINGS:212", "Blackhole"),
+            Map.entry("WINGS:213", "Butterfly"),
+            Map.entry("WINGS:214", "Draco"),
+            Map.entry("WINGS:215", "Rocket"),
+            Map.entry("WINGS:216", "Steampunk"),
+            Map.entry("WINGS:217", "Techno"),
+
+            // New Pets from pasta
+            Map.entry("PET:220", "Axolotl"),
+            Map.entry("PET:221", "Big Cat"),
+            Map.entry("PET:222", "Capybara"),
+            Map.entry("PET:223", "Dragon"),
+            Map.entry("PET:224", "Frog"),
+            Map.entry("PET:225", "Guinea Pig"),
+            Map.entry("PET:226", "Panda"),
+            Map.entry("PET:227", "Patrick"),
+            Map.entry("PET:228", "Pig"),
+            Map.entry("PET:229", "Spongebob"),
+            Map.entry("PET:230", "Bigear Goat"),
+            Map.entry("PET:231", "Chekushka"),
+            Map.entry("PET:232", "Owl Jump Rope"),
+            Map.entry("PET:233", "UFO")
     );
     private static boolean initialized;
     private static boolean restored;
@@ -145,6 +178,7 @@ public final class CosmeticCatalog {
         try {
             if (entry.isPulse()) {
                 PulseCosmeticBridge.select(pulseCategory(entry.kind()), entry.pulseId());
+                syncPulseRenderer();
                 return true;
             }
             EQUIPPED.put(entry.kind(), entry.id());
@@ -165,6 +199,7 @@ public final class CosmeticCatalog {
         try {
             if (kind != Kind.MODEL) {
                 PulseCosmeticBridge.clear(pulseCategory(kind));
+                syncPulseRenderer();
                 return true;
             }
             EQUIPPED.remove(kind);
@@ -192,14 +227,16 @@ public final class CosmeticCatalog {
         if (restored || MinecraftClient.getInstance().player == null) return;
         restored = true;
         if (!equippedEntries().isEmpty()) applyLocalSelection();
+        syncPulseRenderer();
     }
 
     public static void appendSync(JsonObject request) {
         initialize();
         JsonObject cosmetics = new JsonObject();
         for (Kind kind : Kind.values()) {
-            String id = EQUIPPED.getOrDefault(kind, "");
-            if (!id.isBlank()) cosmetics.addProperty(kind.name().toLowerCase(Locale.ROOT), id);
+            if (kind == Kind.MODEL) continue;
+            int selected = PulseCosmeticBridge.selected(pulseCategory(kind));
+            if (selected >= 0) cosmetics.addProperty(kind.name().toLowerCase(Locale.ROOT), selected);
         }
         request.add("cosmetics", cosmetics);
     }
@@ -208,28 +245,69 @@ public final class CosmeticCatalog {
         initialize();
         JsonArray values = response.has("active_cosmetics") && response.get("active_cosmetics").isJsonArray()
                 ? response.getAsJsonArray("active_cosmetics") : new JsonArray();
-        Set<UUID> present = new HashSet<>();
+        for (UUID uuid : new ArrayList<>(REMOTE_SIGNATURES.keySet())) {
+            CosmeticBridge.clearRemote(uuid);
+        }
+        REMOTE_SIGNATURES.clear();
+        Map<UUID, EnumMap<Kind, Integer>> pulse = new HashMap<>();
         for (JsonElement value : values) {
             try {
                 JsonObject object = value.getAsJsonObject();
                 UUID uuid = UUID.fromString(object.get("uuid").getAsString());
-                List<Entry> entries = new ArrayList<>();
-                addRemoteEntry(entries, object, "model", Kind.MODEL);
-                String signature = entries.stream().map(Entry::id).sorted().reduce("", (a, b) -> a + "\n" + b);
-                present.add(uuid);
-                if (!signature.equals(REMOTE_SIGNATURES.get(uuid))) {
-                    if (entries.isEmpty()) CosmeticBridge.clearRemote(uuid);
-                    else CosmeticBridge.equipRemote(uuid, entries.stream().map(Entry::directory).toList());
-                    REMOTE_SIGNATURES.put(uuid, signature);
-                }
+                EnumMap<Kind, Integer> pulseSlots = new EnumMap<>(Kind.class);
+                addRemotePulse(pulseSlots, object, "wings", Kind.WINGS);
+                addRemotePulse(pulseSlots, object, "bodywear", Kind.BODYWEAR);
+                addRemotePulse(pulseSlots, object, "pet", Kind.PET);
+                addRemotePulse(pulseSlots, object, "hat", Kind.HAT);
+                if (!pulseSlots.isEmpty()) pulse.put(uuid, pulseSlots);
             } catch (Exception ignored) {
             }
         }
-        for (UUID uuid : new ArrayList<>(REMOTE_SIGNATURES.keySet())) {
-            if (!present.contains(uuid)) {
-                CosmeticBridge.clearRemote(uuid);
-                REMOTE_SIGNATURES.remove(uuid);
+        REMOTE_PULSE.clear();
+        REMOTE_PULSE.putAll(pulse);
+        syncPulseRenderer();
+    }
+
+    private static void syncPulseRenderer() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player != null) {
+            EnumMap<Kind, Integer> local = new EnumMap<>(Kind.class);
+            for (Kind kind : Kind.values()) {
+                if (kind == Kind.MODEL) continue;
+                int selected = PulseCosmeticBridge.selected(pulseCategory(kind));
+                if (selected >= 0) local.put(kind, selected);
             }
+            if (local.isEmpty()) REMOTE_PULSE.remove(client.player.getUuid());
+            else REMOTE_PULSE.put(client.player.getUuid(), local);
+        }
+        Map<UUID, Map<String, Integer>> bridgeState = new HashMap<>();
+        for (Map.Entry<UUID, EnumMap<Kind, Integer>> player : REMOTE_PULSE.entrySet()) {
+            Map<String, Integer> slots = new HashMap<>();
+            player.getValue().forEach((kind, id) -> slots.put(pulseCategory(kind), id));
+            bridgeState.put(player.getKey(), slots);
+        }
+        PulseCosmeticBridge.syncRemote(bridgeState);
+    }
+
+    public static Entry pulseEquipped(UUID uuid, Kind kind) {
+        initialize();
+        if (uuid == null || kind == Kind.MODEL) return null;
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player != null && uuid.equals(client.player.getUuid())) return equipped(kind);
+        Integer id = REMOTE_PULSE.getOrDefault(uuid, new EnumMap<>(Kind.class)).get(kind);
+        if (id == null) return null;
+        return ENTRIES.stream().filter(entry -> entry.kind() == kind && entry.pulseId() == id)
+                .findFirst().orElse(null);
+    }
+
+    private static void addRemotePulse(EnumMap<Kind, Integer> target, JsonObject source,
+                                       String field, Kind kind) {
+        if (!source.has(field) || source.get(field).isJsonNull()) return;
+        try {
+            int id = source.get(field).getAsInt();
+            boolean valid = ENTRIES.stream().anyMatch(entry -> entry.kind() == kind && entry.pulseId() == id);
+            if (valid) target.put(kind, id);
+        } catch (RuntimeException ignored) {
         }
     }
 

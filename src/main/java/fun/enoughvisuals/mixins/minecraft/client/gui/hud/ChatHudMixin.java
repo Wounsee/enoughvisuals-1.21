@@ -3,6 +3,8 @@ package fun.enoughvisuals.mixins.minecraft.client.gui.hud;
 import fun.enoughvisuals.systems.modules.modules.visual.Animations;
 import fun.enoughvisuals.systems.modules.modules.client.Globals;
 import fun.enoughvisuals.systems.modules.modules.utils.ChatHelper;
+import fun.enoughvisuals.utils.font.CustomFontRenderer;
+import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.StencilUtil;
 import net.minecraft.client.MinecraftClient;
@@ -23,6 +25,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.HashMap;
@@ -57,6 +60,18 @@ public abstract class ChatHudMixin {
     @Unique
     private static final Pattern enough$stackSuffixPattern = Pattern.compile(" \\(x(\\d+)\\)$");
     @Unique
+
+    @ModifyVariable(
+            method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
+            at = @At("HEAD"),
+            argsOnly = true,
+            ordinal = 0
+    )
+    private Text enough$reserveGlobalsLogoSpace(Text message) {
+        if (!Globals.chatEnabled()) return message;
+        Globals.refreshVisibleAliasesFromPlayerList();
+        return Globals.withLogoSpace(message);
+    }
 
     @Inject(
             method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
@@ -278,12 +293,13 @@ public abstract class ChatHudMixin {
         if (!match.found()) return;
 
         float beforeWidth = textRenderer.getWidth(line.substring(0, match.start()));
-        int iconX = Math.max(0, Math.round(beforeWidth) - textRenderer.getWidth("◆ "));
+        float iconSize = 9.5f;
+        float iconX = Math.max(0f, beforeWidth - iconSize - 1.5f);
         int color = RenderUtil.withAlpha(Globals.LOGO_COLOR, textAlpha / 255f);
-        // Render with Minecraft's text renderer so the marker follows the same
-        // baseline, scaling and opacity as the nickname instead of looking like
-        // a separately pasted image.
-        context.drawTextWithShadow(textRenderer, "◆", iconX, textY, color);
+        // Flush vanilla text first: the logo uses its own MTSDF atlas/shader.
+        context.draw();
+        CustomFontRenderer.drawText(context, Globals.LOGO_ICON, iconX, textY - 1.1f,
+                iconSize, color, FontWeight.LOGO);
     }
 
     @Unique

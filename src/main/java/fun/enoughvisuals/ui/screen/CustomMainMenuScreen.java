@@ -418,9 +418,7 @@ public final class CustomMainMenuScreen extends Screen {
     }
 
     private void drawDim(DrawContext ctx) {
-        RenderUtil.drawRect(ctx, 0.0f, 0.0f, width, height, 0x4A000000);
-        RenderUtil.drawGradientRect(ctx, 0.0f, 0.0f, width, height * 0.30f, 0x5C000000, 0x00000000);
-        RenderUtil.drawGradientRect(ctx, 0.0f, height * 0.66f, width, height * 0.34f, 0x00000000, 0x6A000000);
+        MenuBackgroundManager.drawBackgroundDim(ctx, width, height);
     }
 
     private void openMultiplayer() {

@@ -47,6 +47,20 @@ public final class HolyWorldFeatureControl {
     private static final HolyWorldFeatureControl INSTANCE = new HolyWorldFeatureControl();
     private static final Set<String> TOOLS = Set.of(
             "tool:configs", "tool:friends", "tool:gps", "tool:macros", INVENTORY_MANAGER);
+    private static final Set<String> LOCAL_COMPETITIVE_BLOCKLIST = Set.of(
+            "friend_marker",
+            "glow_esp",
+            "hit_range",
+            "auto_eat",
+            "auto_resell",
+            "auto_sprint",
+            "item_swap",
+            "auto_potion",
+            "fast_swap",
+            "fast_xp",
+            "item_scroller",
+            "shift_tap"
+    );
 
     private final Set<String> pendingRequests = ConcurrentHashMap.newKeySet();
     private volatile Set<String> serverBlocklist = Set.of();
@@ -68,6 +82,9 @@ public final class HolyWorldFeatureControl {
             connected = true;
             serverBlocklist = Set.of();
             pendingRequests.clear();
+            // Local policy is independent from the optional HolyWorld API and
+            // must take effect on the very first client tick after joining.
+            ModuleManager.getInstance().applyFeatureRestrictions();
             sendCheckFeatures();
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
@@ -78,7 +95,12 @@ public final class HolyWorldFeatureControl {
     }
 
     public boolean isModuleBlocked(Module module) {
-        return module != null && (isBlocked(module.getId()) || isCategoryBlocked(module.getCategory()));
+        if (module == null) return false;
+        String id = module.getId().toLowerCase(Locale.ROOT);
+        if (ServerUtil.isHolyOrReallyWorldServer() && LOCAL_COMPETITIVE_BLOCKLIST.contains(id)) {
+            return true;
+        }
+        return isBlocked(id) || isCategoryBlocked(module.getCategory());
     }
 
     public boolean isCategoryBlocked(Category category) {

@@ -14,5 +14,6 @@
 /cosmetic-build/.gradle/
 /cosmetic-build/build/
 /cosmetic-build/**/.gradle/
-/cosmetic-build/**/build/
 /cosmetic-build/.idea/
+*.zip
+*.tar.gz

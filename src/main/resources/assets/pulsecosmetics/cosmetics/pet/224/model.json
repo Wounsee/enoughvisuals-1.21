@@ -1,0 +1,1395 @@
+{
+  "name": "Frog Custom Pet",
+  "id": 224,
+  "category": 3,
+  "author": "EnoughVisuals",
+  "pos": 1,
+  "version": 1,
+  "texture": "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",
+  "model": {
+    "format_version": "1.12.0",
+    "minecraft:geometry": [
+      {
+        "description": {
+          "identifier": "geometry.ribbit_master",
+          "texture_width": 128,
+          "texture_height": 128,
+          "visible_bounds_width": 3,
+          "visible_bounds_height": 2.5,
+          "visible_bounds_offset": [
+            0,
+            0.75,
+            0
+          ]
+        },
+        "bones": [
+          {
+            "name": "main",
+            "pivot": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "name": "body",
+            "parent": "main",
+            "pivot": [
+              0,
+              2,
+              -1
+            ]
+          },
+          {
+            "name": "body_default",
+            "parent": "body",
+            "pivot": [
+              0,
+              2,
+              -1
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -4,
+                  2,
+                  -4
+                ],
+                "size": [
+                  8,
+                  8,
+                  7
+                ],
+                "uv": [
+                  0,
+                  0
+                ]
+              },
+              {
+                "origin": [
+                  -5,
+                  8,
+                  -2
+                ],
+                "size": [
+                  4,
+                  4,
+                  3
+                ],
+                "uv": [
+                  14,
+                  15
+                ]
+              },
+              {
+                "origin": [
+                  1,
+                  8,
+                  -2
+                ],
+                "size": [
+                  4,
+                  4,
+                  3
+                ],
+                "uv": [
+                  0,
+                  15
+                ]
+              }
+            ]
+          },
+          {
+            "name": "body_merchant",
+            "parent": "body",
+            "pivot": [
+              0,
+              2,
+              -1
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -4,
+                  2,
+                  -4
+                ],
+                "size": [
+                  8,
+                  8,
+                  7
+                ],
+                "uv": [
+                  0,
+                  0
+                ]
+              },
+              {
+                "origin": [
+                  -4,
+                  9,
+                  3
+                ],
+                "size": [
+                  8,
+                  3,
+                  3
+                ],
+                "uv": [
+                  0,
+                  92
+                ]
+              },
+              {
+                "origin": [
+                  -3,
+                  3,
+                  3
+                ],
+                "size": [
+                  6,
+                  6,
+                  4
+                ],
+                "uv": [
+                  1,
+                  82
+                ]
+              },
+              {
+                "origin": [
+                  -4,
+                  3,
+                  3
+                ],
+                "size": [
+                  1,
+                  3,
+                  3
+                ],
+                "uv": [
+                  1,
+                  99
+                ]
+              },
+              {
+                "origin": [
+                  3,
+                  3,
+                  3
+                ],
+                "size": [
+                  1,
+                  3,
+                  3
+                ],
+                "uv": [
+                  1,
+                  99
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -4,
+                  6,
+                  7
+                ],
+                "size": [
+                  8,
+                  2,
+                  2
+                ],
+                "uv": [
+                  0,
+                  123
+                ]
+              },
+              {
+                "origin": [
+                  -3,
+                  3,
+                  7
+                ],
+                "size": [
+                  6,
+                  3,
+                  1
+                ],
+                "uv": [
+                  27,
+                  89
+                ]
+              },
+              {
+                "origin": [
+                  -5,
+                  8,
+                  -2
+                ],
+                "size": [
+                  4,
+                  4,
+                  3
+                ],
+                "uv": [
+                  14,
+                  15
+                ]
+              },
+              {
+                "origin": [
+                  1,
+                  8,
+                  -2
+                ],
+                "size": [
+                  4,
+                  4,
+                  3
+                ],
+                "uv": [
+                  0,
+                  15
+                ]
+              }
+            ]
+          },
+          {
+            "name": "left_arm",
+            "parent": "body",
+            "pivot": [
+              3.9,
+              5.6,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              -27.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  3,
+                  2.6,
+                  -1
+                ],
+                "size": [
+                  2,
+                  4,
+                  2
+                ],
+                "uv": [
+                  23,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "right_arm",
+            "parent": "body",
+            "pivot": [
+              -3.9,
+              5.6,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              27.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -5,
+                  2.6,
+                  -1
+                ],
+                "size": [
+                  2,
+                  4,
+                  2
+                ],
+                "uv": [
+                  23,
+                  0
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "right_leg",
+            "parent": "main",
+            "pivot": [
+              -2,
+              2.1,
+              -0.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -3,
+                  0,
+                  -1.5
+                ],
+                "size": [
+                  2,
+                  2,
+                  2
+                ],
+                "uv": [
+                  8,
+                  25
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -4,
+                  0,
+                  -2.5
+                ],
+                "size": [
+                  3,
+                  0,
+                  3
+                ],
+                "uv": [
+                  0,
+                  31
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "left_leg",
+            "parent": "main",
+            "pivot": [
+              2,
+              2.1,
+              -0.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  1,
+                  0,
+                  -1.5
+                ],
+                "size": [
+                  2,
+                  2,
+                  2
+                ],
+                "uv": [
+                  8,
+                  25
+                ]
+              },
+              {
+                "origin": [
+                  1,
+                  0,
+                  -2.5
+                ],
+                "size": [
+                  3,
+                  0,
+                  3
+                ],
+                "uv": [
+                  0,
+                  31
+                ]
+              }
+            ]
+          },
+          {
+            "name": "leaf",
+            "parent": "body",
+            "pivot": [
+              -3.5,
+              8.6,
+              6.9
+            ],
+            "rotation": [
+              -27.5,
+              -27.5,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -4,
+                  6.6,
+                  6.4
+                ],
+                "size": [
+                  1,
+                  5,
+                  1
+                ],
+                "uv": [
+                  0,
+                  105
+                ]
+              },
+              {
+                "origin": [
+                  -5,
+                  10.6,
+                  6.4
+                ],
+                "size": [
+                  3,
+                  1,
+                  4
+                ],
+                "uv": [
+                  10,
+                  98
+                ]
+              }
+            ]
+          },
+          {
+            "name": "gardener_hat",
+            "parent": "body",
+            "pivot": [
+              0,
+              11.4,
+              0.9
+            ],
+            "rotation": [
+              -27.5,
+              45,
+              -20
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -4.5,
+                  11.1,
+                  -4.6
+                ],
+                "size": [
+                  10,
+                  1,
+                  10
+                ],
+                "uv": [
+                  54,
+                  0
+                ]
+              },
+              {
+                "origin": [
+                  -2.5,
+                  12.1,
+                  -2.6
+                ],
+                "size": [
+                  6,
+                  3,
+                  6
+                ],
+                "uv": [
+                  38,
+                  11
+                ]
+              },
+              {
+                "origin": [
+                  2.58873,
+                  11.1,
+                  -1.8
+                ],
+                "size": [
+                  4,
+                  4,
+                  0
+                ],
+                "pivot": [
+                  0.38873,
+                  11.001,
+                  0.4
+                ],
+                "rotation": [
+                  0,
+                  -45,
+                  0
+                ],
+                "uv": [
+                  62,
+                  17
+                ]
+              },
+              {
+                "origin": [
+                  3.96376,
+                  11.1,
+                  3.52061
+                ],
+                "size": [
+                  4,
+                  4,
+                  0
+                ],
+                "pivot": [
+                  -0.03624,
+                  11.001,
+                  2.52061
+                ],
+                "rotation": [
+                  0,
+                  45,
+                  0
+                ],
+                "uv": [
+                  62,
+                  17
+                ]
+              }
+            ]
+          },
+          {
+            "name": "watering_can",
+            "parent": "right_arm",
+            "pivot": [
+              -0.6,
+              2.4,
+              -2.4
+            ],
+            "rotation": [
+              -74.5,
+              25,
+              -7.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -5.6,
+                  -0.6,
+                  -5.4
+                ],
+                "size": [
+                  3,
+                  3,
+                  3
+                ],
+                "uv": [
+                  30,
+                  11
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -4.6,
+                  -3.6,
+                  -3.4
+                ],
+                "size": [
+                  1,
+                  3,
+                  1
+                ],
+                "pivot": [
+                  -4.1,
+                  -0.6,
+                  -2.4
+                ],
+                "rotation": [
+                  -45,
+                  0,
+                  0
+                ],
+                "uv": [
+                  34,
+                  5
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -4.6,
+                  2.4,
+                  -5.4
+                ],
+                "size": [
+                  1,
+                  1,
+                  2
+                ],
+                "uv": [
+                  34,
+                  0
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "sourcerer_hat",
+            "parent": "body",
+            "pivot": [
+              0,
+              11.4,
+              -0.1
+            ],
+            "rotation": [
+              -22.5,
+              -41.5,
+              15
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -5,
+                  11.4,
+                  -5.1
+                ],
+                "size": [
+                  10,
+                  1,
+                  10
+                ],
+                "uv": [
+                  0,
+                  29
+                ]
+              },
+              {
+                "origin": [
+                  -2,
+                  12.4,
+                  -2.1
+                ],
+                "size": [
+                  4,
+                  4,
+                  4
+                ],
+                "uv": [
+                  0,
+                  40
+                ]
+              },
+              {
+                "origin": [
+                  -1,
+                  16.4,
+                  -1.1
+                ],
+                "size": [
+                  2,
+                  2,
+                  2
+                ],
+                "uv": [
+                  0,
+                  48
+                ]
+              }
+            ]
+          },
+          {
+            "name": "pride",
+            "parent": "body",
+            "pivot": [
+              0,
+              5.6,
+              -5.4
+            ],
+            "rotation": [
+              -2.5,
+              110,
+              -2.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -0.5,
+                  5.1,
+                  -5.9
+                ],
+                "size": [
+                  1,
+                  12,
+                  1
+                ],
+                "uv": [
+                  94,
+                  0
+                ]
+              },
+              {
+                "origin": [
+                  0,
+                  11.1,
+                  -4.9
+                ],
+                "size": [
+                  0,
+                  6,
+                  9
+                ],
+                "uv": [
+                  94,
+                  4
+                ]
+              }
+            ]
+          },
+          {
+            "name": "umbrella",
+            "parent": "body",
+            "pivot": [
+              0,
+              5.6,
+              -5.1
+            ],
+            "rotation": [
+              -12.5,
+              145,
+              -2.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -4.5,
+                  12.1,
+                  -12.6
+                ],
+                "size": [
+                  9,
+                  3,
+                  8
+                ],
+                "uv": [
+                  4,
+                  51
+                ]
+              },
+              {
+                "origin": [
+                  -0.5,
+                  5.1,
+                  -5.6
+                ],
+                "size": [
+                  1,
+                  10,
+                  1
+                ],
+                "uv": [
+                  0,
+                  53
+                ]
+              }
+            ]
+          },
+          {
+            "name": "umbrella2",
+            "parent": "body",
+            "pivot": [
+              0.3,
+              5.9,
+              -5.4
+            ],
+            "rotation": [
+              -3.5,
+              142.5,
+              2
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -2.2,
+                  15.4,
+                  -7.9
+                ],
+                "size": [
+                  5,
+                  2,
+                  5
+                ],
+                "uv": [
+                  33,
+                  57
+                ]
+              },
+              {
+                "origin": [
+                  -6.2,
+                  16.4,
+                  -11.9
+                ],
+                "size": [
+                  13,
+                  0,
+                  13
+                ],
+                "uv": [
+                  20,
+                  24
+                ]
+              },
+              {
+                "origin": [
+                  -0.2,
+                  5.4,
+                  -5.9
+                ],
+                "size": [
+                  1,
+                  10,
+                  1
+                ],
+                "uv": [
+                  0,
+                  53
+                ]
+              }
+            ]
+          },
+          {
+            "name": "umbrella3",
+            "parent": "body",
+            "pivot": [
+              0,
+              6.4,
+              -5.4
+            ],
+            "rotation": [
+              -2.5,
+              142.5,
+              -2.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -8.5,
+                  15.1,
+                  -13.9
+                ],
+                "size": [
+                  17,
+                  0,
+                  17
+                ],
+                "uv": [
+                  -1,
+                  64
+                ]
+              },
+              {
+                "origin": [
+                  -0.5,
+                  5.1,
+                  -5.9
+                ],
+                "size": [
+                  1,
+                  10,
+                  1
+                ],
+                "uv": [
+                  0,
+                  64
+                ]
+              }
+            ]
+          },
+          {
+            "name": "fisherman_umbrella",
+            "parent": "body",
+            "pivot": [
+              3,
+              6.2,
+              -5
+            ],
+            "rotation": [
+              -5,
+              145,
+              -2.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -1.5,
+                  12.7,
+                  -12.5
+                ],
+                "size": [
+                  9,
+                  3,
+                  8
+                ],
+                "uv": [
+                  4,
+                  51
+                ]
+              },
+              {
+                "origin": [
+                  2.5,
+                  5.7,
+                  -5.5
+                ],
+                "size": [
+                  1,
+                  10,
+                  1
+                ],
+                "uv": [
+                  0,
+                  53
+                ]
+              }
+            ]
+          },
+          {
+            "name": "fisherman_umbrella2",
+            "parent": "body",
+            "pivot": [
+              3,
+              6.5,
+              -5.2
+            ],
+            "rotation": [
+              2.5,
+              142.5,
+              2.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  0.5,
+                  16,
+                  -7.7
+                ],
+                "size": [
+                  5,
+                  2,
+                  5
+                ],
+                "uv": [
+                  33,
+                  57
+                ]
+              },
+              {
+                "origin": [
+                  -3.5,
+                  17,
+                  -11.7
+                ],
+                "size": [
+                  13,
+                  0,
+                  13
+                ],
+                "uv": [
+                  20,
+                  24
+                ]
+              },
+              {
+                "origin": [
+                  2.5,
+                  6,
+                  -5.7
+                ],
+                "size": [
+                  1,
+                  10,
+                  1
+                ],
+                "uv": [
+                  0,
+                  53
+                ]
+              }
+            ]
+          },
+          {
+            "name": "fisherman_umbrella3",
+            "parent": "body",
+            "pivot": [
+              3,
+              7,
+              -5.2
+            ],
+            "rotation": [
+              2.5,
+              142.5,
+              5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -5.5,
+                  16.5,
+                  -13.7
+                ],
+                "size": [
+                  17,
+                  0,
+                  17
+                ],
+                "uv": [
+                  -1,
+                  64
+                ]
+              },
+              {
+                "origin": [
+                  2.5,
+                  6.5,
+                  -5.7
+                ],
+                "size": [
+                  1,
+                  10,
+                  1
+                ],
+                "uv": [
+                  0,
+                  64
+                ]
+              }
+            ]
+          },
+          {
+            "name": "accessories",
+            "parent": "body",
+            "pivot": [
+              0,
+              2,
+              -1
+            ]
+          },
+          {
+            "name": "fishing_rod",
+            "parent": "accessories",
+            "pivot": [
+              0,
+              5.5,
+              -5.5
+            ],
+            "rotation": [
+              -50,
+              0,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -0.5,
+                  5,
+                  -15
+                ],
+                "size": [
+                  1,
+                  1,
+                  10
+                ],
+                "uv": [
+                  30,
+                  0
+                ]
+              },
+              {
+                "origin": [
+                  -2.5,
+                  4.4,
+                  -15.1
+                ],
+                "size": [
+                  5,
+                  4,
+                  0
+                ],
+                "pivot": [
+                  0,
+                  7.5,
+                  -14
+                ],
+                "rotation": [
+                  27.5,
+                  0,
+                  0
+                ],
+                "uv": [
+                  28,
+                  18
+                ]
+              }
+            ]
+          },
+          {
+            "name": "fishing_rod_2",
+            "parent": "fishing_rod",
+            "pivot": [
+              0,
+              5,
+              -14
+            ],
+            "rotation": [
+              50,
+              0,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  0,
+                  -5.5,
+                  -14.5
+                ],
+                "size": [
+                  0,
+                  11,
+                  1
+                ],
+                "uv": [
+                  52,
+                  -1
+                ]
+              }
+            ]
+          },
+          {
+            "name": "fishing_rod_3",
+            "parent": "fishing_rod_2",
+            "pivot": [
+              0,
+              -5.5,
+              -14
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -1,
+                  -7.5,
+                  -15
+                ],
+                "size": [
+                  2,
+                  2,
+                  2
+                ],
+                "uv": [
+                  54,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "guitar",
+            "parent": "body",
+            "pivot": [
+              -2.8,
+              5,
+              -4.8
+            ],
+            "rotation": [
+              0,
+              -5,
+              -25
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -4.8,
+                  2,
+                  -5.8
+                ],
+                "size": [
+                  4,
+                  4,
+                  2
+                ],
+                "uv": [
+                  16,
+                  22
+                ]
+              },
+              {
+                "origin": [
+                  -0.8,
+                  3,
+                  -5.8
+                ],
+                "size": [
+                  7,
+                  2,
+                  1
+                ],
+                "uv": [
+                  0,
+                  22
+                ]
+              },
+              {
+                "origin": [
+                  4.2,
+                  2,
+                  -5.3
+                ],
+                "size": [
+                  2,
+                  4,
+                  0
+                ],
+                "uv": [
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "name": "flute",
+            "parent": "body",
+            "pivot": [
+              2,
+              7.5,
+              -5.9
+            ],
+            "rotation": [
+              81,
+              29,
+              80
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  1,
+                  6,
+                  -15.9
+                ],
+                "size": [
+                  2,
+                  2,
+                  11
+                ],
+                "uv": [
+                  62,
+                  13
+                ]
+              }
+            ]
+          },
+          {
+            "name": "bongo",
+            "parent": "main",
+            "pivot": [
+              0,
+              2,
+              -6
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -2,
+                  1,
+                  -9
+                ],
+                "size": [
+                  4,
+                  4,
+                  4
+                ],
+                "uv": [
+                  36,
+                  37
+                ]
+              }
+            ]
+          },
+          {
+            "name": "bass",
+            "parent": "main",
+            "pivot": [
+              2.1,
+              1,
+              -6
+            ],
+            "rotation": [
+              -5,
+              22.5,
+              -2.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -1,
+                  0,
+                  -7
+                ],
+                "size": [
+                  6,
+                  8,
+                  2
+                ],
+                "uv": [
+                  62,
+                  26
+                ]
+              },
+              {
+                "origin": [
+                  1,
+                  8,
+                  -7
+                ],
+                "size": [
+                  2,
+                  7,
+                  1
+                ],
+                "uv": [
+                  78,
+                  26
+                ]
+              },
+              {
+                "origin": [
+                  0,
+                  13,
+                  -6.5
+                ],
+                "size": [
+                  4,
+                  2,
+                  0
+                ],
+                "uv": [
+                  78,
+                  34
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "height": 0.1,
+  "scale": 1.0,
+  "x": 0.0,
+  "y": 0.0,
+  "z": 0.0,
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "roll": 0.0,
+  "previewY": 0.0,
+  "previewScale": 1.0
+}

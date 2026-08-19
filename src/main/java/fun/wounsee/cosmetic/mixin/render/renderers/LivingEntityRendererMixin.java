@@ -1,6 +1,9 @@
 package fun.wounsee.cosmetic.mixin.render.renderers;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -51,7 +54,6 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity, S extend
 
     @Shadow @Final protected List<RenderLayer<S, M>> layers;
 
-
     @Shadow
     public static int getOverlayCoords(LivingEntityRenderState arg, float whiteOverlayProgress) {
         return 0;
@@ -62,6 +64,8 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity, S extend
     @Shadow protected abstract boolean isBodyVisible(S livingEntityRenderState);
 
     @Shadow @Final protected ItemModelResolver itemModelResolver;
+    @Shadow public abstract M getModel();
+
     @Unique
     private Avatar currentAvatar;
     @Unique
@@ -88,6 +92,20 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity, S extend
         return LivingEntityRendererAccessor.overrideOverlay.orElse(thing);
     }
 
+    @WrapOperation(
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/model/EntityModel;renderToBuffer(Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;III)V"
+            ),
+            method = "render(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"
+    )
+    private void suppressVanillaBodyInPreview(EntityModel<?> instance, PoseStack poseStack, VertexConsumer vertexConsumer, int i, int j, int k, Operation<Void> original) {
+        if (UIHelper.paperdoll && UIHelper.isPreviewHideVanillaModel()) {
+            return;
+        }
+        original.call(instance, poseStack, vertexConsumer, i, j, k);
+    }
+
     @Inject(at = @At(value = "INVOKE", target = "Lnet/minecraft/client/model/EntityModel;setupAnim(Lnet/minecraft/client/renderer/entity/state/EntityRenderState;)V", shift = At.Shift.AFTER), method = "render(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V", cancellable = true)
     private void preRender(S livingEntityRenderState, PoseStack poseStack, MultiBufferSource bufferSource, int light, CallbackInfo ci) {
         if (currentAvatar == null)
@@ -110,10 +128,7 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity, S extend
                 part.preTransform(model);
         }
 
-        // Previews hide the vanilla body through invisibility, but the avatar itself
-        // still has to render in full.
-        boolean previewOnly = UIHelper.paperdoll && UIHelper.isPreviewHideVanillaModel();
-        boolean showBody = previewOnly || isBodyVisible(livingEntityRenderState);
+        boolean showBody = isBodyVisible(livingEntityRenderState);
         boolean translucent = !showBody && !livingEntityRenderState.isInvisibleToPlayer;
         boolean glowing = !showBody && livingEntityRenderState.appearsGlowing;
         boolean invisible = !translucent && !showBody && !glowing;
@@ -139,7 +154,7 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity, S extend
         currentAvatar.renderEvent(tickDelta, poseMatrix);
 
         CosmeticMod.popPushProfiler("render");
-        float renderAlpha = (translucent ? 0.15f : 1f) * UIHelper.getPreviewAlpha();
+        float renderAlpha = (translucent ? 0.15f : 1f) * (UIHelper.paperdoll ? UIHelper.getPreviewAlpha() : 1f);
         // Vertex alpha only fades correctly on an alpha-capable layer. Preview transitions used
         // to keep CUTOUT/EYES layers when the entity itself was otherwise opaque, leaving opaque
         // avatar fragments until the final frame.

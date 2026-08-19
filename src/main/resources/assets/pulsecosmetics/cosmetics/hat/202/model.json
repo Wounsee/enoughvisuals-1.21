@@ -1,0 +1,1369 @@
+{
+  "name": "Blackhole Halo",
+  "id": 202,
+  "category": 2,
+  "author": "EnoughVisuals",
+  "pos": 2,
+  "version": 1,
+  "texture": "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAE1klEQVR4AeyZ3XLTQAyFHUP5KTDQoS23XPP+z8I1t7RAYYC2UBhXnybHo7rOj3frZONJJ2ckrbTr1ZF2Y0JdZf6dnV00Ec2Cv8zHjDY9iwASPz09mkXMFvzBy2hZZCycRUDGc4uZmkyAqq9MsKkyEqAD+WmMaGt82zKZgLhxEuYYkCQSoIMSk457Tybg5ORNXGdn9WQCzs+/D046Zc7ghwyckExA7ICod58fk14W1523KTuZgJQNRjJS5o8xZ6MEjJFA7poPQoBue258vhEk0flGyN3kmPOTCVDS2hw2IGFJdPlLJSOZACW26zKLACpNu/eBijOOBLEbSiKtl4Dnh2+b10fvm+PTDw50xmzjjSS6oYKEPpAw40hAbInoJeDq8mv198/P6ubmsnr0+Fl1cHBYPXn6qrLkW7luMlQfrBs/dlx3/V4ClCiJ//937USgQ4IkMd3Fok37A6oPIAHEmBL0XgJiB9AF6gaSH7JpjoDiIUF6SbKXADYICT8uPvlRwBYJ6BBBN6D3gUrH5BUDCfhklyBra+XGNnLvcrOxe59IAk4ux56LEtfOoKaSRsK9y40xS9DHlQ2xVF/HQoTEi5LYRZXWnUBMKagP5je8JIkDJatx2STb3Xy8KKMvtnvUY8y29ZpqkiSSinL2ATpjJIwfYF9fffN7gRigOEklRBcAEgfoffeC4rcla22cBKky1QfojKm6JE8sIHFtGF1jSI1LkjiQXZqsLYGZ3fazL2cfXWIDjdm4V9xs3zs+U2YRGptLcy3+2L3iF67k4sjNeBZ+DY71eLpK3YUc6znrrruSAB0Hq9idb4R1H9CN01GS7Po3ba8kIG6I6kV7CvraBHDBUbXcpFnH7gq/V5C56+XOX0kA55TKS+Y+kHV0rJC56+XOX0kAFaPykrkPZB0qL5m7Xu78lQTkPmDb81c9vz62X30syL+brSVd2o3vEt+Ll+/MXbXfAIzhFzQHKZ8kMYxLorOY+SutOx/z56ETa/72lyjix0RtLzp6qfHnqD0xaP3fvz77hUXLMobNSxHQGOdaPsaYZ/72xQqdGKDEibdknVhLHNN1FOYjuXsgw+L8JzqLc6Kw8T8E2iPA5ljQHuIbwWYDSMDGZRMDGAcaR1cca0VADCA5AJHYANKJRReIAd04Yokh/iHgvwcMYVTJKlE2wybZjHTrqorKAdY2shriAXF9wAfwQSSS9ZDYwNZjXT8+rAvw56D9twBtauzOADqwRLyNpWMDbFWHeMCYyQrYhvzfFoq1sTv2PNafhS/GY+MH6AAdsJ6ADWxu1qc9AkNXoTq2uTiNX5ZkR11jRcrBBNB2tDTZmKywrTVJWJepJCHFYzAB8Q7gXGIXn+WSDQ4mgLNP+3PxIbHBkmcU7RpMAElz9gVsUHSWSzbnBHCO7Tz7S0Y3VuPE4LPEdcZdYgN8uwgngK8TkuBMk7ASQWcMHzEan5J0ApQQSZKs2dzqDTpjZk/242+CMTuqbvD/CTYJEa27a7eOHVb8TdD274mSoFWdtzm9pUGE+4gxH+fe1Ol8dAQ8sXmCrs9TdCKkz2XRYujmRMDQeZOJ3xMwmVImJrLvgETiJjNt3wGTKWViIvsOSCRuMtP2HTCZUiYmsu+AROImM23fAZMpZWIiO98BiXm3024BAAD//9CP7O8AAAAGSURBVAMAVpGvrrwkxx4AAAAASUVORK5CYII=",
+  "model": {
+    "format_version": "1.12.0",
+    "minecraft:geometry": [
+      {
+        "description": {
+          "identifier": "geometry.unknown",
+          "texture_width": 64,
+          "texture_height": 64,
+          "visible_bounds_width": 3,
+          "visible_bounds_height": 4.5,
+          "visible_bounds_offset": [
+            0,
+            1.75,
+            0
+          ]
+        },
+        "bones": [
+          {
+            "name": "hat",
+            "pivot": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "name": "left_tentacle_front",
+            "parent": "hat",
+            "pivot": [
+              3.12877,
+              31.03558,
+              -3.25501
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  4.87877,
+                  31.53558,
+                  -8.50501
+                ],
+                "size": [
+                  0,
+                  6,
+                  6
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  4.87877,
+                  33.53558,
+                  -5.50501
+                ],
+                "rotation": [
+                  27.5,
+                  -35,
+                  0
+                ],
+                "uv": [
+                  0,
+                  36
+                ]
+              },
+              {
+                "origin": [
+                  3.5,
+                  30.25,
+                  -5.25
+                ],
+                "size": [
+                  1,
+                  4,
+                  2
+                ],
+                "pivot": [
+                  4,
+                  32.25,
+                  -4.25
+                ],
+                "rotation": [
+                  50,
+                  -35,
+                  0
+                ],
+                "uv": [
+                  12,
+                  36
+                ]
+              }
+            ]
+          },
+          {
+            "name": "left_tentacle_back",
+            "parent": "hat",
+            "pivot": [
+              3.12877,
+              31.03558,
+              3.25501
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  5.14362,
+                  31.42259,
+                  2.88326
+                ],
+                "size": [
+                  0,
+                  6,
+                  6
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  5.14362,
+                  34.42259,
+                  5.88326
+                ],
+                "rotation": [
+                  -152.5,
+                  -35,
+                  -180
+                ],
+                "uv": [
+                  0,
+                  36
+                ]
+              },
+              {
+                "origin": [
+                  3.5,
+                  30.25,
+                  3.25
+                ],
+                "size": [
+                  1,
+                  4,
+                  2
+                ],
+                "pivot": [
+                  4,
+                  32.25,
+                  4.25
+                ],
+                "rotation": [
+                  -50,
+                  35,
+                  0
+                ],
+                "uv": [
+                  12,
+                  36
+                ]
+              }
+            ]
+          },
+          {
+            "name": "right_tentacle_front",
+            "parent": "hat",
+            "pivot": [
+              -3.12877,
+              31.03558,
+              -3.25501
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -4.87877,
+                  31.53558,
+                  -8.50501
+                ],
+                "size": [
+                  0,
+                  6,
+                  6
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  -4.87877,
+                  33.53558,
+                  -5.50501
+                ],
+                "rotation": [
+                  27.5,
+                  35,
+                  0
+                ],
+                "uv": [
+                  0,
+                  36
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -4.5,
+                  30.25,
+                  -5.25
+                ],
+                "size": [
+                  1,
+                  4,
+                  2
+                ],
+                "pivot": [
+                  -4,
+                  32.25,
+                  -4.25
+                ],
+                "rotation": [
+                  50,
+                  35,
+                  0
+                ],
+                "uv": [
+                  12,
+                  36
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "right_tentacle_back",
+            "parent": "hat",
+            "pivot": [
+              -3.12877,
+              31.03558,
+              3.25501
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -4.87877,
+                  31.53558,
+                  2.50501
+                ],
+                "size": [
+                  0,
+                  6,
+                  6
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  -4.87877,
+                  33.53558,
+                  5.50501
+                ],
+                "rotation": [
+                  -152.5,
+                  35,
+                  180
+                ],
+                "uv": [
+                  0,
+                  36
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -4.5,
+                  30.25,
+                  3.25
+                ],
+                "size": [
+                  1,
+                  4,
+                  2
+                ],
+                "pivot": [
+                  -4,
+                  32.25,
+                  4.25
+                ],
+                "rotation": [
+                  -50,
+                  -35,
+                  0
+                ],
+                "uv": [
+                  12,
+                  36
+                ],
+                "mirror": true
+              }
+            ]
+          },
+          {
+            "name": "blackhole",
+            "parent": "hat",
+            "pivot": [
+              0,
+              39,
+              -0.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -2.5,
+                  36.5,
+                  -3
+                ],
+                "size": [
+                  5,
+                  5,
+                  5
+                ],
+                "uv": [
+                  0,
+                  14
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ring",
+            "parent": "blackhole",
+            "pivot": [
+              0,
+              39,
+              -0.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -5,
+                  34,
+                  -0.5
+                ],
+                "size": [
+                  10,
+                  10,
+                  0
+                ],
+                "uv": [
+                  20,
+                  14
+                ]
+              },
+              {
+                "origin": [
+                  -5,
+                  34,
+                  -0.5
+                ],
+                "size": [
+                  10,
+                  10,
+                  0
+                ],
+                "pivot": [
+                  0,
+                  39,
+                  -0.5
+                ],
+                "rotation": [
+                  90,
+                  0,
+                  0
+                ],
+                "uv": [
+                  20,
+                  14
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ring2",
+            "parent": "blackhole",
+            "pivot": [
+              0,
+              39,
+              -0.5
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -5,
+                  38.5,
+                  -6.5
+                ],
+                "size": [
+                  10,
+                  1,
+                  2
+                ],
+                "pivot": [
+                  0,
+                  39,
+                  -0.5
+                ],
+                "rotation": [
+                  0,
+                  -25,
+                  0
+                ],
+                "uv": [
+                  0,
+                  33
+                ]
+              },
+              {
+                "origin": [
+                  -5,
+                  38.5,
+                  3.5
+                ],
+                "size": [
+                  10,
+                  1,
+                  2
+                ],
+                "pivot": [
+                  0,
+                  39,
+                  -0.5
+                ],
+                "rotation": [
+                  0,
+                  -25,
+                  0
+                ],
+                "uv": [
+                  24,
+                  33
+                ]
+              },
+              {
+                "origin": [
+                  4,
+                  38.5,
+                  -4.5
+                ],
+                "size": [
+                  2,
+                  1,
+                  8
+                ],
+                "pivot": [
+                  0,
+                  39,
+                  -0.5
+                ],
+                "rotation": [
+                  0,
+                  -25,
+                  0
+                ],
+                "uv": [
+                  0,
+                  24
+                ]
+              },
+              {
+                "origin": [
+                  -7,
+                  39,
+                  -7.5
+                ],
+                "size": [
+                  14,
+                  0,
+                  14
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  0,
+                  39,
+                  -0.5
+                ],
+                "rotation": [
+                  0,
+                  -25,
+                  0
+                ],
+                "uv": [
+                  0,
+                  0
+                ]
+              },
+              {
+                "origin": [
+                  -6,
+                  38.5,
+                  -4.5
+                ],
+                "size": [
+                  2,
+                  1,
+                  8
+                ],
+                "pivot": [
+                  0,
+                  39,
+                  -0.5
+                ],
+                "rotation": [
+                  0,
+                  -25,
+                  0
+                ],
+                "uv": [
+                  20,
+                  24
+                ]
+              },
+              {
+                "origin": [
+                  -4,
+                  38.5,
+                  2.5
+                ],
+                "size": [
+                  1,
+                  1,
+                  1
+                ],
+                "pivot": [
+                  0,
+                  39,
+                  -0.5
+                ],
+                "rotation": [
+                  0,
+                  -25,
+                  0
+                ],
+                "uv": [
+                  18,
+                  36
+                ]
+              },
+              {
+                "origin": [
+                  -4,
+                  38.5,
+                  -4.5
+                ],
+                "size": [
+                  1,
+                  1,
+                  1
+                ],
+                "pivot": [
+                  0,
+                  39,
+                  -0.5
+                ],
+                "rotation": [
+                  0,
+                  -25,
+                  0
+                ],
+                "uv": [
+                  18,
+                  36
+                ]
+              },
+              {
+                "origin": [
+                  3,
+                  38.5,
+                  -4.5
+                ],
+                "size": [
+                  1,
+                  1,
+                  1
+                ],
+                "pivot": [
+                  0,
+                  39,
+                  -0.5
+                ],
+                "rotation": [
+                  0,
+                  -25,
+                  0
+                ],
+                "uv": [
+                  18,
+                  36
+                ]
+              },
+              {
+                "origin": [
+                  3,
+                  38.5,
+                  2.5
+                ],
+                "size": [
+                  1,
+                  1,
+                  1
+                ],
+                "pivot": [
+                  0,
+                  39,
+                  -0.5
+                ],
+                "rotation": [
+                  0,
+                  -25,
+                  0
+                ],
+                "uv": [
+                  18,
+                  36
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "height": 0.1,
+  "scale": 1.0,
+  "x": 0.0,
+  "y": -1.5,
+  "z": 0.0,
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "roll": 0.0,
+  "previewY": 0.0,
+  "previewScale": 1.0,
+  "animation": {
+    "format_version": "1.8.0",
+    "animations": {
+      "animation.blackhole_headdress": {
+        "loop": true,
+        "animation_length": 2,
+        "bones": {
+          "blackhole": {
+            "rotation": {
+              "0.0": {
+                "vector": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "2.0": {
+                "vector": [
+                  -360,
+                  -360,
+                  0
+                ]
+              }
+            },
+            "position": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    2.5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    1,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    2.5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    4,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    2.5,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            },
+            "scale": {
+              "0.0": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "0.0417": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "0.0833": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "0.125": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "0.1667": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "0.2083": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "0.25": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "0.2917": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "0.3333": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "0.375": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "0.4167": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "0.4583": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "0.5": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "0.5417": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "0.5833": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "0.625": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "0.6667": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "0.7083": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "0.75": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "0.7917": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "0.8333": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "0.875": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "0.9167": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "0.9583": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "1.0": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "1.0417": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "1.0833": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "1.125": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "1.1667": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "1.2083": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "1.25": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "1.2917": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "1.3333": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "1.375": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "1.4167": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "1.4583": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "1.5": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "1.5417": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "1.5833": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "1.625": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "1.6667": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "1.7083": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "1.75": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "1.7917": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "1.8333": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "1.875": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "1.9167": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "1.9583": {
+                "vector": [
+                  1.08,
+                  1.08,
+                  1.08
+                ]
+              },
+              "2.0": {
+                "vector": [
+                  1,
+                  1,
+                  1
+                ]
+              }
+            }
+          },
+          "left_tentacle_front": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    7.5,
+                    0,
+                    11.25
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    15,
+                    0,
+                    22.5
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    7.5,
+                    0,
+                    11.25
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    7.5,
+                    0,
+                    11.25
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "ring": {
+            "rotation": {
+              "0.0": {
+                "vector": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "0.5": {
+                "vector": [
+                  90,
+                  2.5,
+                  90
+                ]
+              },
+              "1.0": {
+                "vector": [
+                  0,
+                  0,
+                  180
+                ]
+              },
+              "1.5": {
+                "vector": [
+                  -90,
+                  0,
+                  90
+                ]
+              },
+              "2.0": {
+                "vector": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            }
+          },
+          "ring2": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    102.5,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    192.5,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    262.5,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    360,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "right_tentacle_back": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    5.95,
+                    -2.28,
+                    4.53
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    5.95,
+                    -2.28,
+                    4.53
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    11.9022,
+                    -4.5518,
+                    9.0649
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    5.95,
+                    -2.28,
+                    4.53
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "right_tentacle_front": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    7.5,
+                    0,
+                    -11.25
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    15,
+                    0,
+                    -22.5
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    7.5,
+                    0,
+                    -11.25
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    7.5,
+                    0,
+                    -11.25
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          },
+          "left_tentacle_back": {
+            "rotation": {
+              "0.0": {
+                "post": {
+                  "vector": [
+                    5.95,
+                    2.28,
+                    -4.53
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "0.5": {
+                "post": {
+                  "vector": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.0": {
+                "post": {
+                  "vector": [
+                    5.95,
+                    2.28,
+                    -4.53
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "1.5": {
+                "post": {
+                  "vector": [
+                    11.9022,
+                    4.5518,
+                    -9.0649
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              },
+              "2.0": {
+                "post": {
+                  "vector": [
+                    5.95,
+                    2.28,
+                    -4.53
+                  ]
+                },
+                "lerp_mode": "catmullrom"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

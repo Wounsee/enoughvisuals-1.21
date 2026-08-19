@@ -65,6 +65,30 @@ class PulseModelGeometryTest {
         }
     }
 
+    @Test
+    void everyNewPastaCosmeticCanBeFramed() throws IOException {
+        // Hats
+        for (int id : new int[]{201, 202, 203, 204}) {
+            PulseModelGeometry.Bounds bounds = measure("hat", id, false);
+            assertNotNull(bounds, "hat " + id);
+            assertTrue(bounds.usable(), "hat " + id + " cannot be framed");
+        }
+
+        // Wings
+        for (int id : new int[]{210, 211, 212, 213, 214, 215, 216, 217}) {
+            PulseModelGeometry.Bounds bounds = measure("wings", id, false);
+            assertNotNull(bounds, "wings " + id);
+            assertTrue(bounds.usable(), "wings " + id + " cannot be framed");
+        }
+
+        // Pets
+        for (int id : new int[]{220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233}) {
+            PulseModelGeometry.Bounds bounds = measure("pet", id, true);
+            assertNotNull(bounds, "pet " + id);
+            assertTrue(bounds.usable(), "pet " + id + " cannot be framed");
+        }
+    }
+
     private static PulseModelGeometry.Bounds measure(String category, int id, boolean pet) throws IOException {
         assertTrue(Files.isRegularFile(PULSE_JAR), "missing " + PULSE_JAR.toAbsolutePath());
         try (ZipFile zip = new ZipFile(PULSE_JAR.toFile())) {

@@ -23,7 +23,12 @@ public class ShaderHands extends Module {
             "Вид шейдерного эффекта",
             "Glass",
             "Glass",
-            "Web"
+            "Web",
+            "Aurora",
+            "Stars",
+            "Glow",
+            "Caustic",
+            "Clouds"
     ));
 
     public final SliderSetting glassBlur = add(new SliderSetting(
@@ -118,6 +123,11 @@ public class ShaderHands extends Module {
         return switch (mode.get()) {
             case "Glass" -> 1;
             case "Web" -> 2;
+            case "Aurora" -> 3;
+            case "Stars" -> 4;
+            case "Glow" -> 5;
+            case "Caustic" -> 6;
+            case "Clouds" -> 7;
             default -> 1;
         };
     }

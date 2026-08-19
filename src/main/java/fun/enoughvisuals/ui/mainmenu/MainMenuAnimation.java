@@ -5,7 +5,6 @@ import fun.enoughvisuals.systems.animations.Easing;
 public final class MainMenuAnimation {
     private static final long OPEN_MS = 430L;
     private static final long BUTTON_STAGGER_MS = 54L;
-
     private long openedAt = System.currentTimeMillis();
 
     public void restart() {
@@ -31,17 +30,13 @@ public final class MainMenuAnimation {
 
     public float buttonProgress(int index) {
         long now = System.currentTimeMillis();
-        float raw = (now - openedAt - animationStage(index) * BUTTON_STAGGER_MS) / (float) OPEN_MS;
+        float raw = (now - openedAt - Math.max(0, index) * BUTTON_STAGGER_MS) / (float) OPEN_MS;
         return Easing.OUT_CUBIC.apply(raw);
     }
 
     public float buttonAlpha(int index) {
         long now = System.currentTimeMillis();
-        float raw = (now - openedAt - animationStage(index) * BUTTON_STAGGER_MS) / (float) (OPEN_MS * 0.62f);
+        float raw = (now - openedAt - Math.max(0, index) * BUTTON_STAGGER_MS) / (float) (OPEN_MS * 0.62f);
         return Easing.OUT_CUBIC.apply(raw);
-    }
-
-    private int animationStage(int index) {
-        return index >= 4 ? 3 : index;
     }
 }

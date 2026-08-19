@@ -164,9 +164,10 @@ public final class AccountSwitcherScreen extends Screen {
         float addAppear = itemProgress(1);
         renderScaled(ctx, addX, inputY, addW, inputH, 1.3f - 0.3f * addAppear,
                 () -> renderSmallButton(ctx, ClientLanguage.text("ui.account.add", "Добавить"), addX, inputY, addW, inputH, alpha * addAppear, addHover.value(), true));
-        enableRowsScissor(scale);
+        enableRowsVerticalScissor();
         renderRows(ctx, alpha, scale);
         RenderUtil.disableScissor();
+        renderScrollbar(ctx, alpha, scale);
 
         if (!status.isBlank()) {
             float statusY = rowY + rowClipH + 7f * scale;
@@ -228,7 +229,10 @@ public final class AccountSwitcherScreen extends Screen {
             float y = rowY + slot * (rowH + gap);
             if (!rowIntersectsList(y)) continue;
 
-            int staggerIndex = Math.max(0, Math.round(anim.index.value()));
+            // Stagger only the rows that are actually visible. Using the
+            // absolute account index left rows further down the list stuck in
+            // an enlarged entrance state after scrolling.
+            int staggerIndex = Math.max(0, Math.min(VISIBLE_ROWS - 1, Math.round(slot)));
             float appear = itemProgress(staggerIndex + 2);
             float life = anim.alpha.value();
             float rowAlpha = alpha * appear * life * edgeAlpha(y);
@@ -242,7 +246,10 @@ public final class AccountSwitcherScreen extends Screen {
                     ? RenderUtil.lerpColor(ACCENT, RenderUtil.lighten(ACCENT, 0.08f), hover * 0.35f)
                     : RenderUtil.lerpColor(NORMAL, HOVER, hover);
             float openScale = 1.3f - 0.3f * appear;
-            float lifeScale = anim.removing ? 0.96f + 0.04f * life : 1.3f - 0.3f * life;
+            // openScale already owns the screen entrance animation. Applying
+            // the same 1.3 -> 1 scale through life a second time made newly
+            // visible/lower cards noticeably larger.
+            float lifeScale = anim.removing ? 0.96f + 0.04f * life : 1f;
             float grow = openScale * lifeScale * (1f + hover * 0.010f);
 
             ctx.getMatrices().push();
@@ -273,6 +280,20 @@ public final class AccountSwitcherScreen extends Screen {
         }
     }
 
+    private void renderScrollbar(DrawContext ctx, float alpha, float scale) {
+        if (maxScroll <= 0.5f) return;
+        float contentH = Math.max(rowClipH, accounts.size() * (rowH + gap) - gap);
+        float thumbH = Math.max(13f * scale, rowClipH * rowClipH / contentH);
+        float travel = Math.max(0f, rowClipH - thumbH);
+        float progress = clamp(-scrollOffset / maxScroll, 0f, 1f);
+        float barX = rowX + rowW - 2.2f * scale;
+        float barY = rowY + travel * progress;
+        RenderUtil.drawRoundedRect(ctx, barX, rowY, 1.1f * scale, rowClipH,
+                0.55f * scale, RenderUtil.withAlpha(MUTED, alpha * 0.10f));
+        RenderUtil.drawRoundedRect(ctx, barX, barY, 1.1f * scale, thumbH,
+                0.55f * scale, RenderUtil.withAlpha(ACCENT, alpha * 0.62f));
+    }
+
     private float itemProgress(int index) {
         return Easing.OUT_CUBIC.apply((openAnimation.progress() - 0.08f - index * 0.045f) / 0.42f);
     }
@@ -293,24 +314,21 @@ public final class AccountSwitcherScreen extends Screen {
         return Easing.OUT_CUBIC.apply(Math.min(top, bottom));
     }
 
-    private void enableRowsScissor(float scale) {
-        float[] clip = rowsClipBounds(scale);
-        RenderUtil.enableScissor(clip[2] * screenScale, clip[0] * screenScale,
-                clip[3] * screenScale, (clip[1] - clip[0]) * screenScale);
+    private void enableRowsVerticalScissor() {
+        float[] clip = rowsClipBounds(layoutScale());
+        // Clip only above/below the list. The full-screen horizontal span is
+        // intentional: row scale/hover animations must not be cut at the
+        // card's left and right edges.
+        RenderUtil.enableScissor(0f, clip[0] * screenScale,
+                virtualWidth * screenScale, (clip[1] - clip[0]) * screenScale);
     }
 
     private float[] rowsClipBounds(float scale) {
-        float topGap = Math.max(0f, rowY - (inputY + inputH));
-        float statusY = rowY + rowClipH + 7f * scale;
-        float statusTopGap = Math.max(0f, statusY - (rowY + rowClipH));
-        float topPad = Math.min(3.5f * scale, Math.max(0f, topGap - 1.2f * scale));
-        float bottomPad = Math.min(3.5f * scale, Math.max(0f, statusTopGap - 2.0f * scale));
-        float xPad = rowW * 0.17f + 8.0f * scale;
         return new float[]{
-                rowY - topPad,
-                rowY + rowClipH + bottomPad,
-                rowX - xPad,
-                rowW + xPad * 2f
+                rowY,
+                rowY + rowClipH,
+                rowX,
+                rowW
         };
     }
 
@@ -416,6 +434,7 @@ public final class AccountSwitcherScreen extends Screen {
         int index = indexOfAccount(account);
         if (index < 0) return;
 
+        boolean removedCurrent = account.name().equalsIgnoreCase(currentName());
         AccountProfile removed = accounts.remove(index);
         RowAnim row = findRow(removed);
         if (row != null) {
@@ -423,8 +442,13 @@ public final class AccountSwitcherScreen extends Screen {
         }
         updateRowTargets();
         AccountRepository.save(accounts);
-        if (removed.name().equalsIgnoreCase(currentName())) {
-            status = "";
+        if (removedCurrent) {
+            if (!accounts.isEmpty()) {
+                switchAccount(accounts.get(Math.min(index, accounts.size() - 1)));
+            } else {
+                AccountRepository.saveSelected(null);
+                status = "";
+            }
         }
     }
 
@@ -453,9 +477,10 @@ public final class AccountSwitcherScreen extends Screen {
         rowW = panelW;
         rowH = 22.5f * scale;
         gap = 4.0f * scale;
-        float maxListH = (rowH + gap) * VISIBLE_ROWS - gap;
-        float availableH = Math.max(rowH, virtualHeight - rowY - 30f * scale);
-        rowClipH = Math.min(maxListH, availableH);
+        int visibleRows = Math.max(1, Math.min(VISIBLE_ROWS, accounts.size()));
+        float desiredListH = (rowH + gap) * visibleRows - gap;
+        float availableH = Math.max(rowH, virtualHeight - rowY - 38f * scale);
+        rowClipH = Math.min(desiredListH, availableH);
         maxScroll = Math.max(0f, Math.max(0, accounts.size()) * (rowH + gap) - gap - rowClipH);
         scrollTarget = clamp(scrollTarget, -maxScroll, 0f);
         if (scrollOffset < -maxScroll || scrollOffset > 0f) {

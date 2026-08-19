@@ -40,7 +40,6 @@ public final class EffectsHud extends HudElement {
     private final HudListAnimator rows = new HudListAnimator();
     private final Map<String, EffectLine> lines = new LinkedHashMap<>();
     private final Map<String, HudRollingText> timerAnimations = new LinkedHashMap<>();
-    private float stableVisibleHeight = 76.5f;
 
     public EffectsHud(float x, float y) {
         super(x, y, 118.5f, 76.5f);
@@ -85,16 +84,16 @@ public final class EffectsHud extends HudElement {
                 .noneMatch(row -> row.key().equals(key)));
 
         List<HudListAnimator.Row> animatedRows = rows.rows();
-        boolean visible = !animatedRows.isEmpty();
-        setContentVisibleTarget(visible);
-        float targetH = stableVisibleHeight;
-        if (visible) {
+        boolean hasRows = !animatedRows.isEmpty();
+        float collapsedH = 43f * u;
+        float targetH = collapsedH;
+        if (hasRows) {
             HudListAnimator.Row last = animatedRows.get(animatedRows.size() - 1);
             targetH = FIGMA_BASE_HEIGHT * u + last.position();
-            stableVisibleHeight = targetH;
         }
         setWidth(HudMotion.damp(getWidth(), FIGMA_WIDTH * u, 0.22f, frameDelta));
         setHeight(HudMotion.damp(getHeight(), targetH, 0.22f, frameDelta));
+        setContentVisibleTarget(hasRows || getHeight() > collapsedH + 0.6f * u);
     }
 
     @Override
@@ -111,8 +110,7 @@ public final class EffectsHud extends HudElement {
                 26f * u, RenderUtil.withAlpha(HudDesign.ACCENT, alpha), FontWeight.HUD_ICONS);
         CustomFontRenderer.drawText(ctx, ClientLanguage.text("ui.hud.effects", "Эффекты"), x + 51f * u, y + 11f * u,
                 16f * u, RenderUtil.withAlpha(HudDesign.TEXT, alpha), FontWeight.MEDIUM);
-        RenderUtil.drawRoundedRect(ctx, x, y + 41f * u, w, 2f * u, 1f * u,
-                RenderUtil.withAlpha(0xFF1B1B1C, alpha * 0.89f));
+        // y + 41u remains the collapse guide; the divider itself is intentionally invisible.
 
         float bodyStart = y + 59f * u;
         for (HudListAnimator.Row row : rows.rows()) {

@@ -45,5 +45,5 @@ public final class GlowESP extends Module {
     public double distanceSquared(){double d=distance.get();return d*d;}
     public boolean self(){return targets.isSelected(SELF);}
     public boolean worldMode(){return area.is("Мир");}
-    public boolean shouldRender(Entity e){if(e==null||e.isRemoved()||!e.isAlive()||e.isSpectator()||e.isInvisible())return false;if(e==mc.player)return self();if(e instanceof PlayerEntity)return targets.isSelected(PLAYERS);if(e instanceof MobEntity)return targets.isSelected(MOBS);return e instanceof ItemEntity&&targets.isSelected(ITEMS);}
+    public boolean shouldRender(Entity e){if(e==null||e.isRemoved()||!e.isAlive()||e.isSpectator()||e.isInvisible()||(mc.player!=null&&e.isInvisibleTo(mc.player)))return false;if(e==mc.player)return self();if(e instanceof PlayerEntity)return targets.isSelected(PLAYERS);if(e instanceof MobEntity)return targets.isSelected(MOBS);return e instanceof ItemEntity&&targets.isSelected(ITEMS);}
 }

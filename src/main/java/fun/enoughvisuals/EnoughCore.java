@@ -126,16 +126,20 @@ public final class EnoughCore {
         });
         applyFirstLaunchDisplayDefaults();
         RemoteConfig.getInstance().start();
-        ClientLifecycleEvents.CLIENT_STARTED.register(client -> DiscordPresenceService.getInstance().start());
+        // initializeClient itself is invoked from CLIENT_STARTED. Registering
+        // another CLIENT_STARTED callback here is too late: that callback will
+        // never see the event which is already being dispatched.
+        DiscordPresenceService.getInstance().start();
         ClientTickEvents.END_CLIENT_TICK.register(EventFeedService.getInstance()::onClientTick);
         ClientTickEvents.END_CLIENT_TICK.register(TitleBarHelper::applyOnce);
+        ClientTickEvents.END_CLIENT_TICK.register(RemoteConfig.getInstance()::onClientTick);
         ModuleManager manager = ModuleManager.getInstance();
         manager.register(
                 new AspectRatio(),
                 new Cooldowns(),
                 new Crosshair(),
                 new Animations(),
-                new CustomWorld(),
+                new WorldTweaks(),
                 new SkyBox(),
                 new BlockOverlay(),
                 new CustomHitbox(),
@@ -155,7 +159,7 @@ public final class EnoughCore {
                 new AttackEffect(),
                 new ColorPlus(),
                 new MotionBlur(),
-                new WorldSquares(),
+                new WorldCubes(),
                 new MouseParticles(),
                 new Fullbright(),
                 new ItemPhysics(),
@@ -166,10 +170,12 @@ public final class EnoughCore {
                 new BetterHands(),
                 new ShaderHands(),
                 new GlowESP(),
+                new JumpCube(),
+                new Svetoch(),
                 new FreeLook(),
                 new Emotions(),
                 new Graffiti(),
-                new Pet(),
+                new WebPanels(),
                 new FriendMarker(),
                 new TargetESP(),
                 new Optimization(),
@@ -225,21 +231,23 @@ public final class EnoughCore {
         HolyWorldFeatureControl.getInstance().initialize();
 
         WorldRenderEvents.BEFORE_ENTITIES.register(ShaderEspRenderer::beginWorldFrame);
-
-        WorldRenderEvents.LAST.register(AtmoDawnFog::renderInWorld);
         WorldRenderEvents.LAST.register(ShaderEspRenderer::renderInWorld);
+        WorldRenderEvents.LAST.register(AtmoDawnFog::renderInWorld);
         WorldRenderEvents.LAST.register(BlockOverlay::renderInWorld);
         WorldRenderEvents.LAST.register(TargetESP::renderInWorld);
         WorldRenderEvents.LAST.register(KillEffect::renderInWorld);
         WorldRenderEvents.LAST.register(FriendMarker::renderInWorld);
         WorldRenderEvents.LAST.register(CustomHitbox::renderInWorld);
         WorldRenderEvents.LAST.register(Particles::renderInWorld);
-        WorldRenderEvents.LAST.register(WorldSquares::renderInWorld);
+        WorldRenderEvents.LAST.register(WorldCubes::renderInWorld);
         WorldRenderEvents.LAST.register(JumpCircle::renderInWorld);
         WorldRenderEvents.LAST.register(JumpEffect::renderInWorld);
+        WorldRenderEvents.LAST.register(JumpCube::renderInWorld);
+        WorldRenderEvents.LAST.register(Svetoch::renderInWorld);
         WorldRenderEvents.LAST.register(Trails::renderInWorld);
         WorldRenderEvents.LAST.register(AttackEffect::renderInWorld);
         WorldRenderEvents.LAST.register(GraffitiManager.getInstance()::renderWorld);
+        WorldRenderEvents.LAST.register(WebPanels::renderInWorld);
 
         HudRenderCallback.EVENT.register((drawContext, tickCounter) -> {
             ModuleManager.getInstance().onRender(tickCounter.getTickDelta(true));

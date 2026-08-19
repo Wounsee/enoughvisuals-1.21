@@ -67,7 +67,8 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
         figura$avatar = AvatarManager.getAvatar(entityRenderState);
         figura$custom = figura$avatar == null || figura$avatar.luaRuntime == null ? null : figura$avatar.luaRuntime.nameplate.ENTITY;
         figura$hasCustomNameplate = figura$custom != null && figura$avatar.permissions.get(Permissions.NAMEPLATE_EDIT) == 1;
-        figura$enabled =  Configs.ENTITY_NAMEPLATE.value > 0 && !AvatarManager.panic && figura$hasCustomNameplate;
+        // Figura must not alter entity nameplates or add its own badge.
+        figura$enabled = false;
 
 
         figura$textList = TextUtils.splitText(text, "\n");

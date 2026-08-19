@@ -2,6 +2,7 @@ package fun.enoughvisuals.utils.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.mixins.accessors.GameRendererAccessor;
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.modules.visual.SkyBox;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
@@ -28,6 +29,11 @@ public final class SkyBoxRenderer {
             VertexFormats.POSITION,
             Defines.EMPTY
     );
+    private static final ShaderProgramKey PROCEDURAL_SHADER = new ShaderProgramKey(
+            net.minecraft.util.Identifier.of("enough", "core/sky/sky_procedural"),
+            VertexFormats.POSITION,
+            Defines.EMPTY
+    );
 
     private static long startMillis = -1L;
 
@@ -47,17 +53,21 @@ public final class SkyBoxRenderer {
             startMillis = System.currentTimeMillis();
         }
 
-        ShaderProgram shader = RenderSystem.setShader(module.mode.is("Clouds") ? CLOUDS_SHADER : CAUSTIC_SHADER);
+        ShaderProgramKey key;
+        if (module.mode.is("Clouds")) {
+            key = CLOUDS_SHADER;
+        } else if (module.mode.is("Caustic")) {
+            key = CAUSTIC_SHADER;
+        } else {
+            key = PROCEDURAL_SHADER;
+        }
+
+        ShaderProgram shader = RenderSystem.setShader(key);
         if (shader == null) return;
 
         float time = (System.currentTimeMillis() - startMillis) / 1000.0f;
         float width = mc.getWindow().getFramebufferWidth();
         float height = mc.getWindow().getFramebufferHeight();
-
-        int rgb = module.color.get();
-        float r = ((rgb >> 16) & 0xFF) / 255f;
-        float g = ((rgb >> 8) & 0xFF) / 255f;
-        float b = (rgb & 0xFF) / 255f;
 
         float yawRad = (float) Math.toRadians(-mc.gameRenderer.getCamera().getYaw());
         float pitchRad = (float) Math.toRadians(mc.gameRenderer.getCamera().getPitch());
@@ -66,13 +76,32 @@ public final class SkyBoxRenderer {
 
         setUniform(shader, "uTime", time);
         setUniform(shader, "uResolution", width, height);
-        setUniform(shader, "uColor", r, g, b);
         setUniform(shader, "uAlpha", module.alpha.get().floatValue());
         setUniform(shader, "uSpeed", module.speed.get().floatValue());
         setUniform(shader, "uScale", module.scale.get().floatValue());
         setUniform(shader, "uIntensity", module.intensity.get().floatValue());
         setUniform(shader, "uCameraDir", yawRad, pitchRad);
         setUniform(shader, "uFov", fov);
+
+        if (key == PROCEDURAL_SHADER) {
+            setUniform(shader, "uMode", module.getModeIndex());
+            setUniform(shader, "uStars", module.stars.get().floatValue());
+            setUniform(shader, "uVanillaBlend", module.vanillaBlend.get() ? 1.0f : 0.0f);
+
+            int c1 = module.getSkyColor1();
+            int c2 = module.getSkyColor2();
+            int accent = CustomTheme.hudAccent();
+
+            setUniform(shader, "uColor1", ((c1 >> 16) & 0xFF) / 255f, ((c1 >> 8) & 0xFF) / 255f, (c1 & 0xFF) / 255f, 1f);
+            setUniform(shader, "uColor2", ((c2 >> 16) & 0xFF) / 255f, ((c2 >> 8) & 0xFF) / 255f, (c2 & 0xFF) / 255f, 1f);
+            setUniform(shader, "uAccent", ((accent >> 16) & 0xFF) / 255f, ((accent >> 8) & 0xFF) / 255f, (accent & 0xFF) / 255f, 1f);
+        } else {
+            int rgb = module.getSkyColor1();
+            float r = ((rgb >> 16) & 0xFF) / 255f;
+            float g = ((rgb >> 8) & 0xFF) / 255f;
+            float b = (rgb & 0xFF) / 255f;
+            setUniform(shader, "uColor", r, g, b);
+        }
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -110,4 +139,3 @@ public final class SkyBoxRenderer {
         }
     }
 }
-

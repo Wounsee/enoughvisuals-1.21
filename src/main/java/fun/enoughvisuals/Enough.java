@@ -1,5 +1,6 @@
 package fun.enoughvisuals;
 
+import fun.enoughvisuals.systems.accounts.AccountSessionManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import punchy.fabric.PunchyFabricClient;
@@ -25,6 +26,7 @@ public class Enough implements ClientModInitializer {
         // objects. Wait until MinecraftClient is fully constructed.
         ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
             if (ENOUGH_INITIALIZED.compareAndSet(false, true)) {
+                AccountSessionManager.restoreLastSelected();
                 EnoughCore.initializeClient();
             }
         });

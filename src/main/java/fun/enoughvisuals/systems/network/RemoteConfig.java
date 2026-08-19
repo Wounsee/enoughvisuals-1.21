@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -39,6 +40,13 @@ public final class RemoteConfig {
     private static final long MULTIPLAYER_POLL_INTERVAL_MS = 300L;
 
     private final AtomicBoolean started = new AtomicBoolean(false);
+    private final AtomicBoolean immediateSyncRequested = new AtomicBoolean(false);
+    private final Object pollSignal = new Object();
+    private volatile boolean multiplayerActive = false;
+    private volatile String observedIdentity = "";
+    private volatile String observedUsername = "";
+    private volatile String observedUuid = "";
+    private volatile String observedGameServer = "";
 
     // ---- live state (volatile: read from render thread) ----
     private volatile Set<String> blockedModules = Collections.emptySet();
@@ -53,6 +61,7 @@ public final class RemoteConfig {
     private volatile String banReason = "";
     private volatile boolean everSynced = false;
     private volatile Set<String> enoughUsers = Collections.emptySet();
+    private volatile Set<String> enoughUuids = Collections.emptySet();
     private volatile List<AutoServer> autoServers = Collections.emptyList();
     private volatile String launcherRole = "User";
 
@@ -78,15 +87,19 @@ public final class RemoteConfig {
 
     private void loop() {
         while (true) {
+            immediateSyncRequested.set(false);
             try {
                 sync();
             } catch (Throwable t) {
                 LOGGER.debug("sync failed: {}", t.toString());
             }
             try {
-                MinecraftClient client = MinecraftClient.getInstance();
-                Thread.sleep(client != null && client.getCurrentServerEntry() != null
-                        ? MULTIPLAYER_POLL_INTERVAL_MS : POLL_INTERVAL_MS);
+                long interval = multiplayerActive ? MULTIPLAYER_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
+                synchronized (pollSignal) {
+                    if (!immediateSyncRequested.get()) {
+                        pollSignal.wait(interval);
+                    }
+                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
@@ -106,10 +119,10 @@ public final class RemoteConfig {
 
     private String buildRequest() {
         MinecraftClient mc = MinecraftClient.getInstance();
-        String username = "";
-        String uuid = "";
+        String username = observedUsername;
+        String uuid = observedUuid;
         try {
-            if (mc != null && mc.getSession() != null) {
+            if (username.isBlank() && mc != null && mc.getSession() != null) {
                 username = safe(mc.getSession().getUsername());
                 if (mc.getSession().getUuidOrNull() != null) {
                     uuid = mc.getSession().getUuidOrNull().toString();
@@ -141,7 +154,50 @@ public final class RemoteConfig {
         EmotionWheelManager.getInstance().appendSync(root);
         CosmeticCatalog.appendSync(root);
         GraffitiManager.getInstance().appendSync(root);
+        if (!observedGameServer.isBlank()) {
+            root.addProperty("game_server", observedGameServer);
+        }
         return root.toString();
+    }
+
+    /** Captures Minecraft-owned session state on the client thread. */
+    public void onClientTick(MinecraftClient client) {
+        if (client == null) return;
+
+        String username = "";
+        String uuid = "";
+        String server = "";
+        try {
+            if (client.getSession() != null) {
+                username = safe(client.getSession().getUsername());
+                if (client.getSession().getUuidOrNull() != null) {
+                    uuid = client.getSession().getUuidOrNull().toString();
+                }
+            }
+            if (client.getCurrentServerEntry() != null) {
+                server = safe(client.getCurrentServerEntry().address).trim().toLowerCase(Locale.ROOT);
+            }
+        } catch (Throwable ignored) {
+        }
+
+        boolean multiplayer = !server.isBlank();
+        String identity = username + '\u0000' + uuid + '\u0000' + server;
+        if (!identity.equals(observedIdentity) || multiplayer != multiplayerActive) {
+            observedUsername = username;
+            observedUuid = uuid;
+            observedGameServer = server;
+            observedIdentity = identity;
+            multiplayerActive = multiplayer;
+            requestImmediateSync();
+        }
+    }
+
+    /** Wakes the network loop without starting another concurrent request. */
+    public void requestImmediateSync() {
+        immediateSyncRequested.set(true);
+        synchronized (pollSignal) {
+            pollSignal.notifyAll();
+        }
     }
 
     private static void appendServerIcon(JsonObject root, MinecraftClient mc) {
@@ -209,12 +265,26 @@ public final class RemoteConfig {
         if (evArr != null && evArr.isJsonArray()) {
             for (JsonElement e : evArr.getAsJsonArray()) {
                 try {
-                    evUsers.add(e.getAsString());
+                    String username = e.getAsString().trim().toLowerCase(Locale.ROOT);
+                    if (!username.isEmpty()) evUsers.add(username);
                 } catch (Exception ignored) {
                 }
             }
         }
         enoughUsers = Collections.unmodifiableSet(evUsers);
+
+        Set<String> evUuids = new HashSet<>();
+        JsonElement uuidArr = o.get("enough_uuids");
+        if (uuidArr != null && uuidArr.isJsonArray()) {
+            for (JsonElement e : uuidArr.getAsJsonArray()) {
+                try {
+                    String uuid = normalizeUuid(e.getAsString());
+                    if (!uuid.isEmpty()) evUuids.add(uuid);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        enoughUuids = Collections.unmodifiableSet(evUuids);
         MinecraftClient client = MinecraftClient.getInstance();
         if (client != null) client.execute(() -> {
             EmotionWheelManager.getInstance().applySync(o);
@@ -311,7 +381,15 @@ public final class RemoteConfig {
     }
 
     public boolean isEnoughUser(String username) {
-        return username != null && enoughUsers.contains(username);
+        return username != null && enoughUsers.contains(username.trim().toLowerCase(Locale.ROOT));
+    }
+
+    public boolean isEnoughUuid(String uuid) {
+        return uuid != null && enoughUuids.contains(normalizeUuid(uuid));
+    }
+
+    private static String normalizeUuid(String uuid) {
+        return uuid == null ? "" : uuid.trim().toLowerCase(Locale.ROOT).replace("-", "");
     }
 
     private static boolean bool(JsonObject o, String k) {

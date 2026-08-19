@@ -45,6 +45,7 @@ public class FriendMarker extends Module {
         for (PlayerEntity player : mc.world.getPlayers()) {
             if (player == null || player == mc.player) continue;
             if (!player.isAlive() || player.isRemoved()) continue;
+            if (player.isInvisible() || player.isInvisibleTo(mc.player)) continue;
             if (camera.squaredDistanceTo(player.getPos()) > 96.0 * 96.0) continue;
             Box renderBox = player.getBoundingBox().expand(0.35, 1.2, 0.35);
             if (context.frustum() != null && !context.frustum().isVisible(renderBox)) continue;

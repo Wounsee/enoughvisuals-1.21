@@ -10,14 +10,15 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.GameMenuScreen;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.multiplayer.AddServerScreen;
+import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
 import net.minecraft.client.gui.screen.option.GameOptionsScreen;
 import net.minecraft.client.gui.screen.option.OptionsScreen;
+import net.minecraft.client.gui.screen.world.CreateWorldScreen;
+import net.minecraft.client.gui.screen.world.SelectWorldScreen;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.text.Text;
 import net.minecraft.text.TranslatableTextContent;
-
-import java.util.IdentityHashMap;
-import java.util.Map;
 
 public final class VanillaScreenStyle {
     private static final int BUTTON = 0xFF151515;
@@ -26,8 +27,6 @@ public final class VanillaScreenStyle {
     private static final int TEXT_DISABLED = 0xFF817D89;
     private static Screen lastScreen;
     private static long screenOpenedAt;
-    private static final Map<ClickableWidget, Integer> buttonStages = new IdentityHashMap<>();
-    private static int nextButtonStage;
 
     private VanillaScreenStyle() {
     }
@@ -39,19 +38,43 @@ public final class VanillaScreenStyle {
                 || screen instanceof GameOptionsScreen;
     }
 
+    public static boolean shouldStyleButton(ClickableWidget widget) {
+        if (shouldStyle()) return true;
+
+        Screen screen = MinecraftClient.getInstance().currentScreen;
+        if (!(screen instanceof SelectWorldScreen || screen instanceof MultiplayerScreen
+                || screen instanceof CreateWorldScreen || screen instanceof AddServerScreen)) {
+            return false;
+        }
+        if (widget.getY() < screen.height - 55) return false;
+        if (!(widget.getMessage().getContent() instanceof TranslatableTextContent content)) return false;
+
+        return switch (content.getKey()) {
+            case "selectWorld.select", "selectWorld.create", "selectWorld.edit", "selectWorld.delete",
+                    "selectWorld.recreate", "selectServer.select", "selectServer.add", "selectServer.direct",
+                    "selectServer.edit", "selectServer.delete", "selectServer.refresh", "addServer.add",
+                    "gui.back", "gui.cancel" -> true;
+            default -> false;
+        };
+    }
+
     public static void drawButton(DrawContext context, ClickableWidget widget, float alpha, float hover) {
+        pushButtonHover(context, widget, hover);
+        try {
+            drawButtonBody(context, widget, alpha, hover);
+        } finally {
+            context.getMatrices().pop();
+        }
+    }
+
+    private static void drawButtonBody(DrawContext context, ClickableWidget widget, float alpha, float hover) {
         float x = widget.getX();
         float y = widget.getY();
         float width = widget.getWidth();
         float height = widget.getHeight();
-        float reveal = buttonAppearance(widget);
-        float opacity = alpha * buttonAlpha(widget) * (widget.active ? 1f : 0.46f);
-        float grow = (1.30f - 0.30f * reveal) * (1f + hover * 0.026f);
+        float opacity = alpha * (widget.active ? 1f : 0.46f);
 
         context.getMatrices().push();
-        context.getMatrices().translate(x + width * 0.5f, y + height * 0.5f, 0f);
-        context.getMatrices().scale(grow, grow, 1f);
-        context.getMatrices().translate(-(x + width * 0.5f), -(y + height * 0.5f), 0f);
         RenderUtil.drawRoundedRect(context, x, y + 1f, width, height, 6f,
                 RenderUtil.withAlpha(0xFF000000, opacity * (0.18f + hover * 0.06f)));
         RenderUtil.drawRoundedRect(context, x, y, width, height, 6f,
@@ -78,19 +101,34 @@ public final class VanillaScreenStyle {
 
     public static void drawSlider(DrawContext context, ClickableWidget widget, double value,
                                   float alpha, float hover) {
-        drawButton(context, widget, alpha, hover);
-        float x = widget.getX() + 5f;
-        float width = Math.max(1f, widget.getWidth() - 10f);
-        float y = widget.getY() + widget.getHeight() - 3.7f;
-        float progress = (float) Math.max(0.0, Math.min(1.0, value));
-        float opacity = alpha * buttonAlpha(widget);
-        RenderUtil.drawRoundedRect(context, x, y, width, 1.45f, 0.73f,
-                RenderUtil.withAlpha(accent(), opacity * 0.18f));
-        if (progress > 0.001f) {
-            float fill = Math.max(1.45f, width * progress);
-            RenderUtil.drawRoundedRect(context, x, y, fill, 1.45f, 0.73f,
-                    RenderUtil.withAlpha(accent(), opacity * 0.96f));
+        pushButtonHover(context, widget, hover);
+        try {
+            drawButtonBody(context, widget, alpha, hover);
+            float x = widget.getX() + 5f;
+            float width = Math.max(1f, widget.getWidth() - 10f);
+            float y = widget.getY() + widget.getHeight() - 3.7f;
+            float progress = (float) Math.max(0.0, Math.min(1.0, value));
+            float opacity = alpha;
+            RenderUtil.drawRoundedRect(context, x, y, width, 1.45f, 0.73f,
+                    RenderUtil.withAlpha(accent(), opacity * 0.18f));
+            if (progress > 0.001f) {
+                float fill = Math.max(1.45f, width * progress);
+                RenderUtil.drawRoundedRect(context, x, y, fill, 1.45f, 0.73f,
+                        RenderUtil.withAlpha(accent(), opacity * 0.96f));
+            }
+        } finally {
+            context.getMatrices().pop();
         }
+    }
+
+    private static void pushButtonHover(DrawContext context, ClickableWidget widget, float hover) {
+        float scale = 1f + hover * 0.026f;
+        float centerX = widget.getX() + widget.getWidth() * 0.5f;
+        float centerY = widget.getY() + widget.getHeight() * 0.5f;
+        context.getMatrices().push();
+        context.getMatrices().translate(centerX, centerY, 0f);
+        context.getMatrices().scale(scale, scale, 1f);
+        context.getMatrices().translate(-centerX, -centerY, 0f);
     }
 
     public static float animateHover(float current, boolean hovered, long elapsedNanos) {
@@ -106,33 +144,11 @@ public final class VanillaScreenStyle {
         return RenderUtil.easeOutCubic(progress);
     }
 
-    private static float buttonAppearance(ClickableWidget widget) {
-        int stage = buttonStage(widget);
-        float progress = clamp((System.nanoTime() - screenOpenedAt - stage * 54_000_000L) / 430_000_000f);
-        return RenderUtil.easeOutCubic(progress);
-    }
-
-    private static float buttonAlpha(ClickableWidget widget) {
-        int stage = buttonStage(widget);
-        float progress = clamp((System.nanoTime() - screenOpenedAt - stage * 54_000_000L) / 266_600_000f);
-        return RenderUtil.easeOutCubic(progress);
-    }
-
-    private static int buttonStage(ClickableWidget widget) {
-        ensureScreenState();
-        return buttonStages.computeIfAbsent(widget, ignored -> {
-            int index = nextButtonStage++;
-            return index >= 4 ? 3 : index;
-        });
-    }
-
     private static void ensureScreenState() {
         Screen screen = MinecraftClient.getInstance().currentScreen;
         if (screen == lastScreen) return;
         lastScreen = screen;
         screenOpenedAt = System.nanoTime();
-        buttonStages.clear();
-        nextButtonStage = 0;
     }
 
     private static float clamp(float value) {

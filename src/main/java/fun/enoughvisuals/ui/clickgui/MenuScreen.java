@@ -85,6 +85,8 @@ public class MenuScreen extends Screen {
     private static final long OPEN_MS = 320L;
     private static final long CLOSE_MS = 240L;
     private static final long CARD_STAGGER_MS = 34L;
+    private static final long TRANSIENT_STATE_TTL_MS = 20_000L;
+    private static TransientMenuState transientState;
     private static final String ICON_VISUAL = SolarIcons.VISUAL;
     private static final String ICON_WAYPOINT = SolarIcons.WAYPOINT;
     private static final String ICON_CONFIG = SolarIcons.FOLDER;
@@ -144,6 +146,7 @@ public class MenuScreen extends Screen {
     private int contentTransitionDirection = 1;
     private int pendingCategory = -1;
     private IntegratedToolPage.Type pendingTool;
+    private boolean transientStateCaptured;
 
     public MenuScreen() {
         this(null);
@@ -213,6 +216,7 @@ public class MenuScreen extends Screen {
         openTime = System.currentTimeMillis();
         closing = false;
         closeStart = 0L;
+        transientStateCaptured = false;
         searchActive = false;
         searchQuery = "";
         searchFocus = 0f;
@@ -227,7 +231,16 @@ public class MenuScreen extends Screen {
         shownDescription = null;
         descriptionAnimation = 0f;
         scrollOffset = scrollTarget = 0f;
-        if (!initialToolApplied && initialTool != null && isToolVisible(initialTool)) {
+        TransientMenuState restored = initialTool == null ? recentTransientState() : null;
+        if (restored != null) {
+            activeCategory = indexOf(restored.category());
+            activeTool = restored.tool() != null && isToolVisible(restored.tool()) ? restored.tool() : null;
+            if (activeTool != null) {
+                toolPage.activate(activeTool);
+                initialToolApplied = true;
+            }
+            searchQuery = restored.searchQuery() == null ? "" : restored.searchQuery();
+        } else if (!initialToolApplied && initialTool != null && isToolVisible(initialTool)) {
             activeTool = initialTool;
             toolPage.activate(initialTool);
             initialToolApplied = true;
@@ -246,6 +259,7 @@ public class MenuScreen extends Screen {
             }
         }
         rebuildCards(0, openTime + 55L);
+        if (restored != null) restoreTransientState(restored);
     }
 
     @Override
@@ -312,10 +326,15 @@ public class MenuScreen extends Screen {
                 return a.getName().compareToIgnoreCase(b.getName());
             });
         }
+        float approxCardH = 45f * Math.max(1f, scale);
+        int topVisibleRow = Math.max(0, (int) ((-scrollOffset) / approxCardH));
         for (int i = 0; i < selected.size(); i++) {
             ModuleCard card = cardCache.get(selected.get(i));
             card.column = i & 1;
-            card.beginIntro(introBase + i * CARD_STAGGER_MS, direction);
+            int row = i / 2;
+            int distFromVisible = Math.abs(row - topVisibleRow);
+            long delay = distFromVisible * 24L;
+            card.beginIntro(introBase + delay, direction);
             cards.add(card);
         }
         scrollOffset = Math.max(scrollOffset, -16f * scale);
@@ -364,7 +383,6 @@ public class MenuScreen extends Screen {
         float geometry = closing ? RenderUtil.easeInCubic(progress) : RenderUtil.easeOutCubic(progress);
         float alpha = geometry;
         float windowScale = 0.76f + 0.24f * geometry;
-        float yOffset = 0f;
 
         float frame = RenderUtil.getFrameDelta();
         scrollOffset = RenderUtil.animate(scrollOffset, scrollTarget, 0.30f, frame);
@@ -377,15 +395,23 @@ public class MenuScreen extends Screen {
         context.getMatrices().push();
         context.getMatrices().scale(fixedScreenScale, fixedScreenScale, 1f);
         float previousScissorScale = HudElement.setActiveScissorScale(fixedScreenScale);
+        float centerX = windowX + windowW * 0.5f;
+        float centerY = windowY + windowH * 0.5f;
         try {
-            float centerX = windowX + windowW * 0.5f;
-            float centerY = windowY + windowH * 0.5f;
-            context.getMatrices().push();
-            context.getMatrices().translate(centerX, centerY + yOffset, 0f);
-            context.getMatrices().scale(windowScale, windowScale, 1f);
-            context.getMatrices().translate(-centerX, -centerY, 0f);
-            renderWindow(context, mx, my, alpha, now);
-            context.getMatrices().pop();
+            float[] previousScissorTransform = StencilUtil.setLocalScissorTransform(windowScale, centerX, centerY);
+            try {
+                context.getMatrices().push();
+                try {
+                    context.getMatrices().translate(centerX, centerY, 0f);
+                    context.getMatrices().scale(windowScale, windowScale, 1f);
+                    context.getMatrices().translate(-centerX, -centerY, 0f);
+                    renderWindow(context, mx, my, alpha, now);
+                } finally {
+                    context.getMatrices().pop();
+                }
+            } finally {
+                StencilUtil.restoreLocalScissorTransform(previousScissorTransform);
+            }
 
             renderHint(context, alpha, now);
             if (picker != null) {
@@ -821,6 +847,7 @@ public class MenuScreen extends Screen {
 
     private void startClosing() {
         if (closing) return;
+        captureTransientState();
         StencilUtil.resetRenderState();
         closing = true;
         EnoughSoundPlayer.playMenuClose();
@@ -832,9 +859,53 @@ public class MenuScreen extends Screen {
 
     @Override
     public void removed() {
+        captureTransientState();
         toolPage.close();
         StencilUtil.resetRenderState();
         super.removed();
+    }
+
+    private void captureTransientState() {
+        if (transientStateCaptured) return;
+        transientStateCaptured = true;
+        Category category = categories.length == 0
+                ? null
+                : categories[Math.max(0, Math.min(categories.length - 1, activeCategory))];
+        String expandedModuleId = expandedCard == null ? null : expandedCard.getModule().getId();
+        ModuleCard.TransientState cardState = expandedCard == null
+                ? null
+                : expandedCard.captureTransientState();
+        transientState = new TransientMenuState(
+                System.currentTimeMillis(), category, activeTool, searchQuery,
+                scrollTarget, expandedModuleId, cardState);
+    }
+
+    private void restoreTransientState(TransientMenuState state) {
+        scrollOffset = scrollTarget = state.scrollTarget();
+        if (activeTool != null || state.expandedModuleId() == null) return;
+        for (Map.Entry<Module, ModuleCard> entry : cardCache.entrySet()) {
+            if (!entry.getKey().getId().equals(state.expandedModuleId())) continue;
+            ModuleCard card = entry.getValue();
+            if (!cards.contains(card)) return;
+            expandedCard = card;
+            card.restoreTransientState(state.cardState());
+            setFocusedCard(card);
+            return;
+        }
+    }
+
+    private static TransientMenuState recentTransientState() {
+        TransientMenuState state = transientState;
+        if (state == null) return null;
+        if (System.currentTimeMillis() - state.savedAt() <= TRANSIENT_STATE_TTL_MS) return state;
+        transientState = null;
+        return null;
+    }
+
+    private record TransientMenuState(long savedAt, Category category,
+                                      IntegratedToolPage.Type tool, String searchQuery,
+                                      float scrollTarget, String expandedModuleId,
+                                      ModuleCard.TransientState cardState) {
     }
 
     private boolean canInteract() {

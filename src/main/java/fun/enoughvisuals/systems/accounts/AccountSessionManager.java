@@ -1,11 +1,13 @@
 package fun.enoughvisuals.systems.accounts;
 
 import fun.enoughvisuals.mixins.accessors.MinecraftClientAccessor;
+import fun.enoughvisuals.systems.network.RemoteConfig;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.session.ProfileKeys;
 import net.minecraft.client.session.Session;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,6 +25,7 @@ public final class AccountSessionManager {
         captureOriginal(client);
         if (isOriginal(profile)) {
             apply(client, originalSession, originalProfileKeys);
+            AccountRepository.saveSelected(profile.name());
             return;
         }
 
@@ -35,6 +38,21 @@ public final class AccountSessionManager {
                 Session.AccountType.LEGACY
         );
         apply(client, session, ProfileKeys.MISSING);
+        AccountRepository.saveSelected(profile.name());
+    }
+
+    public static void restoreLastSelected() {
+        String selectedName = AccountRepository.selectedName();
+        if (selectedName.isBlank()) return;
+
+        List<AccountProfile> accounts = AccountRepository.load();
+        for (AccountProfile account : accounts) {
+            if (account.name().equalsIgnoreCase(selectedName)) {
+                switchTo(account);
+                return;
+            }
+        }
+        AccountRepository.saveSelected(null);
     }
 
     public static UUID offlineUuid(String name) {
@@ -58,5 +76,6 @@ public final class AccountSessionManager {
         MinecraftClientAccessor accessor = (MinecraftClientAccessor) client;
         accessor.enough$setSession(session);
         accessor.enough$setProfileKeys(profileKeys == null ? ProfileKeys.MISSING : profileKeys);
+        RemoteConfig.getInstance().requestImmediateSync();
     }
 }

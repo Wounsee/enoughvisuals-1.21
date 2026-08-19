@@ -32,11 +32,13 @@ public final class HudRollingText {
     }
 
     public float layoutWidth(float size, FontWeight weight) {
-        if (changedAt != 0L && System.currentTimeMillis() - changedAt < DURATION_MS) {
-            return Math.max(CustomFontRenderer.getTextWidth(previous, size, weight),
-                    CustomFontRenderer.getTextWidth(current, size, weight));
-        }
-        return width(size, weight);
+        float currentWidth = width(size, weight);
+        if (changedAt == 0L) return currentWidth;
+
+        float p = progress();
+        if (p >= 1f) return currentWidth;
+        float previousWidth = CustomFontRenderer.getTextWidth(previous, size, weight);
+        return lerp(previousWidth, currentWidth, easeOutCubic(p));
     }
 
     public float draw(DrawContext ctx, float x, float y, float clipWidth,
@@ -47,7 +49,7 @@ public final class HudRollingText {
             return currentWidth;
         }
 
-        float p = Math.min(1f, (System.currentTimeMillis() - changedAt) / (float) DURATION_MS);
+        float p = progress();
         if (p >= 1f) {
             previous = current;
             changedAt = 0L;
@@ -56,18 +58,30 @@ public final class HudRollingText {
         }
 
         float line = size + 3f;
+        float animatedWidth = layoutWidth(size, weight);
         RenderUtil.enableScissor(x - 0.5f, y - 1f, clipWidth + 1f, line);
         try {
             int length = Math.max(previous.length(), current.length());
             String oldValue = leftPad(previous, length);
             String newValue = leftPad(current, length);
-            float cursor = x;
+            float[] cells = new float[length];
+            float cellsWidth = 0f;
+            for (int index = 0; index < length; index++) {
+                cells[index] = Math.max(
+                        glyphWidth(String.valueOf(oldValue.charAt(index)), size, weight),
+                        glyphWidth(String.valueOf(newValue.charAt(index)), size, weight));
+                cellsWidth += cells[index];
+            }
+
+            // Numbers are right-aligned while their amount of digits changes.
+            // The caller receives the same animated width, so suffixes such as
+            // FPS/MS/BPS move with the roll instead of being drawn over it.
+            float cursor = x + animatedWidth - cellsWidth;
             float eased = easeOutBack(p);
             for (int index = 0; index < length; index++) {
                 String oldGlyph = String.valueOf(oldValue.charAt(index));
                 String newGlyph = String.valueOf(newValue.charAt(index));
-                float cellWidth = Math.max(glyphWidth(oldGlyph, size, weight),
-                        glyphWidth(newGlyph, size, weight));
+                float cellWidth = cells[index];
                 if (oldGlyph.equals(newGlyph)) {
                     if (!" ".equals(newGlyph)) {
                         drawGlyph(ctx, newGlyph, cursor, y, size, color, alpha, weight);
@@ -87,12 +101,12 @@ public final class HudRollingText {
         } finally {
             RenderUtil.disableScissor();
         }
-        return currentWidth;
+        return animatedWidth;
     }
 
     public float drawCentered(DrawContext ctx, float centerX, float y, float clipWidth,
                               float size, float alpha, int color, FontWeight weight) {
-        float textWidth = width(size, weight);
+        float textWidth = layoutWidth(size, weight);
         return draw(ctx, centerX - textWidth * 0.5f, y, clipWidth,
                 size, alpha, color, weight);
     }
@@ -114,10 +128,24 @@ public final class HudRollingText {
         return " ".repeat(length - value.length()) + value;
     }
 
+    private float progress() {
+        return Math.min(1f, Math.max(0f,
+                (System.currentTimeMillis() - changedAt) / (float) DURATION_MS));
+    }
+
+    private static float easeOutCubic(float p) {
+        float q = 1f - Math.max(0f, Math.min(1f, p));
+        return 1f - q * q * q;
+    }
+
     private static float easeOutBack(float p) {
         float c1 = 1.32f;
         float c3 = c1 + 1f;
-        float q = p - 1f;
+        float q = Math.max(0f, Math.min(1f, p)) - 1f;
         return 1f + c3 * q * q * q + c1 * q * q;
+    }
+
+    private static float lerp(float from, float to, float progress) {
+        return from + (to - from) * progress;
     }
 }

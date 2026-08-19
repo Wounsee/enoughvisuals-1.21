@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
@@ -34,7 +35,7 @@ public final class PulsePetWorldRenderer {
     private static final double MOVING_SPEED_SQ = 4.0e-4;
     private static final long START_NANOS = System.nanoTime();
     /** Pets that hover next to the owner's shoulder instead of standing on the ground. */
-    private static final Set<String> SHOULDER_PETS = Set.of("angel", "bee", "demon", "diamond");
+    private static final Set<String> SHOULDER_PETS = Set.of("angel", "bee", "demon", "diamond", "ufo", "dragon");
     private static final float SHOULDER_HEIGHT = 1.35f;
     private static final float SHOULDER_SIDE_OFFSET = -0.62f;
     private static final float SHOULDER_BACK_OFFSET = -0.18f;
@@ -56,11 +57,18 @@ public final class PulsePetWorldRenderer {
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
         if (player == null || client.world == null || context.matrixStack() == null) return;
+        for (AbstractClientPlayerEntity owner : client.world.getPlayers()) {
+            renderPet(context, client, owner, owner.getUuid().equals(player.getUuid()));
+        }
+    }
+
+    private static void renderPet(WorldRenderContext context, MinecraftClient client,
+                                  AbstractClientPlayerEntity player, boolean local) {
         if (player.isInvisible() || player.isSpectator()) return;
 
-        CosmeticCatalog.Entry pet = CosmeticCatalog.equipped(CosmeticCatalog.Kind.PET);
+        CosmeticCatalog.Entry pet = CosmeticCatalog.pulseEquipped(player.getUuid(), CosmeticCatalog.Kind.PET);
         if (pet == null || !pet.isPulse()) {
-            smoothedPos = null;
+            if (local) smoothedPos = null;
             return;
         }
         PulseModelGeometry.Bounds bounds = PulseModelGeometry.bounds(pet.pulseId(), true);
@@ -87,21 +95,26 @@ public final class PulsePetWorldRenderer {
         double sin = Math.sin(radians);
         double cos = Math.cos(radians);
         Vec3d anchor = position.add(x * cos + z * sin, y, -x * sin + z * cos);
-        float dt = frameSeconds();
-        if (smoothedPos == null || smoothedPos.squaredDistanceTo(anchor) > 64.0) {
-            smoothedPos = anchor;
-            smoothedYaw = targetYaw;
-        } else {
-            smoothedPos = smoothedPos.lerp(anchor, catchUp(FOLLOW_SPEED, dt));
-            smoothedYaw = MathHelper.lerpAngleDegrees(catchUp(TURN_SPEED, dt), smoothedYaw, targetYaw);
+        float dt = local ? frameSeconds() : 0f;
+        Vec3d render = anchor;
+        float renderYaw = targetYaw;
+        if (local) {
+            if (smoothedPos == null || smoothedPos.squaredDistanceTo(anchor) > 64.0) {
+                smoothedPos = anchor;
+                smoothedYaw = targetYaw;
+            } else {
+                smoothedPos = smoothedPos.lerp(anchor, catchUp(FOLLOW_SPEED, dt));
+                smoothedYaw = MathHelper.lerpAngleDegrees(catchUp(TURN_SPEED, dt), smoothedYaw, targetYaw);
+            }
+            render = smoothedPos;
+            renderYaw = smoothedYaw;
         }
-        Vec3d render = smoothedPos;
 
         MatrixStack matrices = context.matrixStack();
         matrices.push();
         try {
             matrices.translate(render.x - camera.x, render.y - camera.y, render.z - camera.z);
-            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-smoothedYaw));
+            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-renderYaw));
             VertexConsumerProvider consumers = context.consumers();
             if (consumers == null) return;
             PulseCosmeticBridge.renderPet(pet.pulseId(), matrices, consumers,
@@ -126,7 +139,7 @@ public final class PulsePetWorldRenderer {
         return MathHelper.clamp((float) ((now - previous) / 1.0e9), 0f, 0.25f);
     }
 
-    private static boolean isMoving(ClientPlayerEntity player) {
+    private static boolean isMoving(AbstractClientPlayerEntity player) {
         double dx = player.getX() - player.prevX;
         double dz = player.getZ() - player.prevZ;
         return dx * dx + dz * dz >= MOVING_SPEED_SQ;

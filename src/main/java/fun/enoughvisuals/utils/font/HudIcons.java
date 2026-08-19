@@ -18,6 +18,7 @@ public final class HudIcons {
     public static final String SPEED = "\uF20D";
     public static final String MODULE_DISABLED = "\uF20E";
     public static final String MODULE_ENABLED = "\uF20F";
+    public static final String CLOCK = "\uF214";
     public static final String SAVE = "\uF210";
     public static final String BELL = "\uF211";
     public static final String WARNING = "\uF212";

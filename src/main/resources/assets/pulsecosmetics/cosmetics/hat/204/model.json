@@ -1,0 +1,236 @@
+{
+  "name": "Pilot Hat",
+  "id": 204,
+  "category": 2,
+  "author": "EnoughVisuals",
+  "pos": 2,
+  "version": 1,
+  "texture": "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAEfUlEQVR4AeyaW4hNURjHv70LZZQYnTFCjEvz4kHul8jLiOSVIsmDy6t4I4o3kieXF3mgyDvxMpGSW5GXMRgaMs5hRlOGxss2vz19uzVnr2adOdN0zl62+lvf+n9rffu77cvss0Nx/Du7Z0UEjm9tjUzAgQMr5yc8c6Dr0DnM11ztTAAeLm4tSMuygkyf1RADGQ4dgF+xcaGcuPkyAMhw6OodFSXgZ/+AzJjeIAQNkOE0OLjdJ+8FOkeG03k9j84ENDY3SG/PgLzvKMnLxx9jIMOha2ycKjObpqVihEOXUtQZ4UwA1V69uSWuPq0NqC4cut7e39J28E5SfY0PDp3O63V0JoBWf/awK9UBcOjqNbBK/XImgFan4oDqA2SA7tqL7lT19eCj6XRNrUdnAvp/DJ//nPdUHCADdLUOYLzHD7lvKy4f2xTdOrMtYoTjfu46AGtYyx5zL5wJ1plQncv+ROtDqsjVnJZetLQpvqLT2tzPz93vCAAyOHL+UQCQATqAzB66AxvYwia2AXNOHQ0GGQ6dcrUa41NAne8r/hIubgQ0VofYgx1skAhk0wa3RR6OALKpq6UccquiEjiM48jVOsRebGALGdsADpt0BSOAQ4dcS4Q8rFAVnOt6UxJaulqH2IsNbMU2hx6SsK/2OD2Q6RJGU8e8Fkg6gIcazk0uVNU6wl5sYMvsAOx96CwKgZMcqg9XFx2AI4DbGo5RuWr+imMPe7GBLWwqOCWQ0amsI3wtMXwRHHqc7Xr7XWhfxmodYq/aMKtLN8Br0Mhw1R5nPPvK94Y8rSk4h1UuX+ia6z7ThsnBc6cAyAC9y+5E6+MO4CBPT0+JPl9rjm7sl+jCdklGdD4jScCc+TNl8txWWbJgihQKkow+B09soVaeiYIkvPs0GE/pCtbEEw//Cwn0a3efgMKyw0InAI0VnjU6920MSyURAgTPru6Th496YsADeEbfAtd4wqN3Jdh7fRhrTg8mMjxAx6gbfBuTi6BvgVUaT5KAp9+6IhOVGsj6uiQBBFL80y/gwZPnTP8LhFp1M9q2davExptrfJHjDqDq4PWrTgG+BFdJHOGa2S3BzoXLg+Xt2+XEWpGDDVdkzt0NAg/UCA9ExQdboqjndvzIrHzWx7gDCGLegZ4gaN4VNLW1B8hwJuDQsQbZ1GVZThKQ5SDG47v3CXAlJ0+AK0O+6/MO8L3CrvjyDnBlyHd93gG+V9gVX94Brgz5rs87wPcKu+LLO8CVId/1eQf4VuGxxpN3wFgz5tv6ER3Az+Dm218NljfBvBFGxxrlfRhHJIAfR/k5/O+XDim9uZLEhwyHjjWJwgNhRAKIhwBPXZokvAJnDpDh0DH3CakEEJztA0Ybx9qsw5qArAc1Fv+tCeCDx3IjNq58TRbn1gRkMZBqfc4TYMuc7TNWG2fbmzXO2gG2893GZS1Ym7/WBPDRc/liG1e+JovzVAL4VvjQjqKYj7zIcOiyGORoPqcSwEeRC9avT+2BQ5dSZJxIJYB4bl5sj78eRQZ8LQqHXG8Yrz//AAAA//8bvnbgAAAABklEQVQDAMT0qwHHdJyHAAAAAElFTkSuQmCC",
+  "model": {
+    "format_version": "1.12.0",
+    "minecraft:geometry": [
+      {
+        "description": {
+          "identifier": "geometry.pilot_hat",
+          "texture_width": 64,
+          "texture_height": 64,
+          "visible_bounds_width": 5,
+          "visible_bounds_height": 4.5,
+          "visible_bounds_offset": [
+            0,
+            1.75,
+            0
+          ]
+        },
+        "bones": [
+          {
+            "name": "hat",
+            "pivot": [
+              0,
+              24,
+              0
+            ],
+            "cubes": [
+              {
+                "origin": [
+                  -4,
+                  24,
+                  -4
+                ],
+                "size": [
+                  8,
+                  8,
+                  8
+                ],
+                "inflate": 0.4,
+                "uv": [
+                  0,
+                  0
+                ]
+              },
+              {
+                "origin": [
+                  -4,
+                  32,
+                  -5
+                ],
+                "size": [
+                  8,
+                  1,
+                  0
+                ],
+                "inflate": 0.01,
+                "pivot": [
+                  0,
+                  32.5,
+                  -5
+                ],
+                "rotation": [
+                  -27.5,
+                  0,
+                  0
+                ],
+                "uv": [
+                  0,
+                  28
+                ]
+              },
+              {
+                "origin": [
+                  1,
+                  31,
+                  -5.25
+                ],
+                "size": [
+                  3,
+                  3,
+                  2
+                ],
+                "pivot": [
+                  2.5,
+                  32.5,
+                  -4.25
+                ],
+                "rotation": [
+                  -40,
+                  -22.5,
+                  0
+                ],
+                "uv": [
+                  0,
+                  17
+                ]
+              },
+              {
+                "origin": [
+                  1.5,
+                  31.5,
+                  -5.5
+                ],
+                "size": [
+                  2,
+                  2,
+                  2
+                ],
+                "inflate": 0.05,
+                "pivot": [
+                  2.5,
+                  32.5,
+                  -4.25
+                ],
+                "rotation": [
+                  -40,
+                  -22.5,
+                  0
+                ],
+                "uv": [
+                  0,
+                  24
+                ]
+              },
+              {
+                "origin": [
+                  -4,
+                  31,
+                  -5.25
+                ],
+                "size": [
+                  3,
+                  3,
+                  2
+                ],
+                "pivot": [
+                  -2.5,
+                  32.5,
+                  -4.25
+                ],
+                "rotation": [
+                  -40,
+                  22.5,
+                  0
+                ],
+                "uv": [
+                  0,
+                  17
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -3.5,
+                  31.5,
+                  -5.5
+                ],
+                "size": [
+                  2,
+                  2,
+                  2
+                ],
+                "inflate": 0.05,
+                "pivot": [
+                  -2.5,
+                  32.5,
+                  -4.25
+                ],
+                "rotation": [
+                  -40,
+                  22.5,
+                  0
+                ],
+                "uv": [
+                  0,
+                  24
+                ]
+              },
+              {
+                "origin": [
+                  4.25,
+                  18,
+                  -5.5
+                ],
+                "size": [
+                  0,
+                  14,
+                  8
+                ],
+                "inflate": 0.01,
+                "uv": [
+                  0,
+                  42
+                ],
+                "mirror": true
+              },
+              {
+                "origin": [
+                  -4.25,
+                  18,
+                  -5.5
+                ],
+                "size": [
+                  0,
+                  14,
+                  8
+                ],
+                "inflate": 0.01,
+                "uv": [
+                  0,
+                  42
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "height": 0.1,
+  "scale": 1.0,
+  "x": 0.0,
+  "y": -1.5,
+  "z": 0.0,
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "roll": 0.0,
+  "previewY": 0.0,
+  "previewScale": 1.0
+}

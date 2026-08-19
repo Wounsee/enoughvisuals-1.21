@@ -14,6 +14,7 @@ import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.utils.sound.EnoughSoundPlayer;
 import fun.enoughvisuals.systems.emotions.EmotionWheelManager;
 import fun.enoughvisuals.systems.graffiti.GraffitiManager;
+import fun.enoughvisuals.systems.modules.modules.visual.WebPanels;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import org.lwjgl.glfw.GLFW;
@@ -33,6 +34,13 @@ public abstract class KeyInputMixin {
 
     @Inject(method = "onKey", at = @At("HEAD"), cancellable = true)
     private void enough$onKey(long window, int key, int scancode, int action, int modifiers, CallbackInfo ci) {
+        WebPanels webPanels = WebPanels.getInstance();
+        if (webPanels != null && webPanels.isBrowserFocused()) {
+            if (webPanels.forwardKeySafe(key, scancode, modifiers, action)) {
+                ci.cancel();
+                return;
+            }
+        }
         if (key != GLFW.GLFW_KEY_UNKNOWN && key >= 0 && EmotionWheelManager.getInstance().onKey(key, action)) {
             ci.cancel();
             return;
@@ -77,6 +85,15 @@ public abstract class KeyInputMixin {
             client.getWindow().setFullscreenVideoMode(Optional.empty());
             client.options.write();
         } catch (Throwable ignored) {
+        }
+    }
+
+    @Inject(method = "onChar", at = @At("HEAD"), cancellable = true)
+    private void enough$onChar(long window, int codepoint, int modifiers, CallbackInfo ci) {
+        WebPanels webPanels = WebPanels.getInstance();
+        if (webPanels != null && webPanels.isBrowserFocused()) {
+            webPanels.forwardChar((char) codepoint, modifiers);
+            ci.cancel();
         }
     }
 }

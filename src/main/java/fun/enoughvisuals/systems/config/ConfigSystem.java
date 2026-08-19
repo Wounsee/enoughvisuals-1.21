@@ -9,6 +9,7 @@ import com.google.gson.JsonParser;
 import com.google.gson.annotations.SerializedName;
 import fun.enoughvisuals.systems.hud.DragAndDrop;
 import fun.enoughvisuals.systems.hud.HudElement;
+import fun.enoughvisuals.systems.hud.HudViewport;
 import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.modules.client.HUD;
@@ -332,6 +333,9 @@ public final class ConfigSystem {
         }
 
         DragAndDrop dad = DragAndDrop.getInstance();
+        dad.synchronizeViewport();
+        snapshot.hud.viewportWidth = HudElement.hudScreenWidth();
+        snapshot.hud.viewportHeight = HudElement.hudScreenHeight();
         snapshot.hud.rememberedSettings = dad.getRememberedSettingsCopy();
         for (HudElement element : dad.getActiveElements()) {
             if (element.getTypeId() == null || element.getTypeId().isBlank()) continue;
@@ -340,6 +344,10 @@ public final class ConfigSystem {
             hudElement.id = element.getTypeId();
             hudElement.x = element.getX();
             hudElement.y = element.getY();
+            hudElement.normalizedX = HudViewport.normalizedPosition(
+                    element.getX(), element.getWidth(), HudElement.hudScreenWidth());
+            hudElement.normalizedY = HudViewport.normalizedPosition(
+                    element.getY(), element.getHeight(), HudElement.hudScreenHeight());
             hudElement.settings = new LinkedHashMap<>();
             for (Setting<?> setting : element.getSettings()) {
                 hudElement.settings.put(setting.getId(), setting.serialize());
@@ -364,7 +372,7 @@ public final class ConfigSystem {
         for (Module module : moduleManager.getModules()) {
             ModuleSnapshot data = modulesById.get(module.getId());
             if (data == null) {
-                module.setEnabledSilent(false);
+                module.setEnabledSilent(module.isEnabledByDefault());
                 continue;
             }
 
@@ -383,14 +391,24 @@ public final class ConfigSystem {
         }
 
         if (snapshot.hud != null && snapshot.hud.elements != null) {
+            boolean sameHudWidth = snapshot.hud.viewportWidth != null
+                    && Math.abs(snapshot.hud.viewportWidth - HudElement.hudScreenWidth()) <= 0.01f;
+            boolean sameHudHeight = snapshot.hud.viewportHeight != null
+                    && Math.abs(snapshot.hud.viewportHeight - HudElement.hudScreenHeight()) <= 0.01f;
             for (HudElementSnapshot hudData : snapshot.hud.elements) {
                 if (hudData == null || hudData.id == null || hudData.id.isBlank()) continue;
 
                 HudElement element = dad.addElement(hudData.id, hudData.x, hudData.y);
                 if (element == null) continue;
 
-                element.setX(hudData.x);
-                element.setY(hudData.y);
+                element.setX(!sameHudWidth && hudData.normalizedX != null
+                        ? HudViewport.positionFromNormalized(
+                                hudData.normalizedX, element.getWidth(), HudElement.hudScreenWidth())
+                        : hudData.x);
+                element.setY(!sameHudHeight && hudData.normalizedY != null
+                        ? HudViewport.positionFromNormalized(
+                                hudData.normalizedY, element.getHeight(), HudElement.hudScreenHeight())
+                        : hudData.y);
                 applySettings(element.getSettings(), hudData.settings);
             }
         }
@@ -792,6 +810,10 @@ public final class ConfigSystem {
     }
 
     private static final class HudSnapshot {
+        @SerializedName("viewportWidth")
+        private Float viewportWidth;
+        @SerializedName("viewportHeight")
+        private Float viewportHeight;
         @SerializedName("elements")
         private List<HudElementSnapshot> elements = new ArrayList<>();
         @SerializedName("rememberedSettings")
@@ -805,6 +827,10 @@ public final class ConfigSystem {
         private float x = 0f;
         @SerializedName("y")
         private float y = 0f;
+        @SerializedName("normalizedX")
+        private Float normalizedX;
+        @SerializedName("normalizedY")
+        private Float normalizedY;
         @SerializedName("settings")
         private Map<String, Object> settings = new LinkedHashMap<>();
     }

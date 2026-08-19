@@ -81,7 +81,13 @@ public class BlockOverlay extends Module {
             "Cosmos",
             "Fog Nebula",
             "Web",
-            "Plasma"
+            "Plasma",
+            "Aurora",
+            "Stars",
+            "Snow",
+            "Glow",
+            "Caustic",
+            "Clouds"
     ));
     public final ColorSetting shaderColor = add(new ColorSetting("Цвет шейдера", "shader_color", "Цвет шейдерного слоя", 0xFFFFFFFF));
     public final SliderSetting shaderAlpha = add(new SliderSetting("Прозрачность", "shader_alpha", "Сила шейдерной заливки", 0.6, 0.05, 1.0, 0.05));
@@ -347,6 +353,12 @@ public class BlockOverlay extends Module {
         return switch (texture.get().toLowerCase(Locale.ROOT)) {
             case "web" -> 2;
             case "plasma" -> 3;
+            case "aurora" -> 4;
+            case "stars" -> 5;
+            case "snow" -> 6;
+            case "glow" -> 7;
+            case "caustic" -> 8;
+            case "clouds" -> 9;
             default -> 0;
         };
     }

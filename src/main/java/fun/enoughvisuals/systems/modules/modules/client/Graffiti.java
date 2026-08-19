@@ -8,7 +8,7 @@ import fun.enoughvisuals.systems.modules.settings.BindSetting;
 import fun.enoughvisuals.systems.modules.settings.StringSetting;
 import org.lwjgl.glfw.GLFW;
 
-@Register(name = "Graffiti", id = "graffiti", description = "Колесо граффити и размещение на блоках", category = Category.CLIENT)
+@Register(name = "Graffiti", id = "graffiti", description = "Колесо граффити и размещение на блоках", category = Category.CLIENT, enabledByDefault = true)
 public final class Graffiti extends Module {
     private static Graffiti instance;
     private final BindSetting wheelBind = add(new BindSetting(

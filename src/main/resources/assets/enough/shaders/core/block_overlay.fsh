@@ -67,6 +67,31 @@ void main() {
         float p3 = sin((uv.x + uv.y) * 1.8 + Time * 1.8);
         float energy = clamp((p1 + p2 + p3) * 0.16 + 0.55, 0.0, 1.0);
         col = mix(col * 0.35, mix(col, vec3(1.0), 0.68), energy);
+    } else if (Mode == 4) { // Aurora
+        float w1 = sin(uv.x * 1.5 + Time * 1.8 + fbm(uv * 0.8));
+        float w2 = cos(uv.y * 1.2 - Time * 1.4 + fbm(uv * 0.6 + vec2(Time * 0.2, 0.0)));
+        float wave = pow(clamp(0.5 + 0.5 * (w1 * 0.6 + w2 * 0.4), 0.0, 1.0), 2.0);
+        col = mix(col * 0.3, mix(col, vec3(0.3, 1.0, 0.8), 0.7), wave);
+    } else if (Mode == 5) { // Stars
+        float starField = pow(hash(floor(uv * 12.0)), 16.0) * (0.5 + 0.5 * sin(Time * 4.0 + uv.x * 10.0));
+        float neb = fbm(uv * 0.4 + vec2(Time * 0.05, -Time * 0.03));
+        col = mix(col * 0.3, col, neb) + vec3(starField * 1.5);
+    } else if (Mode == 6) { // Snow
+        vec2 suv = uv + vec2(sin(Time * 0.8 + uv.y * 2.0) * 0.3, Time * 1.5);
+        float flake = pow(hash(floor(suv * 8.0)), 12.0);
+        col = mix(col * 0.6, vec3(0.9, 0.95, 1.0), flake);
+    } else if (Mode == 7) { // Glow
+        float g = 0.5 + 0.5 * sin(length(uv - vec2(3.75)) * 1.5 - Time * 3.0);
+        col = mix(col * 0.4, mix(col, vec3(1.0), 0.8), pow(g, 2.2));
+    } else if (Mode == 8) { // Caustic
+        vec2 cp = uv * 0.8;
+        float c1 = sin(cp.x * 3.0 + Time * 2.0) + sin(cp.y * 3.0 + Time * 2.0);
+        float c2 = sin((cp.x + cp.y) * 2.5 - Time * 1.5);
+        float caust = pow(clamp(0.5 + 0.25 * (c1 + c2), 0.0, 1.0), 3.0);
+        col = mix(col * 0.4, mix(col, vec3(1.0), 0.85), caust);
+    } else if (Mode == 9) { // Clouds
+        float cloud = fbm(uv * 0.35 + vec2(Time * 0.1, Time * 0.06));
+        col = mix(col * 0.35, mix(col, vec3(0.95, 0.98, 1.0), 0.6), smoothstep(0.3, 0.75, cloud));
     } else {
         float row = floor(uv.y * 8.0);
         float shift = step(0.82, hash(vec2(row, floor(Time * 8.0)))) * 0.5;

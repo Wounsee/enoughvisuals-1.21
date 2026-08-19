@@ -7,10 +7,13 @@ import fun.enoughvisuals.systems.hud.HudDesign;
 import fun.enoughvisuals.systems.hud.HudElement;
 import fun.enoughvisuals.systems.hud.HudListAnimator;
 import fun.enoughvisuals.systems.hud.HudMotion;
+import fun.enoughvisuals.systems.hud.HudRollingText;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
+import fun.enoughvisuals.utils.font.HudIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
+import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ChatScreen;
@@ -28,13 +31,19 @@ import java.util.List;
 import java.util.Map;
 
 public final class CooldownsHud extends HudElement {
+    private static final float FIGMA_WIDTH = 237f;
+    private static final float FIGMA_BASE_HEIGHT = 97f;
+    private static final float FIGMA_ROW_STEP = 28f;
+    private static final float FIGMA_TO_HUD = 1.8f;
+
     public final SliderSetting scale = addSetting(HudDesign.scaleSetting());
 
-    private final HudListAnimator cards = new HudListAnimator();
+    private final HudListAnimator rows = new HudListAnimator();
     private final Map<String, CooldownLine> lines = new LinkedHashMap<>();
+    private final Map<String, HudRollingText> timerAnimations = new LinkedHashMap<>();
 
     public CooldownsHud(float x, float y) {
-        super(x, y, 99f, 41.5f);
+        super(x, y, 118.5f, 76.5f);
     }
 
     @Override
@@ -42,70 +51,96 @@ public final class CooldownsHud extends HudElement {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
         float frameDelta = RenderUtil.getFrameDelta();
-        float s = HudDesign.scale(scale);
+        float s = HudDesign.scale(scale, 0.90f);
+        float u = s / FIGMA_TO_HUD;
 
         List<CooldownLine> collected = collectCooldowns(client.player.getItemCooldownManager(), delta);
         if (collected.isEmpty() && client.currentScreen instanceof ChatScreen) {
             collected = List.of(
-                    new CooldownLine("preview-pearl", new ItemStack(Items.ENDER_PEARL), 0.85f),
-                    new CooldownLine("preview-apple", new ItemStack(Items.ENCHANTED_GOLDEN_APPLE), 16.4f),
-                    new CooldownLine("preview-book", new ItemStack(Items.BOOK), 31.75f)
+                    preview("preview-pearl", Items.ENDER_PEARL, 0.85f),
+                    preview("preview-apple", Items.ENCHANTED_GOLDEN_APPLE, 16.4f),
+                    preview("preview-book", Items.BOOK, 31.75f)
             );
         }
 
         Map<String, CooldownLine> next = new LinkedHashMap<>();
         collected.stream().limit(6).forEach(line -> next.put(line.key(), line));
         lines.putAll(next);
+        next.forEach((key, line) -> timerAnimations
+                .computeIfAbsent(key, ignored -> new HudRollingText(formatTime(line.remainingSeconds())))
+                .set(formatTime(line.remainingSeconds())));
         List<String> keys = new ArrayList<>(next.keySet());
-        cards.update(keys, 34.5f * s, frameDelta);
-        lines.keySet().removeIf(key -> cards.rows().stream().noneMatch(row -> row.key().equals(key)));
+        rows.update(keys, FIGMA_ROW_STEP * u, frameDelta);
+        List<HudListAnimator.Row> animatedRows = rows.rows();
+        lines.keySet().removeIf(key -> animatedRows.stream().noneMatch(row -> row.key().equals(key)));
+        timerAnimations.keySet().removeIf(key -> animatedRows.stream()
+                .noneMatch(row -> row.key().equals(key)));
 
-        List<HudListAnimator.Row> animatedRows = cards.rows();
-        boolean visible = !animatedRows.isEmpty();
-        setContentVisibleTarget(visible);
-        float targetW = visible
-                ? animatedRows.get(animatedRows.size() - 1).position() + 30f * s
-                : 0f;
-        setWidth(HudMotion.damp(getWidth(), targetW, 0.22f, frameDelta));
-        setHeight(HudMotion.damp(getHeight(), visible ? 41.5f * s : 0f, 0.22f, frameDelta));
+        boolean hasRows = !animatedRows.isEmpty();
+        float collapsedH = 43f * u;
+        float targetH = collapsedH;
+        if (hasRows) {
+            targetH = FIGMA_BASE_HEIGHT * u
+                    + animatedRows.get(animatedRows.size() - 1).position();
+        }
+        setWidth(HudMotion.damp(getWidth(), FIGMA_WIDTH * u, 0.22f, frameDelta));
+        setHeight(HudMotion.damp(getHeight(), targetH, 0.22f, frameDelta));
+        setContentVisibleTarget(hasRows || getHeight() > collapsedH + 0.6f * u);
     }
 
     @Override
     protected void renderContent(DrawContext ctx, float x, float y, float w, float h,
                                  float delta, float alpha) {
         if (h <= 0.5f) return;
-        float s = HudDesign.scale(scale);
-        float cardW = 30f * s;
-        float cardH = 41.5f * s;
+        float s = HudDesign.scale(scale, 0.90f);
+        float u = s / FIGMA_TO_HUD;
 
-        for (HudListAnimator.Row row : cards.rows()) {
+        HudDesign.drawRounderPanel(ctx, x, y, w, h, 23f * u, alpha);
+        RenderUtil.enableScissor(x, y, w, h);
+        CustomFontRenderer.drawText(ctx, HudIcons.CLOCK, x + 17f * u, y + 8f * u,
+                25f * u, RenderUtil.withAlpha(HudDesign.ACCENT, alpha), FontWeight.HUD_ICONS);
+        CustomFontRenderer.drawText(ctx, ClientLanguage.text("settings.hud.cooldowns.name", "Кулдауны"),
+                x + 51f * u, y + 11f * u, 16f * u,
+                RenderUtil.withAlpha(HudDesign.TEXT, alpha), FontWeight.MEDIUM);
+        // y + 41u remains the collapse guide; the divider itself is intentionally invisible.
+
+        float bodyStart = y + 59f * u;
+        for (HudListAnimator.Row row : rows.rows()) {
             CooldownLine line = lines.get(row.key());
             if (line == null) continue;
-            float visibility = RenderUtil.easeOutQuad(row.visibility());
-            float cardAlpha = alpha * visibility;
-            if (cardAlpha <= 0.01f) continue;
-            float cardX = x + row.position();
-            float centerX = cardX + cardW * 0.5f;
-            float centerY = y + cardH * 0.5f;
-            float cardScale = 0.88f + 0.12f * visibility;
+            float panelReveal = clamp01((getContentAnim() - 0.18f) / 0.82f);
+            float rowAlpha = alpha * RenderUtil.easeOutQuad(row.visibility())
+                    * RenderUtil.easeOutQuad(panelReveal);
+            float rowY = Math.round(bodyStart + row.position());
+            if (rowAlpha <= 0.01f || rowY > y + h) continue;
 
-            ctx.getMatrices().push();
-            ctx.getMatrices().translate(centerX, centerY, 0f);
-            ctx.getMatrices().scale(cardScale, cardScale, 1f);
-            ctx.getMatrices().translate(-centerX, -centerY, 0f);
-            RenderUtil.drawShadow(ctx, cardX, y, cardW, cardH, 8f * s, 5f * s,
-                    RenderUtil.withAlpha(0x000000, cardAlpha * 0.18f));
-            RenderUtil.drawRoundedRect(ctx, cardX, y, cardW, cardH, 8f * s,
-                    RenderUtil.withAlpha(HudDesign.PANEL, cardAlpha * 0.94f));
-            drawItem(ctx, line.stack(), cardX + 6f * s, y + 3.5f * s, 18f * s, cardAlpha);
-            HudDesign.drawDivider(ctx, cardX + 6.5f * s, y + 25.5f * s, 17f * s, cardAlpha);
+            drawItem(ctx, line.stack(), x + 18f * u, rowY + 1f * u, 20f * u, rowAlpha);
             String time = formatTime(line.remainingSeconds());
-            float timeSize = time.length() > 5 ? 5.25f * s : 6f * s;
-            CustomFontRenderer.drawCenteredText(ctx, time,
-                    centerX, y + 30.5f * s, timeSize,
-                    RenderUtil.withAlpha(HudDesign.ACCENT, cardAlpha), FontWeight.SEMIBOLD);
-            ctx.getMatrices().pop();
+            HudRollingText timer = timerAnimations.get(row.key());
+            float timerTextWidth = timer == null
+                    ? CustomFontRenderer.getTextWidth(time, 13.6f * u, FontWeight.MEDIUM)
+                    : timer.width(13.6f * u, FontWeight.MEDIUM);
+            float timerW = Math.max(34f * u, timerTextWidth + 10f * u);
+            float timerX = x + w - 13f * u - timerW;
+            String name = CustomFontRenderer.trimToWidth(line.name(),
+                    Math.max(10f * u, timerX - (x + 44f * u) - 8f * u),
+                    14f * u, FontWeight.MEDIUM);
+            CustomFontRenderer.drawText(ctx, name, x + 44f * u, rowY + 4f * u,
+                    14f * u, RenderUtil.withAlpha(HudDesign.TEXT, rowAlpha), FontWeight.MEDIUM);
+            RenderUtil.drawRoundedRect(ctx, timerX, rowY, timerW, 22f * u, 6f * u,
+                    RenderUtil.withAlpha(HudDesign.ACCENT, rowAlpha * 0.20f));
+            if (timer == null) {
+                CustomFontRenderer.drawCenteredText(ctx, time, timerX + timerW * 0.5f,
+                        rowY + 3f * u, 13.6f * u,
+                        RenderUtil.withAlpha(HudDesign.ACCENT, rowAlpha), FontWeight.MEDIUM);
+            } else {
+                timer.drawCentered(ctx, timerX + timerW * 0.5f, rowY + 3f * u,
+                        timerW - 4f * u, 13.6f * u, rowAlpha,
+                        HudDesign.ACCENT, FontWeight.MEDIUM);
+            }
         }
+        ctx.draw();
+        RenderUtil.disableScissor();
     }
 
     private static void drawItem(DrawContext ctx, ItemStack stack, float x, float y, float size, float alpha) {
@@ -133,7 +168,9 @@ public final class CooldownsHud extends HudElement {
                     - tick - Math.max(0f, Math.min(1f, tickDelta));
             float remaining = Math.max(0f, remainingTicks / 20f);
             if (remaining > 0f) {
-                result.add(new CooldownLine(entry.getKey().toString(), new ItemStack(item), remaining));
+                ItemStack stack = new ItemStack(item);
+                result.add(new CooldownLine(entry.getKey().toString(), stack,
+                        stack.getName().getString(), remaining));
             }
         }
         result.sort(Comparator.comparingDouble(CooldownLine::remainingSeconds));
@@ -152,11 +189,16 @@ public final class CooldownsHud extends HudElement {
         return String.format(java.util.Locale.ROOT, "%d:%02d", whole / 60, whole % 60);
     }
 
-    private record CooldownLine(String key, ItemStack stack, float remainingSeconds) {
+    private static CooldownLine preview(String key, Item item, float remainingSeconds) {
+        ItemStack stack = new ItemStack(item);
+        return new CooldownLine(key, stack, stack.getName().getString(), remainingSeconds);
+    }
+
+    private record CooldownLine(String key, ItemStack stack, String name, float remainingSeconds) {
     }
 
     @Override
-    protected boolean allowsDragRotation() {
-        return false;
+    protected float getHiddenContentScale() {
+        return 0.84f;
     }
 }

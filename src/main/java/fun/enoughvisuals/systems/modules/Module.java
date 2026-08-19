@@ -134,6 +134,10 @@ public abstract class Module {
     public String getRawDescription() { return description; }
     public Category getCategory() { return category; }
     public boolean isEnabled() { return enabled; }
+    public boolean isEnabledByDefault() {
+        Register reg = getClass().getAnnotation(Register.class);
+        return reg != null && reg.enabledByDefault();
+    }
     public boolean isAvailable() { return !ModuleManager.getInstance().isBlocked(this) && (enabled || canEnable()); }
     public void setEnabled(boolean e) { if (e) enable(); else disable(); }
     public void setEnabledSilent(boolean e) { if (e) enableSilent(); else disableSilent(); }

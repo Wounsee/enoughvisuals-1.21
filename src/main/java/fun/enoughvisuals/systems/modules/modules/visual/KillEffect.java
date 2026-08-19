@@ -13,8 +13,11 @@ import net.minecraft.client.network.OtherClientPlayerEntity;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderPhase;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.state.EntityRenderState;
@@ -43,15 +46,33 @@ public class KillEffect extends Module {
     private static final long CANDIDATE_TTL_MS = 2_600L;
     private static KillEffect INSTANCE;
 
+    public final fun.enoughvisuals.systems.modules.settings.ModeSetting mode = add(new fun.enoughvisuals.systems.modules.settings.ModeSetting(
+            "Режим",
+            "mode",
+            "Вид эффекта при убийстве",
+            "Beam",
+            "Beam",
+            "Burn"
+    ));
+
+    public final fun.enoughvisuals.systems.modules.settings.ModeSetting colorSource = add(new fun.enoughvisuals.systems.modules.settings.ModeSetting(
+            "Источник цвета",
+            "color_source",
+            "Тема или свой цвет",
+            "Тема",
+            "Тема",
+            "Свой"
+    ));
+
     public final ColorSetting accent = add(new ColorSetting(
-            "Color",
+            "Цвет",
             "color",
-            "Burn accent color",
+            "Собственный цвет эффекта",
             0xFFE85CFF
     ));
 
     public final SliderSetting lifetime = add(new SliderSetting(
-            "Время",
+            "Время горения",
             "lifetime",
             "Сколько длится прогорание копии",
             4.2,
@@ -72,11 +93,57 @@ public class KillEffect extends Module {
             "m"
     ));
 
+    public final SliderSetting beamHeight = add(new SliderSetting(
+            "Высота луча",
+            "beam_height",
+            "Высота светового столба",
+            5.2,
+            1.5,
+            12.0,
+            0.5
+    ));
+
+    public final SliderSetting beamWidth = add(new SliderSetting(
+            "Ширина луча",
+            "beam_width",
+            "Ширина светового столба",
+            0.42,
+            0.08,
+            1.2,
+            0.02
+    ));
+
+    public final SliderSetting beamDuration = add(new SliderSetting(
+            "Длительность луча",
+            "beam_duration",
+            "Длительность светового луча",
+            2.2,
+            1.0,
+            5.0,
+            0.1,
+            "s"
+    ));
+
     private final Map<Integer, StoredPlayer> candidates = new HashMap<>();
     private final List<ActiveEffect> effects = new ArrayList<>();
+    private final List<KillBeam> beams = new ArrayList<>();
+    private final net.minecraft.client.util.BufferAllocator allocator = new net.minecraft.client.util.BufferAllocator(1 << 15);
 
     public KillEffect() {
         INSTANCE = this;
+        accent.visibleWhen(() -> colorSource.is("Свой"));
+        lifetime.visibleWhen(() -> mode.is("Burn"));
+        lift.visibleWhen(() -> mode.is("Burn"));
+        beamHeight.visibleWhen(() -> mode.is("Beam"));
+        beamWidth.visibleWhen(() -> mode.is("Beam"));
+        beamDuration.visibleWhen(() -> mode.is("Beam"));
+    }
+
+    public int getEffectiveColor() {
+        if (colorSource.is("Тема")) {
+            return fun.enoughvisuals.systems.modules.modules.client.CustomTheme.hudAccent();
+        }
+        return accent.get();
     }
 
     public static boolean active() {
@@ -113,6 +180,7 @@ public class KillEffect extends Module {
     protected void onDisable() {
         candidates.clear();
         effects.clear();
+        beams.clear();
     }
 
     @Override
@@ -120,6 +188,7 @@ public class KillEffect extends Module {
         if (!isInGame()) {
             candidates.clear();
             effects.clear();
+            beams.clear();
             return;
         }
         long now = System.currentTimeMillis();
@@ -128,12 +197,20 @@ public class KillEffect extends Module {
 
     private void spawn(StoredPlayer stored) {
         if (mc.world == null) return;
-        OtherClientPlayerEntity copy = stored.createCopy();
-        effects.add(new ActiveEffect(copy, stored.pos, stored.bodyYaw, stored.seed, lifetime.get().floatValue(), lift.get().floatValue()));
+        if (mode.is("Beam")) {
+            beams.add(new KillBeam(stored.pos, 0.65f));
+        } else {
+            OtherClientPlayerEntity copy = stored.createCopy();
+            effects.add(new ActiveEffect(copy, stored.pos, stored.bodyYaw, stored.seed, lifetime.get().floatValue(), lift.get().floatValue()));
+        }
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private void render(WorldRenderContext context) {
+        if (mode.is("Beam")) {
+            renderBeams(context);
+            return;
+        }
         MatrixStack matrices = context.matrixStack();
         Camera camera = context.camera();
         VertexConsumerProvider consumers = context.consumers();
@@ -142,7 +219,7 @@ public class KillEffect extends Module {
         float tickDelta = context.tickCounter() != null ? context.tickCounter().getTickDelta(true) : 1.0f;
         long now = System.nanoTime();
         Vec3d cam = camera.getPos();
-        int accentColor = accent.get() & 0x00FFFFFF;
+        int accentColor = getEffectiveColor() & 0x00FFFFFF;
 
         Iterator<ActiveEffect> iterator = effects.iterator();
         while (iterator.hasNext()) {
@@ -657,4 +734,171 @@ public class KillEffect extends Module {
             float normalZ;
         }
     }
+
+    private void renderBeams(WorldRenderContext context) {
+        if (beams.isEmpty() || mc.player == null || mc.world == null) return;
+
+        long now = System.currentTimeMillis();
+        long durMs = (long) (beamDuration.get() * 1000.0);
+
+        int color = getEffectiveColor();
+        int cr = (color >> 16) & 0xFF;
+        int cg = (color >> 8) & 0xFF;
+        int cb = color & 0xFF;
+
+        MatrixStack matrices = context.matrixStack();
+        Matrix4f mat = matrices.peek().getPositionMatrix();
+        Vec3d cam = context.camera().getPos();
+
+        Iterator<KillBeam> it = beams.iterator();
+        while (it.hasNext()) {
+            KillBeam beam = it.next();
+            float progress = (now - beam.start) / (float) durMs;
+            if (progress >= 1.0F) {
+                it.remove();
+                continue;
+            }
+
+            float fadeIn = MathHelper.clamp(progress * 5.5F, 0.0F, 1.0F);
+            float fadeOut = progress > 0.5F ? 1.0F - (progress - 0.5F) / 0.5F : 1.0F;
+            beam.alpha = smooth(fadeIn) * smooth(fadeOut);
+            beam.progress = progress;
+        }
+
+        if (beams.isEmpty()) return;
+
+        VertexConsumerProvider.Immediate immediate = VertexConsumerProvider.immediate(allocator);
+        VertexConsumer buf = immediate.getBuffer(BEAM_LAYER);
+
+        float pulse = 0.9F + 0.1F * MathHelper.sin(now % 1600L / 1600.0F * (float) (Math.PI * 2.0));
+        for (KillBeam beam : beams) {
+            drawBeam(buf, mat, cam, beam, cr, cg, cb, pulse);
+        }
+
+        immediate.draw();
+    }
+
+    private void drawBeam(VertexConsumer buf, Matrix4f mat, Vec3d cam, KillBeam beam,
+                          int r, int g, int b, float pulse) {
+        if (beam.alpha <= 0.01F) return;
+
+        float grow = smooth(Math.min(beam.progress * 3.5F, 1.0F));
+        float h = beamHeight.get().floatValue() * grow;
+        float base = beamWidth.get().floatValue() * beam.radius;
+        float x = (float) (beam.x - cam.x);
+        float y = (float) (beam.y - cam.y + 0.035F);
+        float z = (float) (beam.z - cam.z);
+
+        float spin = (System.currentTimeMillis() - beam.start) / 1000.0F * 0.85F;
+        float coreAlpha = 150.0F * beam.alpha * pulse;
+        float softAlpha = 54.0F * beam.alpha;
+
+        drawVerticalPetals(buf, mat, x, y, z, h, base * 0.72F, spin, r, g, b, (int) coreAlpha, 6);
+        drawVerticalPetals(buf, mat, x, y, z, h * 0.82F, base * 1.28F, -spin * 0.55F, r, g, b, (int) softAlpha, 8);
+
+        float bloom = 0.55F + 0.45F * grow;
+        drawSoftDisc(buf, mat, x, y + 0.01F, z, base * 2.25F * bloom, r, g, b, (int) (42.0F * beam.alpha));
+        drawSoftDisc(buf, mat, x, y + h * 0.98F, z, base * 0.92F * beam.alpha, r, g, b, (int) (28.0F * beam.alpha));
+
+        for (int i = 0; i < 3; i++) {
+            float wave = (beam.progress + i * 0.22F) % 1.0F;
+            float radius = base * (1.05F + wave * 2.25F);
+            int alpha = (int) (52.0F * beam.alpha * (1.0F - wave));
+            drawRing(buf, mat, x, y + i * 0.025F, z, radius, 0.035F + wave * 0.045F, r, g, b, alpha);
+        }
+    }
+
+    private static void drawVerticalPetals(VertexConsumer buf, Matrix4f mat, float x, float y, float z,
+                                           float h, float halfWidth, float spin, int r, int g, int b,
+                                           int alpha, int petals) {
+        if (alpha <= 0 || h <= 0.01F) return;
+
+        float tau = (float) (Math.PI * 2.0);
+        for (int i = 0; i < petals; i++) {
+            float ang = spin + i / (float) petals * tau;
+            float dx = MathHelper.cos(ang) * halfWidth;
+            float dz = MathHelper.sin(ang) * halfWidth;
+            int edgeAlpha = Math.max(0, alpha / 3);
+
+            buf.vertex(mat, x - dx, y, z - dz).color(r, g, b, edgeAlpha);
+            buf.vertex(mat, x, y + h * 0.08F, z).color(r, g, b, alpha);
+            buf.vertex(mat, x, y + h, z).color(r, g, b, 0);
+            buf.vertex(mat, x + dx, y, z + dz).color(r, g, b, edgeAlpha);
+        }
+    }
+
+    private static void drawSoftDisc(VertexConsumer buf, Matrix4f mat, float x, float y, float z,
+                                     float radius, int r, int g, int b, int alpha) {
+        if (alpha <= 0 || radius <= 0.01F) return;
+
+        int segments = 56;
+        float tau = (float) (Math.PI * 2.0);
+        for (int i = 0; i < segments; i++) {
+            float a0 = i / (float) segments * tau;
+            float a1 = (i + 1) / (float) segments * tau;
+            buf.vertex(mat, x, y, z).color(r, g, b, alpha);
+            buf.vertex(mat, x + MathHelper.cos(a0) * radius, y, z + MathHelper.sin(a0) * radius).color(r, g, b, 0);
+            buf.vertex(mat, x + MathHelper.cos(a1) * radius, y, z + MathHelper.sin(a1) * radius).color(r, g, b, 0);
+            buf.vertex(mat, x, y, z).color(r, g, b, alpha);
+        }
+    }
+
+    private static void drawRing(VertexConsumer buf, Matrix4f mat, float x, float y, float z,
+                                 float radius, float width, int r, int g, int b, int alpha) {
+        if (alpha <= 0 || radius <= width) return;
+
+        int segments = 64;
+        float tau = (float) (Math.PI * 2.0);
+        for (int i = 0; i < segments; i++) {
+            float a0 = i / (float) segments * tau;
+            float a1 = (i + 1) / (float) segments * tau;
+
+            float x0 = MathHelper.cos(a0);
+            float z0 = MathHelper.sin(a0);
+            float x1 = MathHelper.cos(a1);
+            float z1 = MathHelper.sin(a1);
+
+            buf.vertex(mat, x + x0 * (radius - width), y, z + z0 * (radius - width)).color(r, g, b, 0);
+            buf.vertex(mat, x + x0 * radius, y, z + z0 * radius).color(r, g, b, alpha);
+            buf.vertex(mat, x + x1 * radius, y, z + z1 * radius).color(r, g, b, alpha);
+            buf.vertex(mat, x + x1 * (radius - width), y, z + z1 * (radius - width)).color(r, g, b, 0);
+        }
+    }
+
+    private static float smooth(float t) {
+        t = MathHelper.clamp(t, 0.0F, 1.0F);
+        return t * t * (3.0F - 2.0F * t);
+    }
+
+    private static class KillBeam {
+        final double x, y, z;
+        final float radius;
+        final long start;
+        float alpha;
+        float progress;
+
+        KillBeam(Vec3d pos, float radius) {
+            this.x = pos.x;
+            this.y = pos.y;
+            this.z = pos.z;
+            this.radius = radius;
+            this.start = System.currentTimeMillis();
+        }
+    }
+
+    private static final RenderLayer BEAM_LAYER = RenderLayer.of(
+            "kill_effect_beam",
+            VertexFormats.POSITION_COLOR,
+            VertexFormat.DrawMode.QUADS,
+            1 << 15,
+            false,
+            true,
+            RenderLayer.MultiPhaseParameters.builder()
+                    .program(RenderPhase.POSITION_COLOR_PROGRAM)
+                    .transparency(RenderPhase.LIGHTNING_TRANSPARENCY)
+                    .cull(RenderPhase.DISABLE_CULLING)
+                    .depthTest(RenderPhase.LEQUAL_DEPTH_TEST)
+                    .writeMaskState(RenderPhase.COLOR_MASK)
+                    .build(false)
+    );
 }

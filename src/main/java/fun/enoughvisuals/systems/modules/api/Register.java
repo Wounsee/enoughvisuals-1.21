@@ -16,4 +16,6 @@ public @interface Register {
     String description() default "";
 
     Category category();
+
+    boolean enabledByDefault() default false;
 }

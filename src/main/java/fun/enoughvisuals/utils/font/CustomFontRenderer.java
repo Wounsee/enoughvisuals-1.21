@@ -346,7 +346,7 @@ public class CustomFontRenderer {
         setUniform(shader, "uPxRange", atlas.distanceRange);
         setUniform(shader, "uMtsdf", atlas.mtsdf ? 1f : 0f);
         setUniform(shader, "uIconAtlas",
-                weight == FontWeight.SOLAR_ICONS || weight == FontWeight.HUD_ICONS ? 1f : 0f);
+                isIconAtlas(weight) ? 1f : 0f);
 
         Matrix4f matrix = ctx.getMatrices().peek().getPositionMatrix();
         if (clipped && clipWidth > 0f) {
@@ -421,6 +421,14 @@ public class CustomFontRenderer {
         }
 
         RenderSystem.disableBlend();
+    }
+
+    private static boolean isIconAtlas(FontWeight weight) {
+        return weight == FontWeight.SOLAR_ICONS
+                || weight == FontWeight.HUD_ICONS
+                || weight == FontWeight.LOGO
+                || weight == FontWeight.MENU
+                || weight == FontWeight.CLICK_GUI;
     }
 
     public static void drawText(DrawContext ctx, String text, float x, float y, float size) {
