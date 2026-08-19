@@ -41,7 +41,9 @@ public abstract class ScreenBackgroundMixin {
 
     private boolean enough$hasWorld() {
         MinecraftClient client = MinecraftClient.getInstance();
-        return client != null && client.world != null && !(client.currentScreen instanceof HandledScreen<?>);
+        return client != null && client.world != null
+                && !(client.currentScreen instanceof HandledScreen<?>)
+                && !(client.currentScreen instanceof fun.enoughvisuals.systems.webpanel.WebUrlScreen);
     }
 
     private boolean enough$useSelectedMenuBackground() {

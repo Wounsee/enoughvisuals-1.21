@@ -11,6 +11,8 @@ import fun.enoughvisuals.systems.modules.settings.StringSetting;
 import fun.enoughvisuals.systems.webpanel.WebBrowserBridge;
 import fun.enoughvisuals.systems.webpanel.WebUrlScreen;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
+import fun.enoughvisuals.utils.render.blur.GlassUtil;
 import fun.enoughvisuals.utils.system.BindKeyUtil;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.gl.ShaderProgramKeys;
@@ -236,12 +238,18 @@ public class WebPanels extends Module {
         handleInput(eye, look);
 
         Matrix4f matrix = context.matrixStack().peek().getPositionMatrix();
+        Matrix4f proj = context.projectionMatrix();
 
         // Browser upkeep
         for (Panel p : panels) {
             if (!p.closing) {
                 ensureBrowser(p);
             }
+        }
+
+        // Capture in-world blur frame if theme blur enabled
+        if (!CustomTheme.blurDisabled()) {
+            GlassUtil.beginFrame();
         }
 
         int oldDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
@@ -254,24 +262,49 @@ public class WebPanels extends Module {
         RenderSystem.depthMask(true);
 
         try {
-            // Draw panel chrome / controls / vector icons
+            // 1. Draw In-World Real Frosted Glass Blur (from blurred world framebuffer)
+            int blurTex = GlassUtil.getResultTexture();
+            if (blurTex > 0) {
+                GlStateManager._bindTexture(blurTex);
+                RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+                BufferBuilder blurBuf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+                for (Panel p : panels) {
+                    if (p.anim > 0.01f) {
+                        drawCurvedFrostedBlur(blurBuf, matrix, proj, cam, p);
+                    }
+                }
+                BuiltBuffer builtBlur = blurBuf.endNullable();
+                if (builtBlur != null) {
+                    BufferRenderer.drawWithGlobalProgram(builtBlur);
+                }
+            }
+
+            // 2. Draw panel chrome / glass tint / borders / controls / vector icons
             RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
             BufferBuilder colorBuf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
             for (Panel p : panels) {
                 p.anim += ((p.closing ? 0f : 1f) - p.anim) * 0.22f;
-                drawPanelChrome(colorBuf, matrix, cam, p, hit(p, eye, look));
+                if (p.anim > 0.01f) {
+                    drawPanelChrome(colorBuf, matrix, cam, p, hit(p, eye, look));
+                }
             }
-            BufferRenderer.drawWithGlobalProgram(colorBuf.end());
+            BuiltBuffer builtColor = colorBuf.endNullable();
+            if (builtColor != null) {
+                BufferRenderer.drawWithGlobalProgram(builtColor);
+            }
 
-            // Draw browser content (Chromium frame texture)
+            // 3. Draw browser content (Chromium frame texture)
             RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
             for (Panel p : panels) {
                 int glTex = p.browser != null ? WebBrowserBridge.textureId(p.browser) : 0;
-                if (glTex > 0) {
+                if (glTex > 0 && p.anim > 0.01f) {
                     GlStateManager._bindTexture(glTex);
                     BufferBuilder texBuf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
                     drawContent(texBuf, matrix, cam, p);
-                    BufferRenderer.drawWithGlobalProgram(texBuf.end());
+                    BuiltBuffer builtTex = texBuf.endNullable();
+                    if (builtTex != null) {
+                        BufferRenderer.drawWithGlobalProgram(builtTex);
+                    }
                 }
             }
         } finally {
@@ -307,27 +340,43 @@ public class WebPanels extends Module {
         }
     }
 
+    private void drawCurvedFrostedBlur(BufferBuilder buffer, Matrix4f m, Matrix4f proj, Vec3d cam, Panel p) {
+        Vec3d c = p.center.subtract(cam);
+        Vec3d n = p.right.crossProduct(p.up).normalize();
+        float a = ease(p.anim);
+        double hw = p.halfW * (0.6 + 0.4 * a) + 0.04;
+        double hh = p.halfH * (0.6 + 0.4 * a) + 0.04;
+        double d = 0.001;
+        float alpha = 0.92f * a;
+        int cols = 28;
+        for (int i = 0; i < cols; i++) {
+            double u0 = -hw + 2 * hw * i / cols;
+            double u1 = -hw + 2 * hw * (i + 1) / cols;
+            screenTexVert(buffer, m, proj, c, p, n, u0, hh, d, alpha);
+            screenTexVert(buffer, m, proj, c, p, n, u1, hh, d, alpha);
+            screenTexVert(buffer, m, proj, c, p, n, u1, -hh, d, alpha);
+            screenTexVert(buffer, m, proj, c, p, n, u0, -hh, d, alpha);
+        }
+    }
+
     private void drawContent(BufferBuilder buffer, Matrix4f m, Vec3d cam, Panel p) {
         Vec3d c = p.center.subtract(cam);
         Vec3d n = p.right.crossProduct(p.up).normalize();
         float a = ease(p.anim);
         double hw = p.halfW * (0.6 + 0.4 * a) - 0.02;
         double hh = p.halfH * (0.6 + 0.4 * a) - 0.02;
-        double dBase = 0.0035;
-        double curve = curveSetting.get() * hw;
+        double d = 0.005;
         float alpha = a;
-        int cols = 20;
+        int cols = 28;
         for (int i = 0; i < cols; i++) {
             double u0 = -hw + 2 * hw * i / cols;
             double u1 = -hw + 2 * hw * (i + 1) / cols;
-            double d0 = dBase + curve * (u0 / hw) * (u0 / hw);
-            double d1 = dBase + curve * (u1 / hw) * (u1 / hw);
             float tu0 = (float) i / cols, tu1 = (float) (i + 1) / cols;
 
-            texVert(buffer, m, c, p, n, u0, hh, d0, tu0, 0, alpha);
-            texVert(buffer, m, c, p, n, u1, hh, d1, tu1, 0, alpha);
-            texVert(buffer, m, c, p, n, u1, -hh, d1, tu1, 1, alpha);
-            texVert(buffer, m, c, p, n, u0, -hh, d0, tu0, 1, alpha);
+            texVert(buffer, m, c, p, n, u0, hh, d, tu0, 0, alpha);
+            texVert(buffer, m, c, p, n, u1, hh, d, tu1, 0, alpha);
+            texVert(buffer, m, c, p, n, u1, -hh, d, tu1, 1, alpha);
+            texVert(buffer, m, c, p, n, u0, -hh, d, tu0, 1, alpha);
         }
     }
 
@@ -518,23 +567,23 @@ public class WebPanels extends Module {
         int alg = (accentLight >> 8) & 0xFF;
         int alb = accentLight & 0xFF;
 
-        // 1. Frosted Glass Body (Multi-layer depth with dark glass & specular highlight)
-        fillRound(buf, m, c, p, n, 1, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0x0A, 0x0C, 0x14, (int) (225 * a));
-        fillOutline(buf, m, c, p, n, 2, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0.012, ar, ag, ab, (int) (60 * a));
-        fillOutline(buf, m, c, p, n, 3, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0.005, alr, alg, alb, (int) (140 * a));
+        // 1. Frosted Glass Body Tint & Outline
+        drawCurvedSlicedPanel(buf, m, c, p, n, 2, 0, 0, hw + 0.03, hh + 0.03, 0x0A, 0x0C, 0x14, (int) (210 * a));
+        fillOutline(buf, m, c, p, n, 3, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0.012, ar, ag, ab, (int) (65 * a));
+        fillOutline(buf, m, c, p, n, 4, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0.005, alr, alg, alb, (int) (150 * a));
 
         // Specular top edge shine (frosted glass reflection)
-        drawThickLine(buf, m, c, p, n, -hw * 0.75, hh + 0.02, hw * 0.75, hh + 0.02, 0.006, 255, 255, 255, (int) (40 * a));
+        drawThickLine(buf, m, c, p, n, -hw * 0.75, hh + 0.02, hw * 0.75, hh + 0.02, 0.006, 255, 255, 255, (int) (45 * a));
 
         // 2. Loading State (If Chromium is initializing or frame is not yet ready)
         int glTex = p.browser != null ? WebBrowserBridge.textureId(p.browser) : 0;
         if (glTex <= 0) {
             float timeSec = (System.currentTimeMillis() % 100000L) / 1000f;
-            drawSpinner(buf, m, c, p, n, 0, 0.05, 0.16, timeSec * 1.5f, alr, alg, alb, (int) (230 * a));
-            drawGlobe(buf, m, c, p, n, 0, 0.05, 0.08, 255, 255, 255, (int) (180 * a));
-            // Subtle loading pill below spinner
-            fillRound(buf, m, c, p, n, 4, 0, -0.22, hw * 0.35, 0.035, 0.035, 0x14, 0x17, 0x22, (int) (200 * a));
-            fillOutline(buf, m, c, p, n, 5, 0, -0.22, hw * 0.35, 0.035, 0.035, 0.004, ar, ag, ab, (int) (100 * a));
+            drawSpinner(buf, m, c, p, n, 0, 0.05, 0.16, timeSec * 1.5f, alr, alg, alb, (int) (235 * a));
+            drawGlobe(buf, m, c, p, n, 0, 0.05, 0.08, 255, 255, 255, (int) (185 * a));
+            // Loading pill below spinner
+            fillRound(buf, m, c, p, n, 5, 0, -0.22, hw * 0.35, 0.035, 0.035, 0x14, 0x17, 0x22, (int) (210 * a));
+            fillOutline(buf, m, c, p, n, 6, 0, -0.22, hw * 0.35, 0.035, 0.035, 0.004, ar, ag, ab, (int) (110 * a));
         }
 
         // 3. Bottom Grab Bar (Apple Vision floating pill)
@@ -543,7 +592,7 @@ public class WebPanels extends Module {
         double barY = -hh - barGap - barH;
         fillRound(buf, m, c, p, n, 4, 0, barY, barHalfW, barH, barH, 0x12, 0x15, 0x20, (int) (235 * a));
         fillOutline(buf, m, c, p, n, 5, 0, barY, barHalfW, barH, barH, 0.005,
-                ar, ag, ab, (int) ((overBar ? 220 : 100) * a));
+                ar, ag, ab, (int) ((overBar ? 230 : 110) * a));
 
         // 3 Drag Dots in Grab Bar
         double dotGap = 0.06;
@@ -570,7 +619,7 @@ public class WebPanels extends Module {
         fillRound(buf, m, c, p, n, 4, 0, navY, abHalfW, abH, abH,
                 0x12, 0x15, 0x20, (int) (240 * a));
         fillOutline(buf, m, c, p, n, 5, 0, navY, abHalfW, abH, abH, 0.005,
-                ar, ag, ab, (int) ((overTop ? 220 : 110) * a));
+                ar, ag, ab, (int) ((overTop ? 230 : 110) * a));
 
         // Navigation Buttons geometry
         double backU = -abHalfW + 0.09;
@@ -628,7 +677,22 @@ public class WebPanels extends Module {
                 255, 255, 255, (int) ((overClose ? 255 : 200) * a));
     }
 
-    // ----------------- Vector Drawing Helpers in 3D -----------------
+    // ----------------- Curved & Vector Drawing Helpers in 3D -----------------
+
+    private void drawCurvedSlicedPanel(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n, int layer,
+                                      double cu, double cv, double hw, double hh, int r, int g, int b, int a) {
+        if (a <= 0) return;
+        double d = layer * 0.0015;
+        int cols = 28;
+        for (int i = 0; i < cols; i++) {
+            double u0 = -hw + 2 * hw * i / cols;
+            double u1 = -hw + 2 * hw * (i + 1) / cols;
+            colorVert(buf, m, c, p, n, u0, hh, d, r, g, b, a);
+            colorVert(buf, m, c, p, n, u1, hh, d, r, g, b, a);
+            colorVert(buf, m, c, p, n, u1, -hh, d, r, g, b, a);
+            colorVert(buf, m, c, p, n, u0, -hh, d, r, g, b, a);
+        }
+    }
 
     private void drawChevron(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
                              double u, double v, double size, boolean right, int r, int g, int b, int a) {
@@ -662,7 +726,6 @@ public class WebPanels extends Module {
             double x1 = u + rad * Math.cos(a1), y1 = v + rad * Math.sin(a1);
             drawThickLine(buf, m, c, p, n, x0, y0, x1, y1, th, r, g, b, a);
         }
-        // Arrow head at end of arc
         double endA = startAng + totalAng;
         double ex = u + rad * Math.cos(endA), ey = v + rad * Math.sin(endA);
         drawThickLine(buf, m, c, p, n, ex, ey, ex + 0.015, ey + 0.010, th, r, g, b, a);
@@ -673,16 +736,13 @@ public class WebPanels extends Module {
                           double u, double v, double rad, int r, int g, int b, int a) {
         int segs = 12;
         double th = 0.004;
-        // Outer circle
         for (int i = 0; i < segs; i++) {
             double a0 = Math.toRadians(360.0 * i / segs);
             double a1 = Math.toRadians(360.0 * (i + 1) / segs);
             drawThickLine(buf, m, c, p, n, u + rad * Math.cos(a0), v + rad * Math.sin(a0),
                     u + rad * Math.cos(a1), v + rad * Math.sin(a1), th, r, g, b, a);
         }
-        // Equator
         drawThickLine(buf, m, c, p, n, u - rad * 0.90, v, u + rad * 0.90, v, th, r, g, b, a);
-        // Prime meridian ellipse
         for (int i = 0; i < segs; i++) {
             double a0 = Math.toRadians(360.0 * i / segs);
             double a1 = Math.toRadians(360.0 * (i + 1) / segs);
@@ -790,19 +850,43 @@ public class WebPanels extends Module {
         }
     }
 
+    private void screenTexVert(BufferBuilder buf, Matrix4f m, Matrix4f proj, Vec3d c, Panel p, Vec3d n,
+                               double u, double v, double d, float alpha) {
+        double curve = curveSetting.get() * p.halfW;
+        double zc = curve * (u / p.halfW) * (u / p.halfW);
+        double x = c.x + p.right.x * u + p.up.x * v + n.x * (d + zc);
+        double y = c.y + p.right.y * u + p.up.y * v + n.y * (d + zc);
+        double z = c.z + p.right.z * u + p.up.z * v + n.z * (d + zc);
+
+        org.joml.Vector4f clip = new org.joml.Vector4f((float) x, (float) y, (float) z, 1.0f);
+        m.transform(clip);
+        if (proj != null) {
+            proj.transform(clip);
+        }
+        float invW = clip.w != 0 ? (1.0f / clip.w) : 1.0f;
+        float tu = MathHelper.clamp((clip.x * invW) * 0.5f + 0.5f, 0f, 1f);
+        float tv = MathHelper.clamp(1.0f - ((clip.y * invW) * 0.5f + 0.5f), 0f, 1f);
+
+        buf.vertex(m, (float) x, (float) y, (float) z).texture(tu, tv).color(1f, 1f, 1f, alpha);
+    }
+
     private void colorVert(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
                            double u, double v, double d, int r, int g, int b, int a) {
-        double x = c.x + p.right.x * u + p.up.x * v + n.x * d;
-        double y = c.y + p.right.y * u + p.up.y * v + n.y * d;
-        double z = c.z + p.right.z * u + p.up.z * v + n.z * d;
+        double curve = curveSetting.get() * p.halfW;
+        double zc = curve * (u / p.halfW) * (u / p.halfW);
+        double x = c.x + p.right.x * u + p.up.x * v + n.x * (d + zc);
+        double y = c.y + p.right.y * u + p.up.y * v + n.y * (d + zc);
+        double z = c.z + p.right.z * u + p.up.z * v + n.z * (d + zc);
         buf.vertex(m, (float) x, (float) y, (float) z).color(r / 255f, g / 255f, b / 255f, a / 255f);
     }
 
     private void texVert(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
                          double u, double v, double d, float texU, float texV, float alpha) {
-        double x = c.x + p.right.x * u + p.up.x * v + n.x * d;
-        double y = c.y + p.right.y * u + p.up.y * v + n.y * d;
-        double z = c.z + p.right.z * u + p.up.z * v + n.z * d;
+        double curve = curveSetting.get() * p.halfW;
+        double zc = curve * (u / p.halfW) * (u / p.halfW);
+        double x = c.x + p.right.x * u + p.up.x * v + n.x * (d + zc);
+        double y = c.y + p.right.y * u + p.up.y * v + n.y * (d + zc);
+        double z = c.z + p.right.z * u + p.up.z * v + n.z * (d + zc);
         buf.vertex(m, (float) x, (float) y, (float) z).texture(texU, texV).color(1f, 1f, 1f, alpha);
     }
 

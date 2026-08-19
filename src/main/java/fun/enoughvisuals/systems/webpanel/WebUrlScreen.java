@@ -53,6 +53,16 @@ public class WebUrlScreen extends Screen {
     }
 
     @Override
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+        // Explicit no-op to prevent any full-screen blur or dark overlay from base class / mixins
+    }
+
+    @Override
+    public void renderInGameBackground(DrawContext context) {
+        // Explicit no-op to prevent any full-screen blur from base class / mixins
+    }
+
+    @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         float elapsed = (System.currentTimeMillis() - openTime) / 180f;
         float anim = Math.min(1f, elapsed);
@@ -154,8 +164,6 @@ public class WebUrlScreen extends Screen {
         RenderUtil.drawRoundedRect(context, submitX, submitY, btnW, btnH, 6f, RenderUtil.withAlpha(submitBg, alpha));
         CustomFontRenderer.drawText(context, SolarIcons.LINK, submitX + 10, submitY + 6, 6.5f, RenderUtil.withAlpha(0xFFFFFFFF, alpha), FontWeight.SOLAR_ICONS);
         CustomFontRenderer.drawText(context, "Перейти", submitX + 26, submitY + 6.5f, 6f, RenderUtil.withAlpha(0xFFFFFFFF, alpha), FontWeight.SEMIBOLD);
-
-        super.render(context, mouseX, mouseY, delta);
     }
 
     @Override

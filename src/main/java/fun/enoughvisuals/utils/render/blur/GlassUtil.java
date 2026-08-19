@@ -85,6 +85,10 @@ public class GlassUtil {
         return initialized && frameReady;
     }
 
+    public static int getResultTexture() {
+        return resultTexture;
+    }
+
     public static void skipFrame() {
         frameReady = false;
     }
