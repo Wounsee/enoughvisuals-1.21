@@ -360,11 +360,6 @@ public abstract class InGameHudMixin {
     private void onRenderCrosshair(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
         Crosshair module = ModuleManager.getInstance().get(Crosshair.class);
         boolean customEnabled = module != null && module.isEnabled();
-        if (!customEnabled) {
-            enough$webPanelCrosshairMorph = 0f;
-            enough$webPanelCrosshairVelocity = 0f;
-            return;
-        }
         WebPanels webPanels = WebPanels.getInstance();
         boolean panelHover = webPanels != null && webPanels.isHovering();
         float frameDelta = Math.max(1f / 240f,
@@ -386,19 +381,30 @@ public abstract class InGameHudMixin {
             return;
         }
 
+        if (!customEnabled && !panelHover && enough$webPanelCrosshairMorph <= 0.002f) {
+            return;
+        }
+
         ci.cancel();
         if (client.player == null) return;
 
         float fixedScale = ScreenScaleUtil.scale();
         float x = ScreenScaleUtil.virtualWidth() / 2.0f;
         float y = ScreenScaleUtil.virtualHeight() / 2.0f;
-        int color = module.color.get();
-        String type = module.type.get();
         float morph = enough$webPanelCrosshairMorph;
         morph = morph * morph * (3f - 2f * morph);
 
         context.getMatrices().push();
         context.getMatrices().scale(fixedScale, fixedScale, 1f);
+
+        if (!customEnabled) {
+            enough$drawVanillaCrosshairMorph(context, x, y, morph);
+            context.getMatrices().pop();
+            return;
+        }
+
+        int color = module.color.get();
+        String type = module.type.get();
 
         float rawProgress = client.player.getAttackCooldownProgress(0.0f);
         float follow = Math.min(1f, 0.18f + tickCounter.getTickDelta(true) * 0.28f);
@@ -422,6 +428,37 @@ public abstract class InGameHudMixin {
             enough$drawCsCrosshair(context, module, x, y, progress, morph);
         }
         context.getMatrices().pop();
+    }
+
+    @Unique
+    private static void enough$drawVanillaCrosshairMorph(DrawContext context,
+                                                          float centerX, float centerY, float morph) {
+        float targetRadius = 2.65f;
+        float gap = 1.0f + (targetRadius - 1.0f) * morph;
+        float length = 4.0f * (1.0f - morph);
+        float thickness = 1.0f + (0.84f - 1.0f) * morph;
+        float half = thickness * 0.5f;
+        int crossColor = 0xD6E7E9ED;
+        if (length > 0.02f) {
+            enough$drawCrossArm(context, centerX - gap - length, centerY - half,
+                    length, thickness, false, 0f, 0, crossColor);
+            enough$drawCrossArm(context, centerX + gap, centerY - half,
+                    length, thickness, false, 0f, 0, crossColor);
+            enough$drawCrossArm(context, centerX - half, centerY - gap - length,
+                    thickness, length, false, 0f, 0, crossColor);
+            enough$drawCrossArm(context, centerX - half, centerY + gap,
+                    thickness, length, false, 0f, 0, crossColor);
+        }
+        float circleMorph = MathHelper.clamp((morph - 0.05f) / 0.95f, 0f, 1f);
+        circleMorph = circleMorph * circleMorph * (3f - 2f * circleMorph);
+        if (circleMorph > 0.001f) {
+            float sweep = 92.0f * circleMorph;
+            int circleColor = 0x9EBFC5CE;
+            for (int i = 0; i < 4; i++) {
+                RenderUtil.drawCrispArcSegment(context, centerX, centerY,
+                        targetRadius, 0.84f, -91.0f + i * 90.0f, sweep, circleColor);
+            }
+        }
     }
 
     @Unique

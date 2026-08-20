@@ -2,13 +2,18 @@ package fun.enoughvisuals.systems.modules.modules.visual;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BindSetting;
 import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
+import fun.enoughvisuals.systems.modules.settings.ModeSetting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.systems.modules.settings.StringSetting;
+import fun.enoughvisuals.systems.network.RemoteConfig;
 import fun.enoughvisuals.systems.hud.HudNotificationCenter;
 import fun.enoughvisuals.systems.webpanel.WebBrowserBridge;
 import fun.enoughvisuals.systems.webpanel.MinecraftVirtualCamera;
@@ -21,8 +26,13 @@ import fun.enoughvisuals.utils.render.blur.GlassUtil;
 import fun.enoughvisuals.utils.render.WebPanelShaders;
 import fun.enoughvisuals.utils.system.BindKeyUtil;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.*;
+import net.minecraft.client.texture.AbstractTexture;
+import net.minecraft.client.texture.NativeImage;
+import net.minecraft.client.texture.NativeImageBackedTexture;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
@@ -32,11 +42,28 @@ import org.lwjgl.opengl.GL12;
 
 import java.net.URLEncoder;
 import java.net.URI;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 
 /**
  * Premium Apple Vision style spatial web browser module.
@@ -57,7 +84,9 @@ public class WebPanels extends Module {
     private static final double MIN_HH = 0.38, MAX_HH = 2.2;
     private static final double BAR_GAP = 0.055;
     private static final double NAV_GAP = 0.115;
-    private static final int PANEL_SEGMENTS = 1024;
+    private static final int PANEL_SEGMENTS = 256;
+    // Keep the complete /v1/sync JSON body below the launcher's 2 MiB bridge limit.
+    private static final int MAX_SHARED_FRAME_BYTES = 1_150_000;
 
     private static WebPanels instance;
 
@@ -70,6 +99,21 @@ public class WebPanels extends Module {
     private final BooleanSetting streamGui = add(new BooleanSetting(
             "Транслировать GUI", "stream_gui",
             "Показывать в виртуальной камере чат, HUD, инвентарь и другие экраны", false));
+    private final BooleanSetting shareMyScreens = add(new BooleanSetting(
+            "Показывать мои экраны другим", "share_my_screens",
+            "Транслировать окна другим пользователям EnoughVisuals на этом сервере", true));
+    private final BooleanSetting showOtherScreens = add(new BooleanSetting(
+            "Показывать чужие экраны", "show_other_screens",
+            "Отображать окна других пользователей EnoughVisuals", true));
+    private final ModeSetting displayMode = add(new ModeSetting(
+            "Режим окон", "display_mode", "3D — окна в мире, 2D — приватный HUD",
+            "3D", "3D", "2D"));
+    private final ModeSetting videoQuality = add(new ModeSetting(
+            "Качество трансляции", "video_quality", "Разрешение кадров для других игроков",
+            "Низкое", "Низкое", "Среднее", "Высокое", "Максимум"));
+    private final BooleanSetting showTopPanel = add(new BooleanSetting(
+            "Показывать верхнюю панель", "show_top_panel",
+            "Показывать вкладки, адрес и кнопки навигации", true));
     private final List<Panel> panels = new ArrayList<>();
     private int nextId = 1;
     private Panel grabbed;
@@ -99,6 +143,18 @@ public class WebPanels extends Module {
     private final Set<Integer> capturedKeys = new HashSet<>();
     private boolean prevCreateHeld;
     private long lastFrameNanos = System.nanoTime();
+    private final Map<String, Panel> remotePanels = new HashMap<>();
+    private final Map<String, Long> knownRemoteFrames = new ConcurrentHashMap<>();
+    private final Map<String, Long> loadingRemoteFrames = new ConcurrentHashMap<>();
+    private final Map<Integer, SharedFrame> pendingSharedFrames = new ConcurrentHashMap<>();
+    private volatile List<SharedPanelState> sharedPanelSnapshot = List.of();
+    private final AtomicBoolean sharedCaptureInFlight = new AtomicBoolean(false);
+    private final AtomicLong sharedFrameSequence = new AtomicLong();
+    private ByteBuffer sharedReadbackBuffer;
+    private long nextSharedCaptureMs;
+    private int sharedCaptureCursor;
+    private int sharedOutgoingCursor;
+    private boolean hudModeActive;
 
     public WebPanels() {
         instance = this;
@@ -121,7 +177,7 @@ public class WebPanels extends Module {
     }
 
     public boolean isHovering() {
-        return isEnabled() && hovering;
+        return isEnabled() && (hovering || grabbed != null || rotatingPanel != null);
     }
 
     public boolean isMoving() {
@@ -157,14 +213,14 @@ public class WebPanels extends Module {
             grabDist = MathHelper.clamp(grabDist + yOffset * 0.24, 1.2, 16.0);
             return true;
         } else if (isHoveringContent()) {
-            forwardScroll(yOffset);
+            forwardScroll(MathHelper.clamp(yOffset, -2.0, 2.0));
             return true;
         }
         return false;
     }
 
     public boolean handleRotationKey(int key) {
-        if (!isEnabled() || key != GLFW.GLFW_KEY_R || mc.getWindow() == null) return false;
+        if (!isEnabled() || isHudMode() || key != GLFW.GLFW_KEY_R || mc.getWindow() == null) return false;
         long window = mc.getWindow().getHandle();
         boolean mouseDown = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS
                 || GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
@@ -173,7 +229,7 @@ public class WebPanels extends Module {
 
     /** Consumes Minecraft look deltas while LMB/RMB + R rotates the spatial panel. */
     public boolean rotateWithMouse(double yawDelta, double pitchDelta) {
-        if (!isEnabled() || mc.getWindow() == null) return false;
+        if (!isEnabled() || isHudMode() || mc.getWindow() == null) return false;
         long window = mc.getWindow().getHandle();
         boolean left = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
         boolean right = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
@@ -250,8 +306,247 @@ public class WebPanels extends Module {
     public void forwardScroll(double yOffset) {
         if (contentPanel != null && contentPanel.browser != null && contentHit != null) {
             int[] px = pixel(contentPanel, contentHit);
-            WebBrowserBridge.mouseWheel(contentPanel.browser, px[0], px[1], yOffset * 18.0);
+            WebBrowserBridge.mouseWheel(contentPanel.browser, px[0], px[1], yOffset * 5.5);
         }
+    }
+
+    private boolean isHudMode() {
+        return displayMode.is("2D");
+    }
+
+    /** Adds privacy preferences, panel transforms and at most one fresh video frame to /v1/sync. */
+    public void appendSync(JsonObject root) {
+        JsonObject web = new JsonObject();
+        boolean publish = isEnabled() && shareMyScreens.get() && !isHudMode();
+        boolean receive = isEnabled() && showOtherScreens.get() && !isHudMode();
+        web.addProperty("publish", publish);
+        web.addProperty("receive", receive);
+        web.addProperty("mode_2d", isHudMode());
+
+        JsonObject known = new JsonObject();
+        if (receive) {
+            knownRemoteFrames.forEach(known::addProperty);
+        }
+        web.add("known", known);
+
+        JsonArray states = new JsonArray();
+        SharedFrame outgoingFrame = null;
+        if (publish && !pendingSharedFrames.isEmpty()) {
+            List<Integer> queued = pendingSharedFrames.keySet().stream().sorted().toList();
+            if (!queued.isEmpty()) {
+                Integer selected = queued.get(Math.floorMod(sharedOutgoingCursor++, queued.size()));
+                outgoingFrame = pendingSharedFrames.remove(selected);
+            }
+        }
+        if (publish) {
+            for (SharedPanelState state : sharedPanelSnapshot) {
+                JsonObject panel = new JsonObject();
+                panel.addProperty("id", state.id());
+                panel.add("center", vectorJson(state.center()));
+                panel.add("right", vectorJson(state.right()));
+                panel.add("up", vectorJson(state.up()));
+                panel.addProperty("half_w", state.halfW());
+                panel.addProperty("half_h", state.halfH());
+                panel.addProperty("curve", state.curve());
+                panel.addProperty("url", state.url());
+                JsonArray tabs = new JsonArray();
+                for (String tab : state.tabs()) tabs.add(tab);
+                panel.add("tabs", tabs);
+                panel.addProperty("active_tab", state.activeTab());
+                panel.addProperty("frame_revision", state.frameRevision());
+                if (outgoingFrame != null && outgoingFrame.panelId() == state.id()) {
+                    panel.addProperty("frame", outgoingFrame.base64());
+                    panel.addProperty("frame_revision", outgoingFrame.revision());
+                }
+                states.add(panel);
+            }
+        }
+        web.add("panels", states);
+        root.add("web_panels", web);
+    }
+
+    /** Applies other users' same-server panel metadata and asynchronously uploads changed JPEG frames. */
+    public void applySync(JsonObject root) {
+        if (!isEnabled() || !showOtherScreens.get() || isHudMode()) {
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client != null) client.execute(this::clearRemotePanels);
+            return;
+        }
+        JsonElement element = root.get("web_panels");
+        if (element == null || !element.isJsonArray()) return;
+
+        List<RemotePanelUpdate> updates = new ArrayList<>();
+        for (JsonElement ownerElement : element.getAsJsonArray()) {
+            try {
+                JsonObject owner = ownerElement.getAsJsonObject();
+                String uuid = normalizeRemoteKey(owner.get("uuid").getAsString());
+                String username = owner.has("username") ? owner.get("username").getAsString() : "";
+                if (uuid.isBlank() || !owner.has("panels") || !owner.get("panels").isJsonArray()) continue;
+                for (JsonElement panelElement : owner.getAsJsonArray("panels")) {
+                    JsonObject panel = panelElement.getAsJsonObject();
+                    int id = panel.get("id").getAsInt();
+                    if (id <= 0) continue;
+                    String key = uuid + ":" + id;
+                    List<String> tabs = new ArrayList<>();
+                    if (panel.has("tabs") && panel.get("tabs").isJsonArray()) {
+                        for (JsonElement tab : panel.getAsJsonArray("tabs")) {
+                            if (tabs.size() >= MAX_TABS) break;
+                            tabs.add(tab.getAsString());
+                        }
+                    }
+                    long revision = panel.has("frame_revision") ? panel.get("frame_revision").getAsLong() : 0L;
+                    String frame = panel.has("frame") ? panel.get("frame").getAsString() : "";
+                    RemotePanelUpdate update = new RemotePanelUpdate(
+                            key, uuid, username, id,
+                            vector(panel.getAsJsonArray("center")),
+                            vector(panel.getAsJsonArray("right")),
+                            vector(panel.getAsJsonArray("up")),
+                            panel.get("half_w").getAsDouble(), panel.get("half_h").getAsDouble(),
+                            panel.get("curve").getAsDouble(),
+                            panel.has("url") ? panel.get("url").getAsString() : "",
+                            List.copyOf(tabs), panel.has("active_tab") ? panel.get("active_tab").getAsInt() : 0,
+                            revision);
+                    updates.add(update);
+                    if (!frame.isBlank() && frame.length() <= 2_000_000
+                            && revision > knownRemoteFrames.getOrDefault(key, 0L)) {
+                        decodeRemoteFrame(key, revision, frame);
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client != null) client.execute(() -> applyRemoteMetadata(updates));
+    }
+
+    private void applyRemoteMetadata(List<RemotePanelUpdate> updates) {
+        Set<String> seen = new HashSet<>();
+        for (RemotePanelUpdate update : updates) {
+            seen.add(update.key());
+            Panel panel = remotePanels.computeIfAbsent(update.key(), key -> {
+                Panel created = new Panel();
+                created.remote = true;
+                created.remoteKey = key;
+                created.anim = 1.0f;
+                created.center = update.center();
+                created.right = update.right().normalize();
+                created.up = update.up().normalize();
+                created.halfW = update.halfW();
+                created.halfH = update.halfH();
+                return created;
+            });
+            panel.id = update.id();
+            panel.ownerName = update.username();
+            panel.targetCenter = update.center();
+            panel.targetRight = update.right().normalize();
+            panel.targetUp = update.up().normalize();
+            panel.targetHalfW = MathHelper.clamp(update.halfW(), MIN_HW, MAX_HW);
+            panel.targetHalfH = MathHelper.clamp(update.halfH(), MIN_HH, MAX_HH);
+            panel.remoteCurve = MathHelper.clamp(update.curve(), 0.0, 0.5);
+            panel.url = update.url();
+            List<String> tabUrls = update.tabs().isEmpty() ? List.of(update.url()) : update.tabs();
+            boolean tabsChanged = panel.tabs.size() != tabUrls.size();
+            if (!tabsChanged) {
+                for (int i = 0; i < tabUrls.size(); i++) {
+                    if (!java.util.Objects.equals(panel.tabs.get(i).url, tabUrls.get(i))) {
+                        tabsChanged = true;
+                        break;
+                    }
+                }
+            }
+            if (tabsChanged) {
+                panel.tabs.clear();
+                for (String tabUrl : tabUrls) panel.tabs.add(new Tab(tabUrl, true));
+                double width = tabWidth(panel);
+                for (int i = 0; i < panel.tabs.size(); i++) {
+                    panel.tabs.get(i).visualCenter = tabCenterU(panel, i);
+                    panel.tabs.get(i).visualWidth = width;
+                }
+            }
+            panel.activeTab = MathHelper.clamp(update.activeTab(), 0, Math.max(0, panel.tabs.size() - 1));
+            panel.lastRemoteSeenMs = System.currentTimeMillis();
+        }
+        List<String> stale = new ArrayList<>();
+        for (String key : remotePanels.keySet()) {
+            if (!seen.contains(key)) stale.add(key);
+        }
+        for (String key : stale) removeRemotePanel(key);
+    }
+
+    private void decodeRemoteFrame(String key, long revision, String encoded) {
+        Long loading = loadingRemoteFrames.putIfAbsent(key, revision);
+        if (loading != null && loading >= revision) return;
+        loadingRemoteFrames.put(key, revision);
+        CompletableFuture.runAsync(() -> {
+            NativeImage image = null;
+            try {
+                byte[] bytes = Base64.getDecoder().decode(encoded);
+                if (bytes.length == 0 || bytes.length > MAX_SHARED_FRAME_BYTES) return;
+                image = NativeImage.read(new ByteArrayInputStream(bytes));
+                NativeImage ready = image;
+                image = null;
+                MinecraftClient client = MinecraftClient.getInstance();
+                if (client != null) client.execute(() -> registerRemoteFrame(client, key, revision, ready));
+                else ready.close();
+            } catch (Exception ignored) {
+            } finally {
+                if (image != null) image.close();
+                loadingRemoteFrames.remove(key, revision);
+            }
+        });
+    }
+
+    private void registerRemoteFrame(MinecraftClient client, String key, long revision, NativeImage image) {
+        if (revision <= knownRemoteFrames.getOrDefault(key, 0L)) {
+            image.close();
+            return;
+        }
+        Panel panel = remotePanels.get(key);
+        if (panel == null) {
+            image.close();
+            return;
+        }
+        Identifier textureId = Identifier.of("enough", "webpanels/remote_"
+                + Integer.toUnsignedString(key.hashCode(), 36));
+        if (panel.remoteTexture != null) client.getTextureManager().destroyTexture(panel.remoteTexture);
+        NativeImageBackedTexture texture = new NativeImageBackedTexture(image);
+        texture.setFilter(true, false);
+        client.getTextureManager().registerTexture(textureId, texture);
+        panel.remoteTexture = textureId;
+        panel.remoteFrameRevision = revision;
+        knownRemoteFrames.put(key, revision);
+    }
+
+    private void clearRemotePanels() {
+        for (String key : new ArrayList<>(remotePanels.keySet())) removeRemotePanel(key);
+        knownRemoteFrames.clear();
+        loadingRemoteFrames.clear();
+    }
+
+    private void removeRemotePanel(String key) {
+        Panel panel = remotePanels.remove(key);
+        if (panel != null && panel.remoteTexture != null) {
+            MinecraftClient.getInstance().getTextureManager().destroyTexture(panel.remoteTexture);
+        }
+        knownRemoteFrames.remove(key);
+        loadingRemoteFrames.remove(key);
+    }
+
+    private static JsonArray vectorJson(Vec3d vector) {
+        JsonArray array = new JsonArray();
+        array.add(vector.x);
+        array.add(vector.y);
+        array.add(vector.z);
+        return array;
+    }
+
+    private static Vec3d vector(JsonArray array) {
+        if (array == null || array.size() != 3) return Vec3d.ZERO;
+        return new Vec3d(array.get(0).getAsDouble(), array.get(1).getAsDouble(), array.get(2).getAsDouble());
+    }
+
+    private static String normalizeRemoteKey(String value) {
+        return value == null ? "" : value.trim().toLowerCase(java.util.Locale.ROOT).replace("-", "");
     }
 
     public boolean isBrowserFocused() {
@@ -410,6 +705,10 @@ public class WebPanels extends Module {
         pressedPanel = null;
         browserLeftHeld = false;
         browserRightHeld = false;
+        clearRemotePanels();
+        sharedPanelSnapshot = List.of();
+        pendingSharedFrames.clear();
+        RemoteConfig.getInstance().requestImmediateSync();
     }
 
     @Override
@@ -609,7 +908,8 @@ public class WebPanels extends Module {
 
     public static void renderInWorld(WorldRenderContext context) {
         if (MinecraftVirtualCamera.isRenderingVirtualView()) return;
-        if (instance == null || !instance.isEnabled() || instance.panels.isEmpty()) return;
+        if (instance == null || !instance.isEnabled()
+                || instance.panels.isEmpty() && instance.remotePanels.isEmpty()) return;
         if (mc.player == null || mc.world == null || context.camera() == null || context.matrixStack() == null) return;
         instance.renderPanels(context);
     }
@@ -622,10 +922,16 @@ public class WebPanels extends Module {
         long now = System.nanoTime();
         float frameDt = MathHelper.clamp((now - lastFrameNanos) / 1_000_000_000f, 1f / 240f, 0.05f);
         lastFrameNanos = now;
+        prepareHudPanels(eye, look);
         handleInput(eye, look);
+        updateHudGrabOffset(eye, look);
         for (Panel p : panels) {
             animatePanel(p, frameDt);
         }
+        for (Panel p : remotePanels.values()) {
+            animatePanel(p, frameDt);
+        }
+        updateSharedPanelSnapshot();
 
         Matrix4f matrix = context.matrixStack().peek().getPositionMatrix();
         Matrix4f proj = context.projectionMatrix();
@@ -639,6 +945,10 @@ public class WebPanels extends Module {
                 pumpVirtualCamera(p);
             }
         }
+        maybeCaptureSharedFrame();
+
+        List<Panel> visiblePanels = new ArrayList<>(panels);
+        if (!isHudMode() && showOtherScreens.get()) visiblePanels.addAll(remotePanels.values());
 
         // Capture in-world blur frame if theme blur enabled
         if (!CustomTheme.blurDisabled()) {
@@ -648,12 +958,18 @@ public class WebPanels extends Module {
 
         int oldDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
         boolean oldDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        boolean oldDepthEnabled = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableCull();
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        RenderSystem.depthMask(true);
+        if (isHudMode()) {
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
+        } else {
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(true);
+        }
 
         try {
             // 1. Front face only. The back never samples the screen framebuffer;
@@ -666,7 +982,7 @@ public class WebPanels extends Module {
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
-                for (Panel p : panels) {
+                for (Panel p : visiblePanels) {
                     if (p.anim > 0.01f && isFrontFacing(p, eye)) {
                         float a = ease(p.anim);
                         double scale = 0.88 + 0.12 * a;
@@ -685,23 +1001,24 @@ public class WebPanels extends Module {
 
             // 2. Analytic SDF shell. The silhouette is evaluated per fragment,
             // so curved corners stay smooth without polygon stair-steps.
-            for (Panel p : panels) {
+            for (Panel p : visiblePanels) {
                 if (p.anim <= 0.01f) continue;
                 float a = ease(p.anim);
                 double scale = 0.88 + 0.12 * a;
                 double hw = p.halfW * scale;
                 double hh = p.halfH * scale;
                 if (isFrontFacing(p, eye)) {
-                    int glassAlpha = CustomTheme.blurDisabled() ? 242 : 174;
-                    drawSdfSurface(matrix, cam, p, hw, hh, 0.0015,
-                            0x10, 0x13, 0x1A, (int) (glassAlpha * a));
+                    if (blurTex <= 0 || CustomTheme.blurDisabled()) {
+                        drawSdfSurface(matrix, cam, p, hw, hh, 0.0015,
+                                0x10, 0x13, 0x1A, (int) (242 * a));
+                    }
                 } else {
                     drawSdfSurface(matrix, cam, p, hw, hh, 0.0,
                             0x0C, 0x0E, 0x13, (int) (248 * a));
                 }
             }
 
-            for (Panel p : panels) {
+            for (Panel p : visiblePanels) {
                 if (p.anim > 0.01f && isFrontFacing(p, eye)) {
                     drawPanelSdfControls(matrix, cam, p, hit(p, eye, look));
                 }
@@ -710,7 +1027,7 @@ public class WebPanels extends Module {
             // 3. Independent controls and loading ornaments.
             RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
             BufferBuilder colorBuf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-            for (Panel p : panels) {
+            for (Panel p : visiblePanels) {
                 if (p.anim > 0.01f && isFrontFacing(p, eye)) {
                     drawPanelChrome(colorBuf, matrix, cam, p);
                 }
@@ -721,8 +1038,8 @@ public class WebPanels extends Module {
             }
 
             // 4. Chromium content uses the same analytic SDF mask as the shell.
-            for (Panel p : panels) {
-                int glTex = p.browser != null ? WebBrowserBridge.textureId(p.browser) : 0;
+            for (Panel p : visiblePanels) {
+                int glTex = panelTextureId(p);
                 if (glTex > 0 && p.anim > 0.01f && isFrontFacing(p, eye)) {
                     float a = ease(p.anim);
                     double scale = 0.88 + 0.12 * a;
@@ -748,7 +1065,7 @@ public class WebPanels extends Module {
 
             // 5. The controls and address use the real MTSDF atlases in world
             // space. This pass replaces all hand-built arrow/globe/trash paths.
-            for (Panel p : panels) {
+            for (Panel p : visiblePanels) {
                 if (p.anim > 0.01f && isFrontFacing(p, eye)) {
                     drawPanelMtsdf(matrix, cam, p, hit(p, eye, look));
                 }
@@ -756,6 +1073,8 @@ public class WebPanels extends Module {
         } finally {
             RenderSystem.depthMask(oldDepthMask);
             RenderSystem.depthFunc(oldDepthFunc);
+            if (oldDepthEnabled) RenderSystem.enableDepthTest();
+            else RenderSystem.disableDepthTest();
             RenderSystem.enableCull();
             RenderSystem.disableBlend();
             RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
@@ -770,17 +1089,199 @@ public class WebPanels extends Module {
         });
     }
 
+    private void prepareHudPanels(Vec3d eye, Vec3d look) {
+        boolean hud = isHudMode();
+        if (!hud) {
+            hudModeActive = false;
+            return;
+        }
+        Vec3d worldUp = new Vec3d(0, 1, 0);
+        Vec3d cameraRight = look.crossProduct(worldUp);
+        if (cameraRight.lengthSquared() < 1e-6) cameraRight = new Vec3d(1, 0, 0);
+        cameraRight = cameraRight.normalize();
+        Vec3d cameraUp = cameraRight.crossProduct(look).normalize();
+        boolean entering = !hudModeActive;
+        hudModeActive = true;
+        int visibleIndex = 0;
+        for (Panel panel : panels) {
+            if (panel.closing) continue;
+            if (entering || !panel.hudInitialized) {
+                int column = visibleIndex % 3;
+                int row = visibleIndex / 3;
+                panel.hudU = (column - 1) * 0.34;
+                panel.hudV = (1.5 - row) * 0.22;
+                panel.hudInitialized = true;
+            }
+            panel.targetCenter = eye.add(look.multiply(3.2))
+                    .add(cameraRight.multiply(panel.hudU))
+                    .add(cameraUp.multiply(panel.hudV));
+            panel.targetRight = cameraRight;
+            panel.targetUp = cameraUp;
+            visibleIndex++;
+        }
+    }
+
+    private void updateHudGrabOffset(Vec3d eye, Vec3d look) {
+        if (!isHudMode() || grabbed == null || grabMode != 1) return;
+        Vec3d cameraRight = look.crossProduct(new Vec3d(0, 1, 0));
+        if (cameraRight.lengthSquared() < 1e-6) return;
+        cameraRight = cameraRight.normalize();
+        Vec3d cameraUp = cameraRight.crossProduct(look).normalize();
+        Vec3d base = eye.add(look.multiply(3.2));
+        Vec3d offset = grabbed.targetCenter.subtract(base);
+        grabbed.hudU = offset.dotProduct(cameraRight);
+        grabbed.hudV = offset.dotProduct(cameraUp);
+    }
+
+    private int panelTextureId(Panel panel) {
+        if (panel.remoteTexture != null) {
+            AbstractTexture texture = mc.getTextureManager().getTexture(panel.remoteTexture);
+            return texture == null ? 0 : texture.getGlId();
+        }
+        return panel.browser == null ? 0 : WebBrowserBridge.textureId(panel.browser);
+    }
+
+    private void updateSharedPanelSnapshot() {
+        if (!isEnabled() || !shareMyScreens.get() || isHudMode()) {
+            sharedPanelSnapshot = List.of();
+            pendingSharedFrames.clear();
+            return;
+        }
+        List<SharedPanelState> snapshot = new ArrayList<>();
+        double curve = curveSetting.get();
+        for (Panel panel : panels) {
+            if (panel.closing) continue;
+            List<String> tabs = new ArrayList<>();
+            for (Tab tab : panel.tabs) tabs.add(tab.url == null ? "" : tab.url);
+            snapshot.add(new SharedPanelState(panel.id, panel.center, panel.right, panel.up,
+                    panel.halfW, panel.halfH, curve, panel.url == null ? "" : panel.url,
+                    List.copyOf(tabs), panel.activeTab, panel.lastSharedFrameRevision));
+        }
+        sharedPanelSnapshot = List.copyOf(snapshot);
+    }
+
+    private void maybeCaptureSharedFrame() {
+        if (!isEnabled() || !shareMyScreens.get() || isHudMode() || panels.isEmpty()
+                || !sharedCaptureInFlight.compareAndSet(false, true)) return;
+        long now = System.currentTimeMillis();
+        if (now < nextSharedCaptureMs) {
+            sharedCaptureInFlight.set(false);
+            return;
+        }
+        List<Panel> candidates = panels.stream()
+                .filter(panel -> !panel.closing && panel.browser != null
+                        && WebBrowserBridge.isTextureReady(panel.browser))
+                .toList();
+        if (candidates.isEmpty()) {
+            sharedCaptureInFlight.set(false);
+            return;
+        }
+        Panel panel = candidates.get(Math.floorMod(sharedCaptureCursor++, candidates.size()));
+        int texture = WebBrowserBridge.textureId(panel.browser);
+        if (texture <= 0 || panel.texW <= 0 || panel.texH <= 0) {
+            sharedCaptureInFlight.set(false);
+            return;
+        }
+        VideoProfile profile = videoProfile();
+        nextSharedCaptureMs = now + profile.intervalMs();
+        try {
+            int required = panel.texW * panel.texH * 4;
+            if (sharedReadbackBuffer == null || sharedReadbackBuffer.capacity() < required) {
+                sharedReadbackBuffer = ByteBuffer.allocateDirect(required);
+            }
+            sharedReadbackBuffer.clear();
+            int oldTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+            GL11.glGetTexImage(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE,
+                    sharedReadbackBuffer);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, oldTexture);
+            BufferedImage image = downsampleBrowserFrame(sharedReadbackBuffer,
+                    panel.texW, panel.texH, profile.width(), profile.height());
+            long revision = sharedFrameSequence.incrementAndGet();
+            CompletableFuture.runAsync(() -> encodeSharedFrame(panel, image, profile.jpegQuality(), revision));
+        } catch (Throwable ignored) {
+            sharedCaptureInFlight.set(false);
+        }
+    }
+
+    private void encodeSharedFrame(Panel panel, BufferedImage image, float quality, long revision) {
+        try {
+            byte[] bytes = null;
+            float adaptiveQuality = quality;
+            // A noisy 1080p browser frame can exceed the launcher's request cap.
+            // Preserve the selected resolution and lower JPEG quality only for that frame.
+            for (int attempt = 0; attempt < 5; attempt++) {
+                try (ByteArrayOutputStream output = new ByteArrayOutputStream();
+                     ImageOutputStream imageOutput = ImageIO.createImageOutputStream(output)) {
+                    ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+                    try {
+                        writer.setOutput(imageOutput);
+                        ImageWriteParam params = writer.getDefaultWriteParam();
+                        if (params.canWriteCompressed()) {
+                            params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                            params.setCompressionQuality(adaptiveQuality);
+                        }
+                        writer.write(null, new IIOImage(image, null, null), params);
+                    } finally {
+                        writer.dispose();
+                    }
+                    bytes = output.toByteArray();
+                }
+                if (bytes.length <= MAX_SHARED_FRAME_BYTES) break;
+                adaptiveQuality = Math.max(0.22f, adaptiveQuality * 0.72f);
+            }
+            if (bytes == null || bytes.length == 0 || bytes.length > MAX_SHARED_FRAME_BYTES) return;
+            String encoded = Base64.getEncoder().encodeToString(bytes);
+            panel.lastSharedFrameRevision = revision;
+            pendingSharedFrames.put(panel.id, new SharedFrame(panel.id, revision, encoded));
+            RemoteConfig.getInstance().requestImmediateSync();
+        } catch (Exception ignored) {
+        } finally {
+            sharedCaptureInFlight.set(false);
+        }
+    }
+
+    private static BufferedImage downsampleBrowserFrame(ByteBuffer rgba, int sourceW, int sourceH,
+                                                         int targetW, int targetH) {
+        BufferedImage image = new BufferedImage(targetW, targetH, BufferedImage.TYPE_INT_RGB);
+        int[] pixels = ((DataBufferInt) image.getRaster().getDataBuffer()).getData();
+        for (int y = 0; y < targetH; y++) {
+            int sourceY = sourceH - 1 - y * sourceH / targetH;
+            for (int x = 0; x < targetW; x++) {
+                int sourceX = x * sourceW / targetW;
+                int offset = (sourceY * sourceW + sourceX) * 4;
+                int red = rgba.get(offset) & 0xFF;
+                int green = rgba.get(offset + 1) & 0xFF;
+                int blue = rgba.get(offset + 2) & 0xFF;
+                pixels[y * targetW + x] = red << 16 | green << 8 | blue;
+            }
+        }
+        return image;
+    }
+
+    private VideoProfile videoProfile() {
+        if (videoQuality.is("Максимум")) return new VideoProfile(1920, 1080, 0.84f, 420L);
+        if (videoQuality.is("Высокое")) return new VideoProfile(1280, 720, 0.76f, 330L);
+        if (videoQuality.is("Среднее")) return new VideoProfile(854, 480, 0.64f, 250L);
+        return new VideoProfile(480, 270, 0.48f, 180L);
+    }
+
     private void animatePanel(Panel p, float dt) {
         float targetAnim = p.closing ? 0f : 1f;
         p.animVelocity += (targetAnim - p.anim) * 150f * dt;
         p.animVelocity *= (float) Math.exp(-17f * dt);
         p.anim = MathHelper.clamp(p.anim + p.animVelocity * dt, 0f, 1.035f);
 
-        double moveStiffness = grabbed == p && grabMode == 1 ? 125.0 : 92.0;
-        double moveDamping = grabbed == p && grabMode == 1 ? 17.5 : 16.0;
-        p.moveVelocity = p.moveVelocity.add(p.targetCenter.subtract(p.center).multiply(moveStiffness * dt));
-        p.moveVelocity = p.moveVelocity.multiply(Math.exp(-moveDamping * dt));
-        p.center = p.center.add(p.moveVelocity.multiply(dt));
+        if (isHudMode() && !p.remote) {
+            p.center = p.targetCenter;
+            p.moveVelocity = Vec3d.ZERO;
+        } else {
+            double moveStiffness = grabbed == p && grabMode == 1 ? 125.0 : 92.0;
+            double moveDamping = grabbed == p && grabMode == 1 ? 17.5 : 16.0;
+            p.moveVelocity = p.moveVelocity.add(p.targetCenter.subtract(p.center).multiply(moveStiffness * dt));
+            p.moveVelocity = p.moveVelocity.multiply(Math.exp(-moveDamping * dt));
+            p.center = p.center.add(p.moveVelocity.multiply(dt));
+        }
 
         double sizeStiffness = grabbed == p && grabMode == 2 ? 145.0 : 105.0;
         double sizeDamping = grabbed == p && grabMode == 2 ? 18.5 : 17.0;
@@ -792,10 +1293,15 @@ public class WebPanels extends Module {
         p.halfW += p.widthVelocity * dt;
         p.halfH += p.heightVelocity * dt;
 
-        double orientationBlend = 1.0 - Math.exp(-((grabbed == p || rotatingPanel == p) ? 15.0 : 10.0) * dt);
-        p.right = p.right.lerp(p.targetRight, orientationBlend).normalize();
-        p.up = p.up.lerp(p.targetUp, orientationBlend);
-        p.up = p.up.subtract(p.right.multiply(p.up.dotProduct(p.right))).normalize();
+        if (isHudMode() && !p.remote) {
+            p.right = p.targetRight;
+            p.up = p.targetUp;
+        } else {
+            double orientationBlend = 1.0 - Math.exp(-((grabbed == p || rotatingPanel == p) ? 15.0 : 10.0) * dt);
+            p.right = p.right.lerp(p.targetRight, orientationBlend).normalize();
+            p.up = p.up.lerp(p.targetUp, orientationBlend);
+            p.up = p.up.subtract(p.right.multiply(p.up.dotProduct(p.right))).normalize();
+        }
 
         float barTarget = p.hoveredRegion == 1 || p.hoveredRegion == 3
                 || (grabbed == p && grabMode == 1) || rotatingPanel == p ? 1f : 0f;
@@ -894,7 +1400,7 @@ public class WebPanels extends Module {
         double scale = 0.88 + 0.12 * a;
         double hw = p.halfW * scale;
         double hh = p.halfH * scale;
-        double d = 0.001;
+        double d = 0.0015;
         float alpha = 0.94f * a;
         int cols = PANEL_SEGMENTS;
         for (int i = 0; i < cols; i++) {
@@ -935,7 +1441,7 @@ public class WebPanels extends Module {
         long win = mc.getWindow().getHandle();
         boolean left = GLFW.glfwGetMouseButton(win, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
         boolean right = GLFW.glfwGetMouseButton(win, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
-        boolean rHeld = GLFW.glfwGetKey(win, GLFW.GLFW_KEY_R) == GLFW.GLFW_PRESS;
+        boolean rHeld = !isHudMode() && GLFW.glfwGetKey(win, GLFW.GLFW_KEY_R) == GLFW.GLFW_PRESS;
         boolean queuedPress = queuedMouseAction == GLFW.GLFW_PRESS;
         boolean queuedRelease = queuedMouseAction == GLFW.GLFW_RELEASE;
         boolean leftPress = queuedPress ? queuedMouseButton == 0 : left && !prevLeft;
@@ -1134,7 +1640,7 @@ public class WebPanels extends Module {
         double dy = look.dotProduct(p.up);
         double dz = look.dotProduct(n);
 
-        double angle = curveAngle();
+        double angle = curveAngle(p);
         double t;
         double lu;
         if (angle < 1e-5) {
@@ -1233,32 +1739,34 @@ public class WebPanels extends Module {
             return 1; // grab bar
         }
 
-        double tabsY = tabsY(p);
-        if (Math.abs(lv - tabsY) < 0.048 * control) {
-            if (Math.abs(lu - tabAddU(p)) < 0.040 * control
-                    && p.tabs.size() < MAX_TABS) return 40;
-            for (int i = 0; i < p.tabs.size(); i++) {
-                Tab tab = p.tabs.get(i);
-                double width = Math.max(0.01 * control, tab.visualWidth);
-                double center = tab.visualCenter;
-                if (Math.abs(lu - center) > width * 0.5) continue;
-                if (lu > center + width * 0.5 - 0.052 * control) return 30 + i;
-                return 20 + i;
+        if (showTopPanel.get()) {
+            double tabsY = tabsY(p);
+            if (Math.abs(lv - tabsY) < 0.048 * control) {
+                if (Math.abs(lu - tabAddU(p)) < 0.040 * control
+                        && p.tabs.size() < MAX_TABS) return 40;
+                for (int i = 0; i < p.tabs.size(); i++) {
+                    Tab tab = p.tabs.get(i);
+                    double width = Math.max(0.01 * control, tab.visualWidth);
+                    double center = tab.visualCenter;
+                    if (Math.abs(lu - center) > width * 0.5) continue;
+                    if (lu > center + width * 0.5 - 0.052 * control) return 30 + i;
+                    return 20 + i;
+                }
             }
-        }
 
-        // Compact navigation ornament sits close to the panel instead of floating far above it.
-        double navY = navY(p), abHalfW = navHalfWidth(p);
-        if (Math.abs(lv - navY) < 0.068 * control
-                && Math.abs(lu) <= abHalfW + 0.025 * control) {
-            double backU = -abHalfW + 0.075 * control;
-            double fwdU = backU + 0.105 * control;
-            double reloadU = fwdU + 0.105 * control;
+            // Compact navigation ornament sits close to the panel instead of floating far above it.
+            double navY = navY(p), abHalfW = navHalfWidth(p);
+            if (Math.abs(lv - navY) < 0.068 * control
+                    && Math.abs(lu) <= abHalfW + 0.025 * control) {
+                double backU = -abHalfW + 0.075 * control;
+                double fwdU = backU + 0.105 * control;
+                double reloadU = fwdU + 0.105 * control;
 
-            if (Math.abs(lu - backU) < 0.050 * control) return 6;
-            if (Math.abs(lu - fwdU) < 0.050 * control) return 7;
-            if (Math.abs(lu - reloadU) < 0.050 * control) return 8;
-            return 5;
+                if (Math.abs(lu - backU) < 0.050 * control) return 6;
+                if (Math.abs(lu - fwdU) < 0.050 * control) return 7;
+                if (Math.abs(lu - reloadU) < 0.050 * control) return 8;
+                return 5;
+            }
         }
 
         // Resize exists only at the two lower corners, matching the requested
@@ -1331,6 +1839,13 @@ public class WebPanels extends Module {
             drawSdfRoundedSurface(matrix, cam, p, 0.165 * control * reveal, barY,
                     0.032 * control, 0.032 * control, 0.032 * control, 0.0105,
                     0xFF, 0x3B, 0x45, (int) (232 * reveal * a));
+        }
+        if (!showTopPanel.get()) {
+            drawBottomCornerHandle(matrix, cam, p, -hw, -hh, false,
+                    control, p.edgeReveal[0] * a);
+            drawBottomCornerHandle(matrix, cam, p, hw, -hh, true,
+                    control, p.edgeReveal[1] * a);
+            return;
         }
 
         double navHalfW = Math.min(hw * 0.62, 0.86 * control);
@@ -1415,6 +1930,21 @@ public class WebPanels extends Module {
         double hw = p.halfW * scale;
         double hh = p.halfH * scale;
         double control = controlScale(p) * scale;
+        if (!showTopPanel.get()) {
+            if (p.barReveal > 0.02f) {
+                drawPanelWorldText(matrix, c, p, n,
+                        SolarIcons.DELETE, 0.165 * control * p.barReveal,
+                        -hh - BAR_GAP * control, 0.039 * control, 0.013,
+                        argb((int) (245 * p.barReveal * a), 255, 255, 255),
+                        FontWeight.SOLAR_ICONS, true);
+            }
+            if (panelTextureId(p) <= 0) {
+                drawPanelWorldText(matrix, c, p, n,
+                        SolarIcons.GLOBAL, 0, 0.035, 0.075, 0.013,
+                        argb((int) (180 * a), 255, 255, 255), FontWeight.SOLAR_ICONS, true);
+            }
+            return;
+        }
         double navY = hh + NAV_GAP * control;
         double abHalfW = Math.min(hw * 0.62, 0.86 * control);
         double backU = -abHalfW + 0.075 * control;
@@ -1508,7 +2038,14 @@ public class WebPanels extends Module {
                     FontWeight.SOLAR_ICONS, true);
         }
 
-        int glTex = p.browser != null ? WebBrowserBridge.textureId(p.browser) : 0;
+        if (p.remote && !p.ownerName.isBlank()) {
+            drawPanelWorldText(matrix, c, p, n, p.ownerName,
+                    -0.125 * control, -hh - BAR_GAP * control,
+                    0.023 * control, 0.013, argb((int) (155 * a), 232, 235, 242),
+                    FontWeight.MEDIUM, false);
+        }
+
+        int glTex = panelTextureId(p);
         if (glTex <= 0) {
             drawPanelWorldText(matrix, c, p, n,
                     SolarIcons.GLOBAL, 0, 0.035, 0.075, 0.013,
@@ -1521,10 +2058,10 @@ public class WebPanels extends Module {
                                     int color, FontWeight weight, boolean centered) {
         if (centered && weight == FontWeight.SOLAR_ICONS) {
             CustomFontRenderer.drawCurvedWorldGlyph(matrix, center, p.right, p.up, normal,
-                    p.halfW, curveAngle(), text, anchorU, centerV, size, depth, color, weight);
+                    p.halfW, curveAngle(p), text, anchorU, centerV, size, depth, color, weight);
         } else {
             CustomFontRenderer.drawCurvedWorldText(matrix, center, p.right, p.up, normal,
-                    p.halfW, curveAngle(), text, anchorU, centerV, size, depth,
+                    p.halfW, curveAngle(p), text, anchorU, centerV, size, depth,
                     color, weight, centered);
         }
     }
@@ -1706,7 +2243,7 @@ public class WebPanels extends Module {
                                double u, double v, double d, float shapeU, float shapeV, float alpha) {
         double mappedU = u;
         double mappedDepth = d;
-        double angle = curveAngle();
+        double angle = curveAngle(p);
         if (angle >= 1e-5 && p.halfW >= 1e-5) {
             double radius = p.halfW / angle;
             double theta = u / radius;
@@ -1734,7 +2271,7 @@ public class WebPanels extends Module {
                            double u, double v, double d, int r, int g, int b, int a) {
         double mappedU = u;
         double mappedDepth = d;
-        double angle = curveAngle();
+        double angle = curveAngle(p);
         if (angle >= 1e-5 && p.halfW >= 1e-5) {
             double radius = p.halfW / angle;
             double theta = u / radius;
@@ -1751,7 +2288,7 @@ public class WebPanels extends Module {
                          double u, double v, double d, float texU, float texV, float alpha) {
         double mappedU = u;
         double mappedDepth = d;
-        double angle = curveAngle();
+        double angle = curveAngle(p);
         if (angle >= 1e-5 && p.halfW >= 1e-5) {
             double radius = p.halfW / angle;
             double theta = u / radius;
@@ -1769,7 +2306,7 @@ public class WebPanels extends Module {
                          int red, int green, int blue, int alpha) {
         double mappedU = u;
         double mappedDepth = d;
-        double angle = curveAngle();
+        double angle = curveAngle(p);
         if (angle >= 1e-5 && p.halfW >= 1e-5) {
             double radius = p.halfW / angle;
             double theta = u / radius;
@@ -1784,12 +2321,12 @@ public class WebPanels extends Module {
                 .color(red / 255f, green / 255f, blue / 255f, alpha / 255f);
     }
 
-    private double curveAngle() {
-        return Math.max(0.0, curveSetting.get());
+    private double curveAngle(Panel panel) {
+        return panel.remote ? panel.remoteCurve : Math.max(0.0, curveSetting.get());
     }
 
     private double[] curvedLocal(Panel p, double u) {
-        double angle = curveAngle();
+        double angle = curveAngle(p);
         if (angle < 1e-5 || p.halfW < 1e-5) return new double[]{u, 0.0};
         double radius = p.halfW / angle;
         double theta = u / radius;
@@ -1844,6 +2381,17 @@ public class WebPanels extends Module {
         int texW, texH;
         long lastCameraBootstrapMs;
         long lastCameraFrameSequence;
+        volatile long lastSharedFrameRevision;
+        boolean remote;
+        String remoteKey = "";
+        String ownerName = "";
+        Identifier remoteTexture;
+        long remoteFrameRevision;
+        long lastRemoteSeenMs;
+        double remoteCurve;
+        boolean hudInitialized;
+        double hudU;
+        double hudV;
         final List<Tab> tabs = new ArrayList<>();
         final List<ClosingTab> closingTabs = new ArrayList<>();
         int activeTab;
@@ -1880,5 +2428,22 @@ public class WebPanels extends Module {
             this.width = width;
             this.reveal = reveal;
         }
+    }
+
+    private record SharedPanelState(int id, Vec3d center, Vec3d right, Vec3d up,
+                                    double halfW, double halfH, double curve, String url,
+                                    List<String> tabs, int activeTab, long frameRevision) {
+    }
+
+    private record SharedFrame(int panelId, long revision, String base64) {
+    }
+
+    private record RemotePanelUpdate(String key, String uuid, String username, int id,
+                                     Vec3d center, Vec3d right, Vec3d up,
+                                     double halfW, double halfH, double curve, String url,
+                                     List<String> tabs, int activeTab, long frameRevision) {
+    }
+
+    private record VideoProfile(int width, int height, float jpegQuality, long intervalMs) {
     }
 }

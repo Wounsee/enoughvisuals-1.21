@@ -10,6 +10,7 @@ import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.emotions.EmotionWheelManager;
 import fun.enoughvisuals.systems.cosmetic.CosmeticCatalog;
 import fun.enoughvisuals.systems.graffiti.GraffitiManager;
+import fun.enoughvisuals.systems.modules.modules.visual.WebPanels;
 import net.minecraft.client.MinecraftClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -154,6 +155,8 @@ public final class RemoteConfig {
         EmotionWheelManager.getInstance().appendSync(root);
         CosmeticCatalog.appendSync(root);
         GraffitiManager.getInstance().appendSync(root);
+        WebPanels webPanels = WebPanels.getInstance();
+        if (webPanels != null) webPanels.appendSync(root);
         if (!observedGameServer.isBlank()) {
             root.addProperty("game_server", observedGameServer);
         }
@@ -285,6 +288,8 @@ public final class RemoteConfig {
             }
         }
         enoughUuids = Collections.unmodifiableSet(evUuids);
+        WebPanels webPanels = WebPanels.getInstance();
+        if (webPanels != null) webPanels.applySync(o);
         MinecraftClient client = MinecraftClient.getInstance();
         if (client != null) client.execute(() -> {
             EmotionWheelManager.getInstance().applySync(o);

@@ -24,7 +24,10 @@ void main() {
     float smoothing = max(fwidth(dist) * 0.85, 0.00012);
     float coverage = 1.0 - smoothstep(-smoothing, smoothing, dist);
     vec4 sampled = texture(Sampler0, TexCoord) * ColorModulator;
-    sampled.a *= vertexColor.a * coverage;
+    // Glass and blur are composited in this one silhouette. A second tinted
+    // shell at another depth caused the chewed/doubled edge at grazing angles.
+    sampled.rgb = mix(sampled.rgb, vec3(0.063, 0.075, 0.102), 0.66);
+    sampled.a = vertexColor.a * coverage;
     if (sampled.a <= 0.002) discard;
     OutColor = sampled;
 }
