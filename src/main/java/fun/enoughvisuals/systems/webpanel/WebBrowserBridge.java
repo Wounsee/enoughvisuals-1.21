@@ -85,6 +85,32 @@ public final class WebBrowserBridge {
               navigator.webkitGetUserMedia = legacyGetUserMedia;
             })();
             """;
+    private static final String POINTER_HOLD_BOOTSTRAP = """
+            (() => {
+              if (window.__enoughPointerHoldV1) return;
+              let target = null;
+              const fire = (type, x, y, buttons) => {
+                if (!target) return;
+                target.dispatchEvent(new PointerEvent(type, {
+                  bubbles: true, cancelable: true, composed: true,
+                  pointerId: 570, pointerType: 'mouse', isPrimary: true,
+                  clientX: x, clientY: y, screenX: x, screenY: y,
+                  button: 0, buttons
+                }));
+              };
+              window.__enoughPointerHoldV1 = {
+                begin(x, y) {
+                  target = document.elementFromPoint(x, y);
+                  fire('pointerdown', x, y, 1);
+                },
+                move(x, y) { fire('pointermove', x, y, 1); },
+                end(x, y) {
+                  fire('pointerup', x, y, 0);
+                  target = null;
+                }
+              };
+            })();
+            """;
 
     private static Boolean present;
     private static Class<?> mcefClass;
@@ -310,7 +336,22 @@ public final class WebBrowserBridge {
 
     /** Installs a browser-local camera that supplies a canvas MediaStream instead of an OS webcam. */
     public static void installMinecraftCamera(Object browser) {
-        executeJavaScript(browser, MINECRAFT_CAMERA_BOOTSTRAP);
+        executeJavaScript(browser, MINECRAFT_CAMERA_BOOTSTRAP + POINTER_HOLD_BOOTSTRAP);
+    }
+
+    public static void beginPointerHold(Object browser, int x, int y) {
+        executeJavaScript(browser, "window.__enoughPointerHoldV1 && window.__enoughPointerHoldV1.begin("
+                + x + "," + y + ");");
+    }
+
+    public static void movePointerHold(Object browser, int x, int y) {
+        executeJavaScript(browser, "window.__enoughPointerHoldV1 && window.__enoughPointerHoldV1.move("
+                + x + "," + y + ");");
+    }
+
+    public static void endPointerHold(Object browser, int x, int y) {
+        executeJavaScript(browser, "window.__enoughPointerHoldV1 && window.__enoughPointerHoldV1.end("
+                + x + "," + y + ");");
     }
 
     public static void pushMinecraftCameraFrame(Object browser, String dataUrl) {

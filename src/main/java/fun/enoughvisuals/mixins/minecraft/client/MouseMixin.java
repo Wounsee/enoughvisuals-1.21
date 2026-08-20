@@ -46,6 +46,11 @@ public class MouseMixin {
         if (client == null) return;
 
         WebPanels webPanels = WebPanels.getInstance();
+        if (client.currentScreen == null && webPanels != null
+                && webPanels.handleBrowserMouseButton(button, action)) {
+            ci.cancel();
+            return;
+        }
         if (webPanels != null && (webPanels.isAddressEditing() || webPanels.isHovering())
                 && client.currentScreen == null) {
             ci.cancel();

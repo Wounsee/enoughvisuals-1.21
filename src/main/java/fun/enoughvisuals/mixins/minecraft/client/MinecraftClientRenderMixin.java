@@ -1,7 +1,6 @@
 package fun.enoughvisuals.mixins.minecraft.client;
 
 import fun.enoughvisuals.systems.modules.modules.utils.Optimization;
-import fun.enoughvisuals.systems.webpanel.MinecraftVirtualCamera;
 import net.minecraft.client.MinecraftClient;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -13,11 +12,5 @@ public abstract class MinecraftClientRenderMixin {
     @Inject(method = "render", at = @At("HEAD"))
     private void enough$tickOptimizationFrame(boolean tick, CallbackInfo ci) {
         Optimization.tickFrame();
-    }
-
-    @Inject(method = "render", at = @At("TAIL"))
-    private void enough$captureMinecraftCamera(boolean tick, CallbackInfo ci) {
-        MinecraftClient client = (MinecraftClient) (Object) this;
-        MinecraftVirtualCamera.captureSelfieFrame(client.getRenderTickCounter());
     }
 }

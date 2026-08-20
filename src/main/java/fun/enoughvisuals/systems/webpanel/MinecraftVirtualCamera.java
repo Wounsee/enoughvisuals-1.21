@@ -2,15 +2,10 @@ package fun.enoughvisuals.systems.webpanel;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import fun.enoughvisuals.mixins.accessors.MinecraftClientAccessor;
 import fun.enoughvisuals.systems.modules.modules.visual.WebPanels;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.SimpleFramebuffer;
-import net.minecraft.client.option.Perspective;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.hit.HitResult;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.stb.STBIWriteCallback;
@@ -25,8 +20,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Renders a dedicated Minecraft selfie view for an in-process Chromium
- * MediaStream. It deliberately does not enumerate or open an operating-system camera.
+ * Captures the already-rendered first-person Minecraft framebuffer for an
+ * in-process Chromium MediaStream. It never enumerates an OS camera and never
+ * runs a second world pass, so shader packs and hand shaders remain re-entrant.
  */
 public final class MinecraftVirtualCamera {
     public static final int WIDTH = 640;
@@ -44,7 +40,6 @@ public final class MinecraftVirtualCamera {
     private static long lastCaptureNanos;
     private static volatile String latestFrameDataUrl;
     private static volatile long latestFrameSequence;
-    private static boolean renderingVirtualView;
 
     private MinecraftVirtualCamera() {
     }
@@ -58,37 +53,34 @@ public final class MinecraftVirtualCamera {
     }
 
     public static boolean isRenderingVirtualView() {
-        return renderingVirtualView;
+        return false;
     }
 
-    /** Renders a separate front-facing third-person view without changing the player's visible camera. */
-    public static void captureSelfieFrame(RenderTickCounter tickCounter) {
+    /** Copies either the world-only stage or the final GUI stage into the browser stream. */
+    public static void captureFrame(boolean guiStage) {
         MinecraftClient client = MinecraftClient.getInstance();
         WebPanels webPanels = WebPanels.getInstance();
         if (client == null || client.world == null || client.player == null
                 || webPanels == null || !webPanels.needsVirtualCameraFrames()) return;
-        if (!RenderSystem.isOnRenderThread() || ENCODING.get() || renderingVirtualView) return;
+        if (webPanels.streamVirtualCameraGui() != guiStage) return;
+        if (!RenderSystem.isOnRenderThread() || ENCODING.get()) return;
 
         long now = System.nanoTime();
         if (now - lastCaptureNanos < FRAME_INTERVAL_NANOS) return;
         lastCaptureNanos = now;
 
         Framebuffer source = client.getFramebuffer();
-        Perspective previousPerspective = client.options.getPerspective();
-        Perspective capturePerspective = webPanels.virtualCameraPerspective();
-        Entity previousTargetedEntity = client.targetedEntity;
-        HitResult previousCrosshairTarget = client.crosshairTarget;
         int oldReadFbo = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
         int oldDrawFbo = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
         int oldPackAlignment = GL11.glGetInteger(GL11.GL_PACK_ALIGNMENT);
         try {
-            ensureFramebuffer(source);
-            renderingVirtualView = true;
-            client.options.setPerspective(capturePerspective);
-            ((MinecraftClientAccessor) client).enough$setFramebuffer(captureFramebuffer);
-            captureFramebuffer.setClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-            captureFramebuffer.clear();
-            client.gameRenderer.renderWorld(tickCounter);
+            ensureFramebuffer();
+            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, source.fbo);
+            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, captureFramebuffer.fbo);
+            GL30.glBlitFramebuffer(
+                    0, 0, source.textureWidth, source.textureHeight,
+                    0, 0, WIDTH, HEIGHT,
+                    GL11.GL_COLOR_BUFFER_BIT, GL11.GL_LINEAR);
 
             ByteBuffer pixels = MemoryUtil.memAlloc(WIDTH * HEIGHT * 3);
             try {
@@ -107,25 +99,13 @@ public final class MinecraftVirtualCamera {
         } catch (Throwable ignored) {
             ENCODING.set(false);
         } finally {
-            ((MinecraftClientAccessor) client).enough$setFramebuffer(source);
-            client.options.setPerspective(previousPerspective);
-            client.targetedEntity = previousTargetedEntity;
-            client.crosshairTarget = previousCrosshairTarget;
-            Entity cameraEntity = client.getCameraEntity() == null ? client.player : client.getCameraEntity();
-            if (client.world != null && cameraEntity != null) {
-                client.gameRenderer.getCamera().update(client.world, cameraEntity,
-                        !previousPerspective.isFirstPerson(), previousPerspective.isFrontView(),
-                        tickCounter.getTickDelta(true));
-            }
-            renderingVirtualView = false;
             GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, oldPackAlignment);
             GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, oldReadFbo);
             GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, oldDrawFbo);
-            GlStateManager._viewport(0, 0, source.viewportWidth, source.viewportHeight);
         }
     }
 
-    private static void ensureFramebuffer(Framebuffer source) {
+    private static void ensureFramebuffer() {
         if (captureFramebuffer != null
                 && captureFramebuffer.textureWidth == WIDTH
                 && captureFramebuffer.textureHeight == HEIGHT
@@ -133,8 +113,6 @@ public final class MinecraftVirtualCamera {
         if (captureFramebuffer != null) captureFramebuffer.delete();
         captureFramebuffer = new SimpleFramebuffer(WIDTH, HEIGHT, true);
         captureFramebuffer.setTexFilter(GL11.GL_LINEAR);
-        // SimpleFramebuffer construction changes the bound target and viewport.
-        source.beginWrite(true);
     }
 
     private static void encodeFrame(byte[] rawBottomUp) {

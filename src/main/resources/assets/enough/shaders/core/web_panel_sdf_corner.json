@@ -1,0 +1,13 @@
+{
+  "vertex": "enough:core/world_effect",
+  "fragment": "enough:core/web_panel_sdf_corner",
+  "samplers": [],
+  "uniforms": [
+    { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
+    { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
+    { "name": "Size", "type": "float", "count": 2, "values": [1.0, 1.0] },
+    { "name": "Radius", "type": "float", "count": 1, "values": [0.1] },
+    { "name": "Thickness", "type": "float", "count": 1, "values": [0.01] },
+    { "name": "RightSide", "type": "int", "count": 1, "values": [1] }
+  ]
+}

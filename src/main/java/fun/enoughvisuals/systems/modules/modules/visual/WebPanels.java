@@ -6,7 +6,7 @@ import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BindSetting;
-import fun.enoughvisuals.systems.modules.settings.ModeSetting;
+import fun.enoughvisuals.systems.modules.settings.BooleanSetting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.systems.modules.settings.StringSetting;
 import fun.enoughvisuals.systems.hud.HudNotificationCenter;
@@ -18,10 +18,10 @@ import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.font.SolarIcons;
 import fun.enoughvisuals.utils.render.blur.GlassUtil;
+import fun.enoughvisuals.utils.render.WebPanelShaders;
 import fun.enoughvisuals.utils.system.BindKeyUtil;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.gl.ShaderProgramKeys;
-import net.minecraft.client.option.Perspective;
 import net.minecraft.client.render.*;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -65,9 +65,9 @@ public class WebPanels extends Module {
             "Создать окно", "create_bind", "Клавиша для создания нового окна", GLFW.GLFW_KEY_UNKNOWN));
     private final SliderSetting curveSetting = add(new SliderSetting(
             "Изгиб", "curve", "Мягкий цилиндрический изгиб окна", 0.11f, 0.0f, 0.22f, 0.01f));
-    private final ModeSetting virtualCameraMode = add(new ModeSetting(
-            "Камера браузера", "virtual_camera_mode", "Ракурс Minecraft для звонков в браузере",
-            "Селфи", "Селфи", "От первого лица", "От третьего лица"));
+    private final BooleanSetting streamGui = add(new BooleanSetting(
+            "Транслировать GUI", "stream_gui",
+            "Показывать в виртуальной камере чат, HUD, инвентарь и другие экраны", false));
     private final List<Panel> panels = new ArrayList<>();
     private int nextId = 1;
     private Panel grabbed;
@@ -89,6 +89,10 @@ public class WebPanels extends Module {
     private int pressedMouseX;
     private int pressedMouseY;
     private int pressedMouseButton;
+    private long pressedMouseStartedNanos;
+    private boolean syntheticPointerHold;
+    private int queuedMouseButton = -1;
+    private int queuedMouseAction = -1;
     private Panel focusedPanel;
     private final Set<Integer> capturedKeys = new HashSet<>();
     private boolean prevCreateHeld;
@@ -110,10 +114,8 @@ public class WebPanels extends Module {
         return false;
     }
 
-    public Perspective virtualCameraPerspective() {
-        if (virtualCameraMode.is("От первого лица")) return Perspective.FIRST_PERSON;
-        if (virtualCameraMode.is("От третьего лица")) return Perspective.THIRD_PERSON_BACK;
-        return Perspective.THIRD_PERSON_FRONT;
+    public boolean streamVirtualCameraGui() {
+        return streamGui.get();
     }
 
     public boolean isHovering() {
@@ -122,6 +124,17 @@ public class WebPanels extends Module {
 
     public boolean isMoving() {
         return grabbed != null && grabMode == 1;
+    }
+
+    /** Keeps exact GLFW press/release edges instead of relying only on render-frame polling. */
+    public boolean handleBrowserMouseButton(int button, int action) {
+        if (!isEnabled() || (button != GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && button != GLFW.GLFW_MOUSE_BUTTON_RIGHT)) return false;
+        if (action != GLFW.GLFW_PRESS && action != GLFW.GLFW_RELEASE) return false;
+        if (!hovering && pressedPanel == null) return false;
+        queuedMouseButton = button == GLFW.GLFW_MOUSE_BUTTON_LEFT ? 0 : 1;
+        queuedMouseAction = action;
+        return true;
     }
 
     public boolean scroll(double yOffset, boolean controlDown) {
@@ -549,36 +562,59 @@ public class WebPanels extends Module {
             // that was the cause of the mirrored/split world image on the reverse.
             int blurTex = GlassUtil.getResultTexture();
             if (blurTex > 0) {
-                RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
                 RenderSystem.setShaderTexture(0, blurTex);
                 GlStateManager._bindTexture(blurTex);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
-
-                BufferBuilder blurBuf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
                 for (Panel p : panels) {
                     if (p.anim > 0.01f && isFrontFacing(p, eye)) {
+                        float a = ease(p.anim);
+                        double scale = 0.88 + 0.12 * a;
+                        double hw = p.halfW * scale;
+                        double hh = p.halfH * scale;
+                        WebPanelShaders.useBlur((float) (hw * 2.0), (float) (hh * 2.0),
+                                (float) smartCorner(hw, hh));
+                        BufferBuilder blurBuf = Tessellator.getInstance().begin(
+                                VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
                         drawCurvedFrostedBlur(blurBuf, matrix, proj, cam, p);
+                        BuiltBuffer builtBlur = blurBuf.endNullable();
+                        if (builtBlur != null) BufferRenderer.drawWithGlobalProgram(builtBlur);
                     }
-                }
-                BuiltBuffer builtBlur = blurBuf.endNullable();
-                if (builtBlur != null) {
-                    BufferRenderer.drawWithGlobalProgram(builtBlur);
                 }
             }
 
-            // 2. Opaque curved shell. Front and back are intentionally separate.
+            // 2. Analytic SDF shell. The silhouette is evaluated per fragment,
+            // so curved corners stay smooth without polygon stair-steps.
+            for (Panel p : panels) {
+                if (p.anim <= 0.01f) continue;
+                float a = ease(p.anim);
+                double scale = 0.88 + 0.12 * a;
+                double hw = p.halfW * scale;
+                double hh = p.halfH * scale;
+                if (isFrontFacing(p, eye)) {
+                    int glassAlpha = CustomTheme.blurDisabled() ? 242 : 174;
+                    drawSdfSurface(matrix, cam, p, hw, hh, 0.0015,
+                            0x10, 0x13, 0x1A, (int) (glassAlpha * a));
+                } else {
+                    drawSdfSurface(matrix, cam, p, hw, hh, 0.0,
+                            0x0C, 0x0E, 0x13, (int) (248 * a));
+                }
+            }
+
+            for (Panel p : panels) {
+                if (p.anim > 0.01f && isFrontFacing(p, eye)) {
+                    drawPanelSdfControls(matrix, cam, p, hit(p, eye, look));
+                }
+            }
+
+            // 3. Independent controls and loading ornaments.
             RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
             BufferBuilder colorBuf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
             for (Panel p : panels) {
-                if (p.anim > 0.01f) {
-                    if (isFrontFacing(p, eye)) {
-                        drawPanelChrome(colorBuf, matrix, cam, p, hit(p, eye, look));
-                    } else {
-                        drawPanelBack(colorBuf, matrix, cam, p);
-                    }
+                if (p.anim > 0.01f && isFrontFacing(p, eye)) {
+                    drawPanelChrome(colorBuf, matrix, cam, p);
                 }
             }
             BuiltBuffer builtColor = colorBuf.endNullable();
@@ -586,11 +622,16 @@ public class WebPanels extends Module {
                 BufferRenderer.drawWithGlobalProgram(builtColor);
             }
 
-            // 3. Draw browser content (Chromium frame texture) with crisp linear filtering
-            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+            // 4. Chromium content uses the same analytic SDF mask as the shell.
             for (Panel p : panels) {
                 int glTex = p.browser != null ? WebBrowserBridge.textureId(p.browser) : 0;
                 if (glTex > 0 && p.anim > 0.01f && isFrontFacing(p, eye)) {
+                    float a = ease(p.anim);
+                    double scale = 0.88 + 0.12 * a;
+                    double hw = p.halfW * scale;
+                    double hh = p.halfH * scale;
+                    WebPanelShaders.useTexture((float) (hw * 2.0), (float) (hh * 2.0),
+                            (float) smartCorner(hw, hh));
                     RenderSystem.setShaderTexture(0, glTex);
                     GlStateManager._bindTexture(glTex);
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
@@ -607,7 +648,7 @@ public class WebPanels extends Module {
                 }
             }
 
-            // 4. The controls and address use the real MTSDF atlases in world
+            // 5. The controls and address use the real MTSDF atlases in world
             // space. This pass replaces all hand-built arrow/globe/trash paths.
             for (Panel p : panels) {
                 if (p.anim > 0.01f && isFrontFacing(p, eye)) {
@@ -712,16 +753,15 @@ public class WebPanels extends Module {
         double d = 0.001;
         float alpha = 0.94f * a;
         int cols = PANEL_SEGMENTS;
-        double corner = smartCorner(hw, hh);
         for (int i = 0; i < cols; i++) {
             double u0 = -hw + 2 * hw * i / cols;
             double u1 = -hw + 2 * hw * (i + 1) / cols;
-            double v0 = squircleHalfHeight(u0, hw, hh, corner);
-            double v1 = squircleHalfHeight(u1, hw, hh, corner);
-            screenTexVert(buffer, m, proj, c, p, n, u0, v0, d, alpha);
-            screenTexVert(buffer, m, proj, c, p, n, u1, v1, d, alpha);
-            screenTexVert(buffer, m, proj, c, p, n, u1, -v1, d, alpha);
-            screenTexVert(buffer, m, proj, c, p, n, u0, -v0, d, alpha);
+            float t0 = (float) i / cols;
+            float t1 = (float) (i + 1) / cols;
+            screenTexVert(buffer, m, proj, c, p, n, u0, hh, d, t0, 0f, alpha);
+            screenTexVert(buffer, m, proj, c, p, n, u1, hh, d, t1, 0f, alpha);
+            screenTexVert(buffer, m, proj, c, p, n, u1, -hh, d, t1, 1f, alpha);
+            screenTexVert(buffer, m, proj, c, p, n, u0, -hh, d, t0, 1f, alpha);
         }
     }
 
@@ -735,20 +775,15 @@ public class WebPanels extends Module {
         double d = 0.005;
         float alpha = a;
         int cols = PANEL_SEGMENTS;
-        double corner = smartCorner(hw, hh);
         for (int i = 0; i < cols; i++) {
             double u0 = -hw + 2 * hw * i / cols;
             double u1 = -hw + 2 * hw * (i + 1) / cols;
             float tu0 = (float) i / cols, tu1 = (float) (i + 1) / cols;
-            double v0 = squircleHalfHeight(u0, hw, hh, corner);
-            double v1 = squircleHalfHeight(u1, hw, hh, corner);
-            float tv0 = (float) ((hh - v0) / (2.0 * hh));
-            float tv1 = (float) ((hh - v1) / (2.0 * hh));
 
-            texVert(buffer, m, c, p, n, u0, v0, d, tu0, tv0, alpha);
-            texVert(buffer, m, c, p, n, u1, v1, d, tu1, tv1, alpha);
-            texVert(buffer, m, c, p, n, u1, -v1, d, tu1, 1f - tv1, alpha);
-            texVert(buffer, m, c, p, n, u0, -v0, d, tu0, 1f - tv0, alpha);
+            texVert(buffer, m, c, p, n, u0, hh, d, tu0, 0f, alpha);
+            texVert(buffer, m, c, p, n, u1, hh, d, tu1, 0f, alpha);
+            texVert(buffer, m, c, p, n, u1, -hh, d, tu1, 1f, alpha);
+            texVert(buffer, m, c, p, n, u0, -hh, d, tu0, 1f, alpha);
         }
     }
 
@@ -757,8 +792,10 @@ public class WebPanels extends Module {
         boolean left = GLFW.glfwGetMouseButton(win, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
         boolean right = GLFW.glfwGetMouseButton(win, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
         boolean rHeld = GLFW.glfwGetKey(win, GLFW.GLFW_KEY_R) == GLFW.GLFW_PRESS;
-        boolean leftPress = left && !prevLeft;
-        boolean rightPress = right && !prevRight;
+        boolean queuedPress = queuedMouseAction == GLFW.GLFW_PRESS;
+        boolean queuedRelease = queuedMouseAction == GLFW.GLFW_RELEASE;
+        boolean leftPress = queuedPress ? queuedMouseButton == 0 : left && !prevLeft;
+        boolean rightPress = queuedPress ? queuedMouseButton == 1 : right && !prevRight;
         boolean pressEdge = leftPress || rightPress;
         int pressButton = leftPress ? 0 : 1;
         if (rHeld && (left || right)) {
@@ -878,13 +915,15 @@ public class WebPanels extends Module {
                 pressedMouseButton = pressButton;
                 pressedMouseX = px[0];
                 pressedMouseY = px[1];
+                pressedMouseStartedNanos = System.nanoTime();
+                syntheticPointerHold = false;
                 focusedPanel = contentPanel;
                 releaseGameplayMovementKeys();
                 if (enteringControl) notifyControlEntered();
             }
         }
         if (pressedPanel != null) {
-            boolean pressedButtonHeld = pressedMouseButton == 0 ? left : right;
+            boolean pressedButtonHeld = !queuedRelease && (pressedMouseButton == 0 ? left : right);
             if (pressedButtonHeld && !pressedPanel.closing && pressedPanel.browser != null) {
                 double[] heldHit = hitPlane(pressedPanel, eye, look, true);
                 if (heldHit != null) {
@@ -895,16 +934,34 @@ public class WebPanels extends Module {
                 // MCEF keeps its left/right button mask between press and release;
                 // forwarding moves preserves native Chromium pointer capture/long-press.
                 WebBrowserBridge.mouseMove(pressedPanel.browser, pressedMouseX, pressedMouseY);
+                if (pressedMouseButton == 0
+                        && System.nanoTime() - pressedMouseStartedNanos >= 180_000_000L) {
+                    if (!syntheticPointerHold) {
+                        WebBrowserBridge.beginPointerHold(
+                                pressedPanel.browser, pressedMouseX, pressedMouseY);
+                        syntheticPointerHold = true;
+                    } else {
+                        WebBrowserBridge.movePointerHold(
+                                pressedPanel.browser, pressedMouseX, pressedMouseY);
+                    }
+                }
             } else {
                 if (pressedPanel.browser != null) {
+                    if (syntheticPointerHold) {
+                        WebBrowserBridge.endPointerHold(
+                                pressedPanel.browser, pressedMouseX, pressedMouseY);
+                    }
                     WebBrowserBridge.mouseRelease(pressedPanel.browser,
                             pressedMouseX, pressedMouseY, pressedMouseButton);
                 }
                 pressedPanel = null;
+                syntheticPointerHold = false;
             }
         }
         prevLeft = left;
         prevRight = right;
+        queuedMouseButton = -1;
+        queuedMouseAction = -1;
 
         if (focusedPanel != null && focusedPanel.closing) {
             exitFocus();
@@ -1038,7 +1095,7 @@ public class WebPanels extends Module {
         return -1;
     }
 
-    private void drawPanelChrome(BufferBuilder buf, Matrix4f m, Vec3d cam, Panel p, double[] h) {
+    private void drawPanelChrome(BufferBuilder buf, Matrix4f m, Vec3d cam, Panel p) {
         Vec3d c = p.center.subtract(cam);
         Vec3d n = p.right.crossProduct(p.up).normalize();
         float a = ease(p.anim);
@@ -1053,12 +1110,6 @@ public class WebPanels extends Module {
         int alg = (accentLight >> 8) & 0xFF;
         int alb = accentLight & 0xFF;
 
-        // One exact squircle on the shared cylindrical surface. No enlarged shell, specular line or glass
-        // outline is allowed to peek around Chromium's texture.
-        int glassAlpha = CustomTheme.blurDisabled() ? 242 : 174;
-        drawSquircle(buf, m, c, p, n, 1, 0, 0, hw, hh,
-                smartCorner(hw, hh), 0x10, 0x13, 0x1A, (int) (glassAlpha * a));
-
         // Loading state remains understated and monochrome.
         int glTex = p.browser != null ? WebBrowserBridge.textureId(p.browser) : 0;
         if (glTex <= 0) {
@@ -1067,62 +1118,14 @@ public class WebPanels extends Module {
                     alr, alg, alb, (int) (205 * a));
         }
 
-        // Large rounded iOS grabber. Hover never creates a background behind it.
-        float br = p.barReveal;
-        double barY = -hh - BAR_GAP * control;
-        double grabU = -0.055 * control * br;
-        fillRound(buf, m, c, p, n, 6, grabU, barY,
-                0.140 * control, 0.014 * control, 0.014 * control,
-                245, 247, 251, (int) ((220 + 35 * br) * a));
-
-        if (br > 0.02f) {
-            double trashU = 0.165 * control * br;
-            fillRound(buf, m, c, p, n, 7, trashU, barY,
-                    0.032 * control, 0.032 * control, 0.032 * control,
-                    0xFF, 0x3B, 0x45, (int) (232 * br * a));
-        }
-
-        drawBottomCornerHandle(buf, m, c, p, n, -hw, -hh, false, control, p.edgeReveal[0] * a);
-        drawBottomCornerHandle(buf, m, c, p, n, hw, -hh, true, control, p.edgeReveal[1] * a);
-
-        // Compact navigation ornament, aligned to the window and using Solar icon geometry.
-        double abH = 0.053 * control;
-        double abHalfW = Math.min(hw * 0.62, 0.86 * control);
-        double navY = hh + NAV_GAP * control;
-
-        fillRound(buf, m, c, p, n, 4, 0, navY, abHalfW, abH, abH,
-                0x16, 0x19, 0x20, (int) (218 * a));
-
-        double backU = -abHalfW + 0.075 * control;
-        double fwdU = backU + 0.105 * control;
-        double reloadU = fwdU + 0.105 * control;
-
-        boolean overBack = h != null && region(p, h[0], h[1]) == 6;
-        boolean overFwd = h != null && region(p, h[0], h[1]) == 7;
-        boolean overReload = h != null && region(p, h[0], h[1]) == 8;
-        boolean overPill = h != null && region(p, h[0], h[1]) == 5;
-
-        double btnR = 0.038 * control;
-        fillRound(buf, m, c, p, n, 6, backU, navY, btnR, btnR, btnR,
-                0xF2, 0xF4, 0xF8, (int) ((overBack ? 38 : 0) * a));
-
-        fillRound(buf, m, c, p, n, 6, fwdU, navY, btnR, btnR, btnR,
-                0xF2, 0xF4, 0xF8, (int) ((overFwd ? 38 : 0) * a));
-
-        fillRound(buf, m, c, p, n, 6, reloadU, navY, btnR, btnR, btnR,
-                0xF2, 0xF4, 0xF8, (int) ((overReload ? 38 : 0) * a));
-
-        double pillLeft = reloadU + 0.060 * control;
-        double pillRight = abHalfW - 0.028 * control;
-        double pillU = (pillLeft + pillRight) * 0.5;
-        double pillHW = (pillRight - pillLeft) * 0.5;
-        double pillHH = 0.034 * control;
-
-        fillRound(buf, m, c, p, n, 6, pillU, navY, pillHW, pillHH, pillHH,
-                overPill ? 0x31 : 0x21, overPill ? 0x35 : 0x25, overPill ? 0x3D : 0x2C,
-                (int) ((overPill ? 225 : 180) * a));
-
         if (p.addressEditing && (System.currentTimeMillis() / 450L) % 2L == 0L) {
+            double abHalfW = Math.min(hw * 0.62, 0.86 * control);
+            double navY = hh + NAV_GAP * control;
+            double reloadU = -abHalfW + 0.285 * control;
+            double pillLeft = reloadU + 0.060 * control;
+            double pillRight = abHalfW - 0.028 * control;
+            double pillU = (pillLeft + pillRight) * 0.5;
+            double pillHW = (pillRight - pillLeft) * 0.5;
             String prefix = p.addressDraft.substring(0, Math.min(p.addressCursor, p.addressDraft.length()));
             double textSize = 0.032 * control;
             double textStart = pillU - pillHW + 0.072 * control;
@@ -1134,18 +1137,61 @@ public class WebPanels extends Module {
         }
     }
 
-    private void drawPanelBack(BufferBuilder buf, Matrix4f m, Vec3d cam, Panel p) {
-        Vec3d c = p.center.subtract(cam);
-        Vec3d n = p.right.crossProduct(p.up).normalize();
+    private void drawPanelSdfControls(Matrix4f matrix, Vec3d cam, Panel p, double[] hit) {
         float a = ease(p.anim);
         double scale = 0.88 + 0.12 * a;
-        // A self-contained matte reverse: no framebuffer sampling, Chromium
-        // texture, seam or reflective rim.
         double hw = p.halfW * scale;
         double hh = p.halfH * scale;
-        drawSquircle(buf, m, c, p, n, 0, 0, 0,
-                hw, hh, smartCorner(hw, hh),
-                0x0C, 0x0E, 0x13, (int) (248 * a));
+        double control = controlScale(p) * scale;
+        float reveal = p.barReveal;
+        double barY = -hh - BAR_GAP * control;
+
+        drawSdfRoundedSurface(matrix, cam, p, -0.055 * control * reveal, barY,
+                0.140 * control, 0.014 * control, 0.014 * control, 0.009,
+                245, 247, 251, (int) ((220 + 35 * reveal) * a));
+        if (reveal > 0.02f) {
+            drawSdfRoundedSurface(matrix, cam, p, 0.165 * control * reveal, barY,
+                    0.032 * control, 0.032 * control, 0.032 * control, 0.0105,
+                    0xFF, 0x3B, 0x45, (int) (232 * reveal * a));
+        }
+
+        double navHalfW = Math.min(hw * 0.62, 0.86 * control);
+        double navHalfH = 0.053 * control;
+        double navY = hh + NAV_GAP * control;
+        drawSdfRoundedSurface(matrix, cam, p, 0, navY, navHalfW, navHalfH, navHalfH, 0.006,
+                0x16, 0x19, 0x20, (int) (218 * a));
+
+        double backU = -navHalfW + 0.075 * control;
+        double fwdU = backU + 0.105 * control;
+        double reloadU = fwdU + 0.105 * control;
+        int hovered = hit == null ? -1 : region(p, hit[0], hit[1]);
+        double buttonRadius = 0.038 * control;
+        double[] buttonPositions = {backU, fwdU, reloadU};
+        for (int i = 0; i < buttonPositions.length; i++) {
+            double buttonU = buttonPositions[i];
+            int buttonRegion = 6 + i;
+            if (hovered == buttonRegion) {
+                drawSdfRoundedSurface(matrix, cam, p, buttonU, navY,
+                        buttonRadius, buttonRadius, buttonRadius, 0.009,
+                        0xF2, 0xF4, 0xF8, (int) (38 * a));
+            }
+        }
+
+        double pillLeft = reloadU + 0.060 * control;
+        double pillRight = navHalfW - 0.028 * control;
+        double pillU = (pillLeft + pillRight) * 0.5;
+        double pillHalfW = (pillRight - pillLeft) * 0.5;
+        double pillHalfH = 0.034 * control;
+        boolean overPill = hovered == 5;
+        drawSdfRoundedSurface(matrix, cam, p, pillU, navY,
+                pillHalfW, pillHalfH, pillHalfH, 0.009,
+                overPill ? 0x31 : 0x21, overPill ? 0x35 : 0x25, overPill ? 0x3D : 0x2C,
+                (int) ((overPill ? 225 : 180) * a));
+
+        drawBottomCornerHandle(matrix, cam, p, -hw, -hh, false,
+                control, p.edgeReveal[0] * a);
+        drawBottomCornerHandle(matrix, cam, p, hw, -hh, true,
+                control, p.edgeReveal[1] * a);
     }
 
     private void drawPanelMtsdf(Matrix4f matrix, Vec3d cam, Panel p, double[] hit) {
@@ -1235,35 +1281,40 @@ public class WebPanels extends Module {
 
     // ----------------- Planar custom drawing helpers in 3D -----------------
 
-    private void drawSquircle(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n, int layer,
-                              double cu, double cv, double hw, double hh, double corner,
-                              int r, int g, int b, int a) {
-        if (a <= 0) return;
-        double d = layer * 0.0015;
-        int cols = PANEL_SEGMENTS;
-        for (int i = 0; i < cols; i++) {
-            double x0 = -hw + 2.0 * hw * i / cols;
-            double x1 = -hw + 2.0 * hw * (i + 1) / cols;
-            double y0 = squircleHalfHeight(x0, hw, hh, corner);
-            double y1 = squircleHalfHeight(x1, hw, hh, corner);
-            colorVert(buf, m, c, p, n, cu + x0, cv + y0, d, r, g, b, a);
-            colorVert(buf, m, c, p, n, cu + x1, cv + y1, d, r, g, b, a);
-            colorVert(buf, m, c, p, n, cu + x1, cv - y1, d, r, g, b, a);
-            colorVert(buf, m, c, p, n, cu + x0, cv - y0, d, r, g, b, a);
-        }
+    private void drawSdfSurface(Matrix4f matrix, Vec3d cam, Panel p,
+                                double hw, double hh, double depth,
+                                int red, int green, int blue, int alpha) {
+        drawSdfRoundedSurface(matrix, cam, p, 0.0, 0.0, hw, hh,
+                smartCorner(hw, hh), depth, red, green, blue, alpha);
     }
 
-    private static double squircleHalfHeight(double x, double hw, double hh, double corner) {
-        corner = Math.min(corner, Math.min(hw, hh));
-        double ax = Math.abs(x);
-        double straight = hw - corner;
-        if (ax <= straight) return hh;
-        double t = MathHelper.clamp((ax - straight) / Math.max(corner, 1e-6), 0.0, 1.0);
-        // A soft superellipse shoulder without the visually square power used
-        // by the previous silhouette.
-        double power = 2.20;
-        double arc = Math.pow(Math.max(0.0, 1.0 - Math.pow(t, power)), 1.0 / power);
-        return hh - corner + corner * arc;
+    private void drawSdfRoundedSurface(Matrix4f matrix, Vec3d cam, Panel p,
+                                       double centerU, double centerV,
+                                       double hw, double hh, double radius, double depth,
+                                       int red, int green, int blue, int alpha) {
+        if (alpha <= 0 || hw <= 0.0 || hh <= 0.0) return;
+        WebPanelShaders.useColor((float) (hw * 2.0), (float) (hh * 2.0), (float) radius);
+        Vec3d center = p.center.subtract(cam);
+        Vec3d normal = p.right.crossProduct(p.up).normalize();
+        BufferBuilder buffer = Tessellator.getInstance().begin(
+                VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+        int columns = PANEL_SEGMENTS;
+        for (int i = 0; i < columns; i++) {
+            double u0 = centerU - hw + 2.0 * hw * i / columns;
+            double u1 = centerU - hw + 2.0 * hw * (i + 1) / columns;
+            float t0 = (float) i / columns;
+            float t1 = (float) (i + 1) / columns;
+            sdfVert(buffer, matrix, center, p, normal, u0, centerV + hh, depth,
+                    t0, 0f, red, green, blue, alpha);
+            sdfVert(buffer, matrix, center, p, normal, u1, centerV + hh, depth,
+                    t1, 0f, red, green, blue, alpha);
+            sdfVert(buffer, matrix, center, p, normal, u1, centerV - hh, depth,
+                    t1, 1f, red, green, blue, alpha);
+            sdfVert(buffer, matrix, center, p, normal, u0, centerV - hh, depth,
+                    t0, 1f, red, green, blue, alpha);
+        }
+        BuiltBuffer built = buffer.endNullable();
+        if (built != null) BufferRenderer.drawWithGlobalProgram(built);
     }
 
     private static double smartCorner(double hw, double hh) {
@@ -1272,55 +1323,46 @@ public class WebPanels extends Module {
         return MathHelper.clamp(Math.min(hw, hh) * 0.10, 0.045, 0.085);
     }
 
-    private void drawArc(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
-                         double u, double v, double rad, double start, double sweep, double thickness,
-                         int r, int g, int b, int a) {
-        if (a <= 0 || rad <= 0.0 || thickness <= 0.0) return;
-        int segments = 64;
-        double inner = Math.max(0.0, rad - thickness * 0.5);
-        double outer = rad + thickness * 0.5;
-        double d = 0.008;
-        for (int i = 0; i < segments; i++) {
-            double a0 = start + sweep * i / segments;
-            double a1 = start + sweep * (i + 1) / segments;
-            colorVert(buf, m, c, p, n, u + outer * Math.cos(a0), v + outer * Math.sin(a0), d, r, g, b, a);
-            colorVert(buf, m, c, p, n, u + outer * Math.cos(a1), v + outer * Math.sin(a1), d, r, g, b, a);
-            colorVert(buf, m, c, p, n, u + inner * Math.cos(a1), v + inner * Math.sin(a1), d, r, g, b, a);
-            colorVert(buf, m, c, p, n, u + inner * Math.cos(a0), v + inner * Math.sin(a0), d, r, g, b, a);
-        }
-    }
-
-    private void drawBottomCornerHandle(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
+    private void drawBottomCornerHandle(Matrix4f matrix, Vec3d cam, Panel p,
                                         double u, double v, boolean rightSide,
                                         double controlScale, float reveal) {
         if (reveal <= 0.01f) return;
         double growth = 0.82 + 0.18 * reveal;
-        double radius = 0.030 * growth * controlScale;
-        double leg = 0.072 * growth * controlScale;
+        double radius = 0.055 * growth * controlScale;
+        double leg = 0.095 * growth * controlScale;
         double gap = 0.010 * controlScale;
+        double thickness = 0.0062 * controlScale;
+        double width = leg + radius;
+        double height = leg + radius;
         double outerU = u + (rightSide ? gap : -gap);
-        double bottomV = v - gap;
-        double centerU = outerU + (rightSide ? -radius : radius);
-        double centerV = bottomV + radius;
-        double start = rightSide ? 0.0 : Math.PI;
-        double sweep = rightSide ? -Math.PI * 0.5 : Math.PI * 0.5;
-        double thickness = 0.0074 * controlScale;
+        double minU = rightSide ? outerU - width : outerU;
+        double maxU = rightSide ? outerU : outerU + width;
+        double minV = v - gap;
+        double maxV = minV + height;
 
-        drawThickLine(buf, m, c, p, n,
-                outerU, v + leg, outerU, centerV,
-                thickness, 245, 247, 251, (int) (238 * reveal));
-        drawArc(buf, m, c, p, n, centerU, centerV, radius, start, sweep,
-                thickness, 245, 247, 251, (int) (232 * reveal));
-        double horizontalEndU = u + (rightSide ? -leg : leg);
-        drawThickLine(buf, m, c, p, n,
-                centerU, bottomV, horizontalEndU, bottomV,
-                thickness, 245, 247, 251, (int) (238 * reveal));
-
-        double cap = thickness * 0.52;
-        fillRound(buf, m, c, p, n, 7, outerU, v + leg, cap, cap, cap,
-                245, 247, 251, (int) (238 * reveal));
-        fillRound(buf, m, c, p, n, 7, horizontalEndU, bottomV, cap, cap, cap,
-                245, 247, 251, (int) (238 * reveal));
+        WebPanelShaders.useCorner((float) width, (float) height, (float) radius,
+                (float) thickness, rightSide);
+        Vec3d center = p.center.subtract(cam);
+        Vec3d normal = p.right.crossProduct(p.up).normalize();
+        BufferBuilder buffer = Tessellator.getInstance().begin(
+                VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+        int columns = 96;
+        for (int i = 0; i < columns; i++) {
+            double x0 = minU + (maxU - minU) * i / columns;
+            double x1 = minU + (maxU - minU) * (i + 1) / columns;
+            float t0 = (float) i / columns;
+            float t1 = (float) (i + 1) / columns;
+            sdfVert(buffer, matrix, center, p, normal, x0, maxV, 0.0105,
+                    t0, 0f, 245, 247, 251, (int) (238 * reveal));
+            sdfVert(buffer, matrix, center, p, normal, x1, maxV, 0.0105,
+                    t1, 0f, 245, 247, 251, (int) (238 * reveal));
+            sdfVert(buffer, matrix, center, p, normal, x1, minV, 0.0105,
+                    t1, 1f, 245, 247, 251, (int) (238 * reveal));
+            sdfVert(buffer, matrix, center, p, normal, x0, minV, 0.0105,
+                    t0, 1f, 245, 247, 251, (int) (238 * reveal));
+        }
+        BuiltBuffer built = buffer.endNullable();
+        if (built != null) BufferRenderer.drawWithGlobalProgram(built);
     }
 
     private void drawSpinner(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
@@ -1357,63 +1399,8 @@ public class WebPanels extends Module {
         colorVert(buf, m, c, p, n, x0 - nx, y0 - ny, d, r, g, b, a);
     }
 
-    private void fillRound(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n, int layer,
-                           double cu, double cv, double hw, double hh, double cr, int r, int g, int b, int a) {
-        if (a <= 0) return;
-        double d = layer * 0.0015;
-        cr = Math.min(cr, Math.min(hw, hh));
-        if (cr <= 1e-6) {
-            colorVert(buf, m, c, p, n, cu - hw, cv + hh, d, r, g, b, a);
-            colorVert(buf, m, c, p, n, cu + hw, cv + hh, d, r, g, b, a);
-            colorVert(buf, m, c, p, n, cu + hw, cv - hh, d, r, g, b, a);
-            colorVert(buf, m, c, p, n, cu - hw, cv - hh, d, r, g, b, a);
-            return;
-        }
-
-        // Sample the round caps by angle. A uniform strip count spends almost
-        // all vertices on the straight center and leaves the actual radius faceted.
-        List<Double> xPositions = new ArrayList<>(112);
-        int capSegments = 48;
-        for (int i = 0; i <= capSegments; i++) {
-            double angle = Math.PI * 0.5 * i / capSegments;
-            xPositions.add(-hw + cr - cr * Math.cos(angle));
-        }
-        double straightLeft = -hw + cr;
-        double straightRight = hw - cr;
-        if (straightRight - straightLeft > 1e-6) {
-            int straightSegments = MathHelper.clamp(
-                    (int) Math.ceil((straightRight - straightLeft) * 96.0), 1, 384);
-            for (int i = 1; i <= straightSegments; i++) {
-                xPositions.add(straightLeft + (straightRight - straightLeft) * i / straightSegments);
-            }
-        }
-        for (int i = 1; i <= capSegments; i++) {
-            double angle = Math.PI * 0.5 * i / capSegments;
-            xPositions.add(straightRight + cr * Math.sin(angle));
-        }
-
-        for (int i = 0; i + 1 < xPositions.size(); i++) {
-            double x0 = xPositions.get(i);
-            double x1 = xPositions.get(i + 1);
-            double y0 = roundedHalfHeight(x0, hw, hh, cr);
-            double y1 = roundedHalfHeight(x1, hw, hh, cr);
-            colorVert(buf, m, c, p, n, cu + x0, cv + y0, d, r, g, b, a);
-            colorVert(buf, m, c, p, n, cu + x1, cv + y1, d, r, g, b, a);
-            colorVert(buf, m, c, p, n, cu + x1, cv - y1, d, r, g, b, a);
-            colorVert(buf, m, c, p, n, cu + x0, cv - y0, d, r, g, b, a);
-        }
-    }
-
-    private static double roundedHalfHeight(double x, double hw, double hh, double radius) {
-        double ax = Math.abs(x);
-        double straight = hw - radius;
-        if (ax <= straight) return hh;
-        double dx = Math.min(radius, ax - straight);
-        return hh - radius + Math.sqrt(Math.max(0.0, radius * radius - dx * dx));
-    }
-
     private void screenTexVert(BufferBuilder buf, Matrix4f m, Matrix4f proj, Vec3d c, Panel p, Vec3d n,
-                               double u, double v, double d, float alpha) {
+                               double u, double v, double d, float shapeU, float shapeV, float alpha) {
         double mappedU = u;
         double mappedDepth = d;
         double angle = curveAngle();
@@ -1436,7 +1423,8 @@ public class WebPanels extends Module {
         float tu = MathHelper.clamp((clip.x * invW) * 0.5f + 0.5f, 0f, 1f);
         float tv = MathHelper.clamp((clip.y * invW) * 0.5f + 0.5f, 0f, 1f);
 
-        buf.vertex(m, (float) x, (float) y, (float) z).texture(tu, tv).color(1f, 1f, 1f, alpha);
+        buf.vertex(m, (float) x, (float) y, (float) z)
+                .texture(tu, tv).color(shapeU, shapeV, 1f, alpha);
     }
 
     private void colorVert(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
@@ -1471,6 +1459,26 @@ public class WebPanels extends Module {
         double y = c.y + p.right.y * mappedU + p.up.y * v + n.y * mappedDepth;
         double z = c.z + p.right.z * mappedU + p.up.z * v + n.z * mappedDepth;
         buf.vertex(m, (float) x, (float) y, (float) z).texture(texU, texV).color(1f, 1f, 1f, alpha);
+    }
+
+    private void sdfVert(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
+                         double u, double v, double d, float texU, float texV,
+                         int red, int green, int blue, int alpha) {
+        double mappedU = u;
+        double mappedDepth = d;
+        double angle = curveAngle();
+        if (angle >= 1e-5 && p.halfW >= 1e-5) {
+            double radius = p.halfW / angle;
+            double theta = u / radius;
+            mappedU = radius * Math.sin(theta);
+            mappedDepth += radius * (1.0 - Math.cos(theta));
+        }
+        double x = c.x + p.right.x * mappedU + p.up.x * v + n.x * mappedDepth;
+        double y = c.y + p.right.y * mappedU + p.up.y * v + n.y * mappedDepth;
+        double z = c.z + p.right.z * mappedU + p.up.z * v + n.z * mappedDepth;
+        buf.vertex(m, (float) x, (float) y, (float) z)
+                .texture(texU, texV)
+                .color(red / 255f, green / 255f, blue / 255f, alpha / 255f);
     }
 
     private double curveAngle() {
