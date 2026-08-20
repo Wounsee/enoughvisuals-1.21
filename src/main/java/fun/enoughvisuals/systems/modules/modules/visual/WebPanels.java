@@ -6,6 +6,7 @@ import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BindSetting;
+import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.systems.modules.settings.StringSetting;
 import fun.enoughvisuals.systems.webpanel.WebBrowserBridge;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
@@ -34,7 +35,7 @@ import java.util.Set;
 
 /**
  * Premium Apple Vision style spatial web browser module.
- * Features planar 3D glass panels, live Chromium rendering,
+ * Features gently curved 3D glass panels, live Chromium rendering,
  * browser controls (Back, Forward, Refresh, Address), and fluid interaction.
  */
 @Register(
@@ -48,8 +49,9 @@ public class WebPanels extends Module {
     private static final int MAX_PANELS = 3;
     private static final double MIN_HW = 0.65, MAX_HW = 3.4;
     private static final double MIN_HH = 0.38, MAX_HH = 2.2;
-    private static final double BODY_CORNER = 0.145;
     private static final double BAR_GAP = 0.055;
+    private static final double NAV_GAP = 0.115;
+    private static final int PANEL_SEGMENTS = 1024;
 
     private static WebPanels instance;
 
@@ -57,6 +59,8 @@ public class WebPanels extends Module {
             "Стартовый сайт", "default_url", "URL открываемый при создании окна", "https://www.google.com"));
     private final BindSetting createBind = add(new BindSetting(
             "Создать окно", "create_bind", "Клавиша для создания нового окна", GLFW.GLFW_KEY_UNKNOWN));
+    private final SliderSetting curveSetting = add(new SliderSetting(
+            "Изгиб", "curve", "Мягкий цилиндрический изгиб окна", 0.11f, 0.0f, 0.22f, 0.01f));
     private final List<Panel> panels = new ArrayList<>();
     private int nextId = 1;
     private Panel grabbed;
@@ -65,13 +69,16 @@ public class WebPanels extends Module {
     private double grabDist;
     private double grabLocalU;
     private double grabLocalV;
+    private int grabButton;
     private boolean prevLeft;
+    private boolean prevRight;
     private boolean hovering;
     private Panel contentPanel;
     private double[] contentHit;
     private Panel pressedPanel;
     private int pressedMouseX;
     private int pressedMouseY;
+    private int pressedMouseButton;
     private Panel focusedPanel;
     private final Set<Integer> capturedKeys = new HashSet<>();
     private boolean prevCreateHeld;
@@ -133,12 +140,6 @@ public class WebPanels extends Module {
             exitFocus();
             return true;
         }
-        // A web click must never trap the player in Chromium. The first gameplay
-        // movement key releases web keyboard focus and continues through vanilla.
-        if (action == GLFW.GLFW_PRESS && isGameplayMovementKey(key, scancode)) {
-            exitFocus();
-            return false;
-        }
         if (action == GLFW.GLFW_RELEASE) {
             if (capturedKeys.remove(key)) {
                 WebBrowserBridge.keyRelease(focusedPanel.browser, key, scancode, mods);
@@ -149,17 +150,6 @@ public class WebPanels extends Module {
         capturedKeys.add(key);
         WebBrowserBridge.keyPress(focusedPanel.browser, key, scancode, mods);
         return true;
-    }
-
-    private boolean isGameplayMovementKey(int key, int scancode) {
-        if (mc.options == null) return false;
-        return mc.options.forwardKey.matchesKey(key, scancode)
-                || mc.options.backKey.matchesKey(key, scancode)
-                || mc.options.leftKey.matchesKey(key, scancode)
-                || mc.options.rightKey.matchesKey(key, scancode)
-                || mc.options.jumpKey.matchesKey(key, scancode)
-                || mc.options.sneakKey.matchesKey(key, scancode)
-                || mc.options.sprintKey.matchesKey(key, scancode);
     }
 
     public void exitFocus() {
@@ -287,7 +277,7 @@ public class WebPanels extends Module {
 
     @Override
     public void onTick() {
-        if (isAddressEditing()) releaseGameplayMovementKeys();
+        if (isBrowserFocused()) releaseGameplayMovementKeys();
         if (createBind.isBound()) {
             boolean held = isHeld(createBind.get());
             if (held && !prevCreateHeld) {
@@ -444,7 +434,7 @@ public class WebPanels extends Module {
                 BufferBuilder blurBuf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
                 for (Panel p : panels) {
                     if (p.anim > 0.01f && isFrontFacing(p, eye)) {
-                        drawPlanarFrostedBlur(blurBuf, matrix, proj, cam, p);
+                        drawCurvedFrostedBlur(blurBuf, matrix, proj, cam, p);
                     }
                 }
                 BuiltBuffer builtBlur = blurBuf.endNullable();
@@ -453,7 +443,7 @@ public class WebPanels extends Module {
                 }
             }
 
-            // 2. Opaque planar shell. Front and back are intentionally separate.
+            // 2. Opaque curved shell. Front and back are intentionally separate.
             RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
             BufferBuilder colorBuf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
             for (Panel p : panels) {
@@ -570,7 +560,7 @@ public class WebPanels extends Module {
         }
     }
 
-    private void drawPlanarFrostedBlur(BufferBuilder buffer, Matrix4f m, Matrix4f proj, Vec3d cam, Panel p) {
+    private void drawCurvedFrostedBlur(BufferBuilder buffer, Matrix4f m, Matrix4f proj, Vec3d cam, Panel p) {
         Vec3d c = p.center.subtract(cam);
         Vec3d n = p.right.crossProduct(p.up).normalize();
         float a = ease(p.anim);
@@ -579,12 +569,13 @@ public class WebPanels extends Module {
         double hh = p.halfH * scale;
         double d = 0.001;
         float alpha = 0.94f * a;
-        int cols = 192;
+        int cols = PANEL_SEGMENTS;
+        double corner = smartCorner(hw, hh);
         for (int i = 0; i < cols; i++) {
             double u0 = -hw + 2 * hw * i / cols;
             double u1 = -hw + 2 * hw * (i + 1) / cols;
-            double v0 = squircleHalfHeight(u0, hw, hh, BODY_CORNER);
-            double v1 = squircleHalfHeight(u1, hw, hh, BODY_CORNER);
+            double v0 = squircleHalfHeight(u0, hw, hh, corner);
+            double v1 = squircleHalfHeight(u1, hw, hh, corner);
             screenTexVert(buffer, m, proj, c, p, n, u0, v0, d, alpha);
             screenTexVert(buffer, m, proj, c, p, n, u1, v1, d, alpha);
             screenTexVert(buffer, m, proj, c, p, n, u1, -v1, d, alpha);
@@ -601,13 +592,14 @@ public class WebPanels extends Module {
         double hh = p.halfH * scale;
         double d = 0.005;
         float alpha = a;
-        int cols = 192;
+        int cols = PANEL_SEGMENTS;
+        double corner = smartCorner(hw, hh);
         for (int i = 0; i < cols; i++) {
             double u0 = -hw + 2 * hw * i / cols;
             double u1 = -hw + 2 * hw * (i + 1) / cols;
             float tu0 = (float) i / cols, tu1 = (float) (i + 1) / cols;
-            double v0 = squircleHalfHeight(u0, hw, hh, BODY_CORNER);
-            double v1 = squircleHalfHeight(u1, hw, hh, BODY_CORNER);
+            double v0 = squircleHalfHeight(u0, hw, hh, corner);
+            double v1 = squircleHalfHeight(u1, hw, hh, corner);
             float tv0 = (float) ((hh - v0) / (2.0 * hh));
             float tv1 = (float) ((hh - v1) / (2.0 * hh));
 
@@ -621,18 +613,32 @@ public class WebPanels extends Module {
     private void handleInput(Vec3d eye, Vec3d look) {
         long win = mc.getWindow().getHandle();
         boolean left = GLFW.glfwGetMouseButton(win, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-        boolean pressEdge = left && !prevLeft;
+        boolean right = GLFW.glfwGetMouseButton(win, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
+        boolean leftPress = left && !prevLeft;
+        boolean rightPress = right && !prevRight;
+        boolean pressEdge = leftPress || rightPress;
+        int pressButton = leftPress ? 0 : 1;
+        boolean grabHeld = grabbed != null && (grabButton == 0 ? left : right);
 
-        if (grabbed != null && left && !grabbed.closing) {
+        if (grabbed != null && grabHeld && !grabbed.closing) {
             double[] h = hitPlane(grabbed, eye, look, true);
             if (grabMode == 2 && h != null) {
                 grabbed.targetHalfW = MathHelper.clamp(Math.abs(h[0]), MIN_HW, MAX_HW);
                 grabbed.targetHalfH = MathHelper.clamp(Math.abs(h[1]), MIN_HH, MAX_HH);
             } else if (grabMode == 1) {
                 Vec3d grabbedPoint = eye.add(look.multiply(grabDist));
+                Vec3d normal = eye.subtract(grabbedPoint).normalize();
+                Vec3d newRight = new Vec3d(0, 1, 0).crossProduct(normal);
+                if (newRight.lengthSquared() < 1e-6) newRight = grabbed.targetRight;
+                newRight = newRight.normalize();
+                Vec3d newUp = normal.crossProduct(newRight).normalize();
+                grabbed.targetRight = newRight;
+                grabbed.targetUp = newUp;
+                double[] curved = curvedLocal(grabbed, grabLocalU);
                 grabbed.targetCenter = grabbedPoint
-                        .subtract(grabbed.right.multiply(grabLocalU))
-                        .subtract(grabbed.up.multiply(grabLocalV));
+                        .subtract(newRight.multiply(curved[0]))
+                        .subtract(newUp.multiply(grabLocalV))
+                        .subtract(normal.multiply(curved[1]));
             }
         } else {
             grabbed = null;
@@ -680,12 +686,14 @@ public class WebPanels extends Module {
                 } else if (region == 10 || region == 11) {
                     grabbed = p;
                     grabMode = 2;
+                    grabButton = pressButton;
                     resizeSide = region;
                     uiPressHandled = true;
                 } else if (region == 1) {
                     grabbed = p;
                     grabMode = 1;
-                    Vec3d hitWorld = p.center.add(p.right.multiply(h[0])).add(p.up.multiply(h[1]));
+                    grabButton = pressButton;
+                    Vec3d hitWorld = panelPoint(p, h[0], h[1]);
                     grabDist = hitWorld.distanceTo(eye);
                     grabLocalU = h[0];
                     grabLocalV = h[1];
@@ -714,21 +722,26 @@ public class WebPanels extends Module {
                 pressedMouseX = px[0];
                 pressedMouseY = px[1];
             }
-            if (pressEdge && !uiPressHandled) {
-                WebBrowserBridge.mousePress(contentPanel.browser, px[0], px[1], 0);
+            if (pressEdge && !uiPressHandled && pressedPanel == null) {
+                WebBrowserBridge.mousePress(contentPanel.browser, px[0], px[1], pressButton);
                 pressedPanel = contentPanel;
+                pressedMouseButton = pressButton;
                 pressedMouseX = px[0];
                 pressedMouseY = px[1];
                 focusedPanel = contentPanel;
+                releaseGameplayMovementKeys();
             }
         }
-        if (!left && prevLeft && pressedPanel != null) {
+        boolean pressedButtonReleased = pressedPanel != null
+                && (pressedMouseButton == 0 ? (!left && prevLeft) : (!right && prevRight));
+        if (pressedButtonReleased) {
             if (pressedPanel.browser != null) {
-                WebBrowserBridge.mouseRelease(pressedPanel.browser, pressedMouseX, pressedMouseY, 0);
+                WebBrowserBridge.mouseRelease(pressedPanel.browser, pressedMouseX, pressedMouseY, pressedMouseButton);
             }
             pressedPanel = null;
         }
         prevLeft = left;
+        prevRight = right;
 
         if (focusedPanel != null && focusedPanel.closing) {
             exitFocus();
@@ -751,13 +764,49 @@ public class WebPanels extends Module {
 
     private double[] hitPlane(Panel p, Vec3d eye, Vec3d look, boolean unbounded) {
         Vec3d n = p.right.crossProduct(p.up).normalize();
-        double denom = look.dotProduct(n);
-        if (Math.abs(denom) < 1e-6) return null;
-        double t = p.center.subtract(eye).dotProduct(n) / denom;
-        if (t <= 0 || t > 64) return null;
-        Vec3d hp = eye.add(look.multiply(t)).subtract(p.center);
-        double lu = hp.dotProduct(p.right);
-        double lv = hp.dotProduct(p.up);
+        Vec3d origin = eye.subtract(p.center);
+        double ox = origin.dotProduct(p.right);
+        double oy = origin.dotProduct(p.up);
+        double oz = origin.dotProduct(n);
+        double dx = look.dotProduct(p.right);
+        double dy = look.dotProduct(p.up);
+        double dz = look.dotProduct(n);
+
+        double angle = curveAngle();
+        double t;
+        double lu;
+        if (angle < 1e-5) {
+            if (Math.abs(dz) < 1e-6) return null;
+            t = -oz / dz;
+            lu = ox + dx * t;
+        } else {
+            double radius = p.halfW / angle;
+            double qa = dx * dx + dz * dz;
+            if (qa < 1e-8) return null;
+            double qb = 2.0 * (ox * dx + (oz - radius) * dz);
+            double qc = ox * ox + (oz - radius) * (oz - radius) - radius * radius;
+            double discriminant = qb * qb - 4.0 * qa * qc;
+            if (discriminant < 0.0) return null;
+            double root = Math.sqrt(discriminant);
+            double t0 = (-qb - root) / (2.0 * qa);
+            double t1 = (-qb + root) / (2.0 * qa);
+            t = Double.POSITIVE_INFINITY;
+            lu = 0.0;
+            for (double candidate : new double[]{t0, t1}) {
+                if (candidate <= 1e-5 || candidate >= t) continue;
+                double hitX = ox + dx * candidate;
+                double hitZ = oz + dz * candidate;
+                double theta = Math.atan2(hitX, radius - hitZ);
+                // Reject the remote backside intersection of the mathematical
+                // cylinder; the panel only occupies its forward shallow arc.
+                if (Math.abs(theta) >= Math.PI * 0.5) continue;
+                t = candidate;
+                lu = theta * radius;
+            }
+            if (!Double.isFinite(t)) return null;
+        }
+        if (t > 64) return null;
+        double lv = oy + dy * t;
         if (!unbounded && (Math.abs(lu) > p.halfW + 0.36 || Math.abs(lv) > p.halfH + 0.30)) return null;
         return new double[]{lu, lv};
     }
@@ -779,7 +828,7 @@ public class WebPanels extends Module {
     }
 
     private double navY(Panel p) {
-        return p.halfH + 0.052;
+        return p.halfH + NAV_GAP;
     }
 
     private int region(Panel p, double lu, double lv) {
@@ -807,7 +856,7 @@ public class WebPanels extends Module {
 
         // Resize exists only at the two lower corners, matching the requested
         // outline corner controls instead of a ring around the perimeter.
-        double cornerRadius = 0.145;
+        double cornerRadius = 0.112;
         if (Math.hypot(lu + p.halfW, lv + p.halfH) < cornerRadius) return 10;
         if (Math.hypot(lu - p.halfW, lv + p.halfH) < cornerRadius) return 11;
 
@@ -831,11 +880,11 @@ public class WebPanels extends Module {
         int alg = (accentLight >> 8) & 0xFF;
         int alb = accentLight & 0xFF;
 
-        // One exact planar squircle. No enlarged shell, specular line or glass
+        // One exact squircle on the shared cylindrical surface. No enlarged shell, specular line or glass
         // outline is allowed to peek around Chromium's texture.
         int glassAlpha = CustomTheme.blurDisabled() ? 242 : 174;
-        drawPlanarSquircle(buf, m, c, p, n, 1, 0, 0, hw, hh,
-                BODY_CORNER, 0x10, 0x13, 0x1A, (int) (glassAlpha * a));
+        drawSquircle(buf, m, c, p, n, 1, 0, 0, hw, hh,
+                smartCorner(hw, hh), 0x10, 0x13, 0x1A, (int) (glassAlpha * a));
 
         // Loading state remains understated and monochrome.
         int glTex = p.browser != null ? WebBrowserBridge.textureId(p.browser) : 0;
@@ -864,7 +913,7 @@ public class WebPanels extends Module {
         // Compact navigation ornament, aligned to the window and using Solar icon geometry.
         double abH = 0.053;
         double abHalfW = Math.min(hw * 0.62, 0.86);
-        double navY = hh + 0.052;
+        double navY = hh + NAV_GAP;
 
         fillRound(buf, m, c, p, n, 4, 0, navY, abHalfW, abH, abH,
                 0x16, 0x19, 0x20, (int) (218 * a));
@@ -916,8 +965,10 @@ public class WebPanels extends Module {
         double scale = 0.88 + 0.12 * a;
         // A self-contained matte reverse: no framebuffer sampling, Chromium
         // texture, seam or reflective rim.
-        drawPlanarSquircle(buf, m, c, p, n, 0, 0, 0,
-                p.halfW * scale, p.halfH * scale, BODY_CORNER,
+        double hw = p.halfW * scale;
+        double hh = p.halfH * scale;
+        drawSquircle(buf, m, c, p, n, 0, 0, 0,
+                hw, hh, smartCorner(hw, hh),
                 0x0C, 0x0E, 0x13, (int) (248 * a));
     }
 
@@ -928,7 +979,7 @@ public class WebPanels extends Module {
         double scale = 0.88 + 0.12 * a;
         double hw = p.halfW * scale;
         double hh = p.halfH * scale;
-        double navY = hh + 0.052;
+        double navY = hh + NAV_GAP;
         double abHalfW = Math.min(hw * 0.62, 0.86);
         double backU = -abHalfW + 0.075;
         double fwdU = backU + 0.105;
@@ -938,13 +989,13 @@ public class WebPanels extends Module {
         int forward = argb((int) ((hovered == 7 ? 255 : 188) * a), 232, 235, 242);
         int reload = argb((int) ((hovered == 8 ? 255 : 188) * a), 232, 235, 242);
 
-        CustomFontRenderer.drawWorldText(matrix, c, p.right, p.up, n,
+        drawPanelWorldText(matrix, c, p, n,
                 SolarIcons.ARROW_LEFT, backU, navY, 0.050, 0.013,
                 muted, FontWeight.SOLAR_ICONS, true);
-        CustomFontRenderer.drawWorldText(matrix, c, p.right, p.up, n,
+        drawPanelWorldText(matrix, c, p, n,
                 SolarIcons.ARROW_RIGHT, fwdU, navY, 0.050, 0.013,
                 forward, FontWeight.SOLAR_ICONS, true);
-        CustomFontRenderer.drawWorldText(matrix, c, p.right, p.up, n,
+        drawPanelWorldText(matrix, c, p, n,
                 SolarIcons.REFRESH, reloadU, navY, 0.047, 0.013,
                 reload, FontWeight.SOLAR_ICONS, true);
 
@@ -955,7 +1006,7 @@ public class WebPanels extends Module {
         double iconU = pillU - pillHW + 0.043;
         int addressColor = argb((int) ((hovered == 5 || p.addressEditing ? 240 : 172) * a),
                 210, 215, 225);
-        CustomFontRenderer.drawWorldText(matrix, c, p.right, p.up, n,
+        drawPanelWorldText(matrix, c, p, n,
                 SolarIcons.GLOBAL, iconU, navY, 0.034, 0.013,
                 addressColor, FontWeight.SOLAR_ICONS, true);
 
@@ -965,12 +1016,12 @@ public class WebPanels extends Module {
         float maxTextWidth = (float) Math.max(0.04, pillRight - 0.020 - textU);
         String visibleAddress = CustomFontRenderer.trimToWidth(
                 address == null ? "" : address, maxTextWidth, (float) textSize, FontWeight.MEDIUM);
-        CustomFontRenderer.drawWorldText(matrix, c, p.right, p.up, n,
+        drawPanelWorldText(matrix, c, p, n,
                 visibleAddress, textU, navY, textSize, 0.013,
                 argb((int) (226 * a), 238, 240, 245), FontWeight.MEDIUM, false);
 
         if (p.barReveal > 0.02f) {
-            CustomFontRenderer.drawWorldText(matrix, c, p.right, p.up, n,
+            drawPanelWorldText(matrix, c, p, n,
                     SolarIcons.DELETE, deleteU(p), -hh - BAR_GAP, 0.039, 0.013,
                     argb((int) (245 * p.barReveal * a), 255, 255, 255),
                     FontWeight.SOLAR_ICONS, true);
@@ -978,10 +1029,22 @@ public class WebPanels extends Module {
 
         int glTex = p.browser != null ? WebBrowserBridge.textureId(p.browser) : 0;
         if (glTex <= 0) {
-            CustomFontRenderer.drawWorldText(matrix, c, p.right, p.up, n,
+            drawPanelWorldText(matrix, c, p, n,
                     SolarIcons.GLOBAL, 0, 0.035, 0.075, 0.013,
                     argb((int) (180 * a), 255, 255, 255), FontWeight.SOLAR_ICONS, true);
         }
+    }
+
+    private void drawPanelWorldText(Matrix4f matrix, Vec3d center, Panel p, Vec3d normal,
+                                    String text, double anchorU, double centerV, double size, double depth,
+                                    int color, FontWeight weight, boolean centered) {
+        double[] curved = curvedLocal(p, anchorU);
+        double theta = p.halfW < 1e-5 ? 0.0 : anchorU / p.halfW * curveAngle();
+        Vec3d tangent = p.right.multiply(Math.cos(theta)).add(normal.multiply(Math.sin(theta))).normalize();
+        Vec3d surfaceNormal = normal.multiply(Math.cos(theta)).subtract(p.right.multiply(Math.sin(theta))).normalize();
+        Vec3d origin = center.add(p.right.multiply(curved[0])).add(normal.multiply(curved[1]));
+        CustomFontRenderer.drawWorldText(matrix, origin, tangent, p.up, surfaceNormal,
+                text, 0.0, centerV, size, depth, color, weight, centered);
     }
 
     private static int argb(int alpha, int red, int green, int blue) {
@@ -993,12 +1056,12 @@ public class WebPanels extends Module {
 
     // ----------------- Planar custom drawing helpers in 3D -----------------
 
-    private void drawPlanarSquircle(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n, int layer,
-                                    double cu, double cv, double hw, double hh, double corner,
-                                    int r, int g, int b, int a) {
+    private void drawSquircle(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n, int layer,
+                              double cu, double cv, double hw, double hh, double corner,
+                              int r, int g, int b, int a) {
         if (a <= 0) return;
         double d = layer * 0.0015;
-        int cols = 192;
+        int cols = PANEL_SEGMENTS;
         for (int i = 0; i < cols; i++) {
             double x0 = -hw + 2.0 * hw * i / cols;
             double x1 = -hw + 2.0 * hw * (i + 1) / cols;
@@ -1017,16 +1080,23 @@ public class WebPanels extends Module {
         double straight = hw - corner;
         if (ax <= straight) return hh;
         double t = MathHelper.clamp((ax - straight) / Math.max(corner, 1e-6), 0.0, 1.0);
-        // A fourth-power continuous corner is much closer to Apple's squircle
-        // than a circular Minecraft-style rounded rectangle.
-        double arc = Math.pow(Math.max(0.0, 1.0 - Math.pow(t, 4.0)), 0.25);
+        // Continuous superellipse corner. High tessellation removes the old
+        // visible vertical blocks while keeping the iOS-style soft shoulder.
+        double power = 3.35;
+        double arc = Math.pow(Math.max(0.0, 1.0 - Math.pow(t, power)), 1.0 / power);
         return hh - corner + corner * arc;
+    }
+
+    private static double smartCorner(double hw, double hh) {
+        // Roughly 28-40 Chromium pixels at the default 1920x1080 panel. This
+        // keeps the silhouette rounded without eating page buttons or text.
+        return MathHelper.clamp(Math.min(hw, hh) * 0.068, 0.032, 0.062);
     }
 
     private void drawArc(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
                          double u, double v, double rad, double start, double sweep, double thickness,
                          int r, int g, int b, int a) {
-        int segments = 18;
+        int segments = 32;
         for (int i = 0; i < segments; i++) {
             double a0 = start + sweep * i / segments;
             double a1 = start + sweep * (i + 1) / segments;
@@ -1040,21 +1110,21 @@ public class WebPanels extends Module {
     private void drawBottomCornerHandle(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
                                         double u, double v, boolean rightSide, float reveal) {
         if (reveal <= 0.01f) return;
-        double radius = 0.080 * (0.78 + 0.22 * reveal);
+        double radius = 0.060 * (0.72 + 0.28 * reveal);
         double start = rightSide ? Math.PI * 0.5 : 0.0;
+        double thickness = 0.0052;
         drawArc(buf, m, c, p, n, u, v, radius, start, Math.PI * 0.5,
-                0.0075, 245, 247, 251, (int) (240 * reveal));
-        // Short tangent legs make the outline read as a corner grip, without
-        // filling a disc or producing a hover ring around the window.
-        if (rightSide) {
-            drawThickLine(buf, m, c, p, n, u - radius, v, u - radius - 0.026, v,
-                    0.0075, 245, 247, 251, (int) (240 * reveal));
-        } else {
-            drawThickLine(buf, m, c, p, n, u + radius, v, u + radius + 0.026, v,
-                    0.0075, 245, 247, 251, (int) (240 * reveal));
-        }
-        drawThickLine(buf, m, c, p, n, u, v + radius, u, v + radius + 0.026,
-                0.0075, 245, 247, 251, (int) (240 * reveal));
+                thickness, 245, 247, 251, (int) (232 * reveal));
+        double end0X = u + radius * Math.cos(start);
+        double end0Y = v + radius * Math.sin(start);
+        double end1 = start + Math.PI * 0.5;
+        double end1X = u + radius * Math.cos(end1);
+        double end1Y = v + radius * Math.sin(end1);
+        double cap = thickness * 0.52;
+        fillRound(buf, m, c, p, n, 7, end0X, end0Y, cap, cap, cap,
+                245, 247, 251, (int) (232 * reveal));
+        fillRound(buf, m, c, p, n, 7, end1X, end1Y, cap, cap, cap,
+                245, 247, 251, (int) (232 * reveal));
     }
 
     private void drawSpinner(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
@@ -1096,7 +1166,7 @@ public class WebPanels extends Module {
         if (a <= 0) return;
         double d = layer * 0.0015;
         cr = Math.min(cr, Math.min(hw, hh));
-        int seg = 5;
+        int seg = 12;
         double[][] corners = {
                 {hw - cr, hh - cr, 0}, {-hw + cr, hh - cr, 90}, {-hw + cr, -hh + cr, 180}, {hw - cr, -hh + cr, 270}
         };
@@ -1120,9 +1190,18 @@ public class WebPanels extends Module {
 
     private void screenTexVert(BufferBuilder buf, Matrix4f m, Matrix4f proj, Vec3d c, Panel p, Vec3d n,
                                double u, double v, double d, float alpha) {
-        double x = c.x + p.right.x * u + p.up.x * v + n.x * d;
-        double y = c.y + p.right.y * u + p.up.y * v + n.y * d;
-        double z = c.z + p.right.z * u + p.up.z * v + n.z * d;
+        double mappedU = u;
+        double mappedDepth = d;
+        double angle = curveAngle();
+        if (angle >= 1e-5 && p.halfW >= 1e-5) {
+            double radius = p.halfW / angle;
+            double theta = u / radius;
+            mappedU = radius * Math.sin(theta);
+            mappedDepth += radius * (1.0 - Math.cos(theta));
+        }
+        double x = c.x + p.right.x * mappedU + p.up.x * v + n.x * mappedDepth;
+        double y = c.y + p.right.y * mappedU + p.up.y * v + n.y * mappedDepth;
+        double z = c.z + p.right.z * mappedU + p.up.z * v + n.z * mappedDepth;
 
         org.joml.Vector4f clip = new org.joml.Vector4f((float) x, (float) y, (float) z, 1.0f);
         m.transform(clip);
@@ -1138,18 +1217,56 @@ public class WebPanels extends Module {
 
     private void colorVert(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
                            double u, double v, double d, int r, int g, int b, int a) {
-        double x = c.x + p.right.x * u + p.up.x * v + n.x * d;
-        double y = c.y + p.right.y * u + p.up.y * v + n.y * d;
-        double z = c.z + p.right.z * u + p.up.z * v + n.z * d;
+        double mappedU = u;
+        double mappedDepth = d;
+        double angle = curveAngle();
+        if (angle >= 1e-5 && p.halfW >= 1e-5) {
+            double radius = p.halfW / angle;
+            double theta = u / radius;
+            mappedU = radius * Math.sin(theta);
+            mappedDepth += radius * (1.0 - Math.cos(theta));
+        }
+        double x = c.x + p.right.x * mappedU + p.up.x * v + n.x * mappedDepth;
+        double y = c.y + p.right.y * mappedU + p.up.y * v + n.y * mappedDepth;
+        double z = c.z + p.right.z * mappedU + p.up.z * v + n.z * mappedDepth;
         buf.vertex(m, (float) x, (float) y, (float) z).color(r / 255f, g / 255f, b / 255f, a / 255f);
     }
 
     private void texVert(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
                          double u, double v, double d, float texU, float texV, float alpha) {
-        double x = c.x + p.right.x * u + p.up.x * v + n.x * d;
-        double y = c.y + p.right.y * u + p.up.y * v + n.y * d;
-        double z = c.z + p.right.z * u + p.up.z * v + n.z * d;
+        double mappedU = u;
+        double mappedDepth = d;
+        double angle = curveAngle();
+        if (angle >= 1e-5 && p.halfW >= 1e-5) {
+            double radius = p.halfW / angle;
+            double theta = u / radius;
+            mappedU = radius * Math.sin(theta);
+            mappedDepth += radius * (1.0 - Math.cos(theta));
+        }
+        double x = c.x + p.right.x * mappedU + p.up.x * v + n.x * mappedDepth;
+        double y = c.y + p.right.y * mappedU + p.up.y * v + n.y * mappedDepth;
+        double z = c.z + p.right.z * mappedU + p.up.z * v + n.z * mappedDepth;
         buf.vertex(m, (float) x, (float) y, (float) z).texture(texU, texV).color(1f, 1f, 1f, alpha);
+    }
+
+    private double curveAngle() {
+        return Math.max(0.0, curveSetting.get());
+    }
+
+    private double[] curvedLocal(Panel p, double u) {
+        double angle = curveAngle();
+        if (angle < 1e-5 || p.halfW < 1e-5) return new double[]{u, 0.0};
+        double radius = p.halfW / angle;
+        double theta = u / radius;
+        return new double[]{radius * Math.sin(theta), radius * (1.0 - Math.cos(theta))};
+    }
+
+    private Vec3d panelPoint(Panel p, double u, double v) {
+        Vec3d normal = p.right.crossProduct(p.up).normalize();
+        double[] curved = curvedLocal(p, u);
+        return p.center.add(p.right.multiply(curved[0]))
+                .add(p.up.multiply(v))
+                .add(normal.multiply(curved[1]));
     }
 
     private static float ease(float t) {

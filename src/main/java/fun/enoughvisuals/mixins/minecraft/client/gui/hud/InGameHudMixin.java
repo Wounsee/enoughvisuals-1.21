@@ -14,6 +14,7 @@ import fun.enoughvisuals.systems.modules.modules.visual.Cooldowns;
 import fun.enoughvisuals.systems.modules.modules.visual.ColorPlus;
 import fun.enoughvisuals.systems.modules.modules.visual.MotionBlur;
 import fun.enoughvisuals.systems.modules.modules.visual.Crosshair;
+import fun.enoughvisuals.systems.modules.modules.visual.WebPanels;
 import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.systems.modules.modules.visual.ItemLight;
 import fun.enoughvisuals.systems.modules.modules.visual.MouseParticles;
@@ -56,6 +57,8 @@ public abstract class InGameHudMixin {
 
     @Unique
     private float enough$smoothCooldown = 1.0f;
+    @Unique
+    private float enough$webPanelCrosshairMorph = 0.0f;
 
     @Inject(method = "render", at = @At("HEAD"))
     private void enough$beginBlur(DrawContext ctx, RenderTickCounter counter, CallbackInfo ci) {
@@ -353,7 +356,14 @@ public abstract class InGameHudMixin {
     @Inject(method = "renderCrosshair", at = @At("HEAD"), cancellable = true)
     private void onRenderCrosshair(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
         Crosshair module = ModuleManager.getInstance().get(Crosshair.class);
-        if (module == null || !module.isEnabled()) {
+        boolean customEnabled = module != null && module.isEnabled();
+        WebPanels webPanels = WebPanels.getInstance();
+        boolean panelHover = webPanels != null && webPanels.isHovering();
+        float frameDelta = Math.max(1f / 240f, Math.min(0.05f, RenderUtil.getFrameDelta()));
+        float morphTarget = panelHover ? 1f : 0f;
+        enough$webPanelCrosshairMorph += (morphTarget - enough$webPanelCrosshairMorph)
+                * (1f - (float) Math.exp(-15f * frameDelta));
+        if (!customEnabled && enough$webPanelCrosshairMorph < 0.001f) {
             return;
         }
 
@@ -369,8 +379,10 @@ public abstract class InGameHudMixin {
         float fixedScale = ScreenScaleUtil.scale();
         float x = ScreenScaleUtil.virtualWidth() / 2.0f;
         float y = ScreenScaleUtil.virtualHeight() / 2.0f;
-        int color = module.color.get();
-        String type = module.type.get();
+        int color = customEnabled ? module.color.get() : 0xFFFFFFFF;
+        String type = customEnabled ? module.type.get() : "Крест";
+        float morph = enough$webPanelCrosshairMorph;
+        morph = morph * morph * (3f - 2f * morph);
 
         context.getMatrices().push();
         context.getMatrices().scale(fixedScale, fixedScale, 1f);
@@ -380,30 +392,62 @@ public abstract class InGameHudMixin {
         enough$smoothCooldown += (rawProgress - enough$smoothCooldown) * follow;
         float progress = enough$smoothCooldown;
 
-        if ("Орбиз".equals(type)) {
-            RenderUtil.drawCrispCircle(context, x, y, 1.35f, color);
+        if ("Круг".equals(type)) {
+            enough$drawCooldownCircle(context, x, y, 3.35f - 0.30f * morph, 0.95f,
+                    enough$withOpacity(color, 1f - morph), progress);
+            enough$drawWebCross(context, x, y, color, morph, 0.72f + 0.28f * morph);
             context.getMatrices().pop();
             return;
         }
 
-        if ("Круг".equals(type)) {
-            float radius = 3.35f;
-            float lineWidth = 0.95f;
-
-            if (progress >= 1.0f) {
-                RenderUtil.drawCrispCircleOutline(context, x, y, radius, lineWidth, color);
-            } else if (progress > 0.001f) {
-                RenderUtil.drawCrispArc(context, x, y, radius, lineWidth, color, progress);
-            }
-        } else if ("Крест".equals(type)) {
-            enough$drawCsCrosshair(context, module, x, y, progress);
+        if ("Орбиз".equals(type)) {
+            RenderUtil.drawCrispCircle(context, x, y, 1.35f - 0.20f * morph,
+                    enough$withOpacity(color, 1f - morph));
+        } else if (customEnabled) {
+            enough$drawCsCrosshair(context, module, x, y, progress, 1f - morph);
+        } else {
+            enough$drawWebCross(context, x, y, color, 1f - morph, 1f - 0.20f * morph);
         }
+        enough$drawCooldownCircle(context, x, y, 2.80f + 0.55f * morph, 0.95f,
+                enough$withOpacity(color, morph), 1f);
         context.getMatrices().pop();
     }
 
     @Unique
+    private static void enough$drawCooldownCircle(DrawContext context, float x, float y,
+                                                   float radius, float lineWidth, int color, float progress) {
+        if (((color >>> 24) & 0xFF) == 0) return;
+        if (progress >= 1.0f) {
+            RenderUtil.drawCrispCircleOutline(context, x, y, radius, lineWidth, color);
+        } else if (progress > 0.001f) {
+            RenderUtil.drawCrispArc(context, x, y, radius, lineWidth, color, progress);
+        }
+    }
+
+    @Unique
+    private static void enough$drawWebCross(DrawContext context, float x, float y,
+                                            int color, float opacity, float scale) {
+        int faded = enough$withOpacity(color, opacity);
+        if (((faded >>> 24) & 0xFF) == 0) return;
+        float gap = 2.15f * scale;
+        float length = 4.25f * scale;
+        float thickness = 0.95f;
+        RenderUtil.drawRect(context, x - gap - length, y - thickness * 0.5f, length, thickness, faded);
+        RenderUtil.drawRect(context, x + gap, y - thickness * 0.5f, length, thickness, faded);
+        RenderUtil.drawRect(context, x - thickness * 0.5f, y - gap - length, thickness, length, faded);
+        RenderUtil.drawRect(context, x - thickness * 0.5f, y + gap, thickness, length, faded);
+    }
+
+    @Unique
+    private static int enough$withOpacity(int color, float opacity) {
+        int alpha = (color >>> 24) & 0xFF;
+        int fadedAlpha = Math.max(0, Math.min(255, Math.round(alpha * Math.max(0f, Math.min(1f, opacity)))));
+        return (color & 0x00FFFFFF) | (fadedAlpha << 24);
+    }
+
+    @Unique
     private static void enough$drawCsCrosshair(DrawContext context, Crosshair module,
-                                                float centerX, float centerY, float progress) {
+                                                float centerX, float centerY, float progress, float opacity) {
         float gap = module.crossGap.get().floatValue();
         if (module.crossDynamic.get()) {
             gap += (1f - progress) * module.crossDynamicAmount.get().floatValue();
@@ -413,8 +457,8 @@ public abstract class InGameHudMixin {
         float half = thickness * 0.5f;
         boolean outline = module.crossOutline.get();
         float outlineWidth = module.crossOutlineWidth.get().floatValue();
-        int outlineColor = module.crossOutlineColor.get();
-        int color = module.color.get();
+        int outlineColor = enough$withOpacity(module.crossOutlineColor.get(), opacity);
+        int color = enough$withOpacity(module.color.get(), opacity);
 
         enough$drawCrossArm(context, centerX - gap - length, centerY - half,
                 length, thickness, outline, outlineWidth, outlineColor, color);
