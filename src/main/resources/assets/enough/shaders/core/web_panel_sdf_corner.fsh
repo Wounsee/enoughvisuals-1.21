@@ -26,7 +26,7 @@ void main() {
     float arc = abs(length(p - center) - radius);
     if (p.x < center.x || p.y > center.y) arc = 1000.0;
     float dist = min(min(horizontal, vertical), arc) - Thickness * 0.5;
-    float smoothing = max(fwidth(dist) * 1.2, 0.00012);
+    float smoothing = max(fwidth(dist) * 1.8, 0.00018);
     float coverage = 1.0 - smoothstep(-smoothing, smoothing, dist);
     float alpha = vertexColor.a * coverage;
     if (alpha <= 0.002) discard;

@@ -19,20 +19,24 @@ public final class WebPanelShaders {
     }
 
     public static ShaderProgram useColor(float width, float height, float radius) {
-        return configure(RenderSystem.setShader(COLOR), width, height, radius);
+        return useColor(width, height, radius, 3.35f);
+    }
+
+    public static ShaderProgram useColor(float width, float height, float radius, float exponent) {
+        return configure(RenderSystem.setShader(COLOR), width, height, radius, exponent);
     }
 
     public static ShaderProgram useTexture(float width, float height, float radius) {
-        return configure(RenderSystem.setShader(TEXTURE), width, height, radius);
+        return configure(RenderSystem.setShader(TEXTURE), width, height, radius, 3.35f);
     }
 
     public static ShaderProgram useBlur(float width, float height, float radius) {
-        return configure(RenderSystem.setShader(BLUR), width, height, radius);
+        return configure(RenderSystem.setShader(BLUR), width, height, radius, 3.35f);
     }
 
     public static ShaderProgram useCorner(float width, float height, float radius,
                                           float thickness, boolean rightSide) {
-        ShaderProgram shader = configure(RenderSystem.setShader(CORNER), width, height, radius);
+        ShaderProgram shader = configure(RenderSystem.setShader(CORNER), width, height, radius, 2.0f);
         if (shader == null) return null;
         GlUniform stroke = shader.getUniform("Thickness");
         if (stroke != null) stroke.set(thickness);
@@ -41,14 +45,15 @@ public final class WebPanelShaders {
         return shader;
     }
 
-    private static ShaderProgram configure(ShaderProgram shader, float width, float height, float radius) {
+    private static ShaderProgram configure(ShaderProgram shader, float width, float height,
+                                           float radius, float shapeExponent) {
         if (shader == null) return null;
         GlUniform size = shader.getUniform("Size");
         if (size != null) size.set(width, height);
         GlUniform corner = shader.getUniform("Radius");
         if (corner != null) corner.set(radius);
         GlUniform exponent = shader.getUniform("Exponent");
-        if (exponent != null) exponent.set(3.35f);
+        if (exponent != null) exponent.set(shapeExponent);
         return shader;
     }
 

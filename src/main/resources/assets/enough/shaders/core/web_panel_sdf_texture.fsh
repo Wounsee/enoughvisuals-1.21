@@ -21,7 +21,7 @@ float roundedBoxSdf(vec2 p, vec2 halfSize, float radius) {
 void main() {
     vec2 p = (TexCoord - vec2(0.5)) * Size;
     float dist = roundedBoxSdf(p, Size * 0.5, min(Radius, min(Size.x, Size.y) * 0.5));
-    float smoothing = max(fwidth(dist) * 1.15, 0.00015);
+    float smoothing = max(fwidth(dist) * 1.65, 0.0002);
     float coverage = 1.0 - smoothstep(-smoothing, smoothing, dist);
     vec4 sampled = texture(Sampler0, TexCoord) * vertexColor * ColorModulator;
     sampled.a *= coverage;

@@ -31,6 +31,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 
 import java.net.URLEncoder;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -51,6 +52,7 @@ import java.util.Set;
 public class WebPanels extends Module {
 
     private static final int MAX_PANELS = 3;
+    private static final int MAX_TABS = 6;
     private static final double MIN_HW = 0.65, MAX_HW = 3.4;
     private static final double MIN_HH = 0.38, MAX_HH = 2.2;
     private static final double BAR_GAP = 0.055;
@@ -89,10 +91,10 @@ public class WebPanels extends Module {
     private int pressedMouseX;
     private int pressedMouseY;
     private int pressedMouseButton;
-    private long pressedMouseStartedNanos;
-    private boolean syntheticPointerHold;
     private int queuedMouseButton = -1;
     private int queuedMouseAction = -1;
+    private boolean browserLeftHeld;
+    private boolean browserRightHeld;
     private Panel focusedPanel;
     private final Set<Integer> capturedKeys = new HashSet<>();
     private boolean prevCreateHeld;
@@ -134,6 +136,8 @@ public class WebPanels extends Module {
         if (!hovering && pressedPanel == null) return false;
         queuedMouseButton = button == GLFW.GLFW_MOUSE_BUTTON_LEFT ? 0 : 1;
         queuedMouseAction = action;
+        if (queuedMouseButton == 0) browserLeftHeld = action == GLFW.GLFW_PRESS;
+        else browserRightHeld = action == GLFW.GLFW_PRESS;
         return true;
     }
 
@@ -404,6 +408,8 @@ public class WebPanels extends Module {
         grabbed = null;
         contentPanel = null;
         pressedPanel = null;
+        browserLeftHeld = false;
+        browserRightHeld = false;
     }
 
     @Override
@@ -439,7 +445,10 @@ public class WebPanels extends Module {
         p.targetUp = p.up;
         p.halfW = p.targetHalfW = 1.20;
         p.halfH = p.targetHalfH = 0.675;
-        p.url = defaultUrl.get();
+        Tab firstTab = new Tab(defaultUrl.get());
+        p.tabs.add(firstTab);
+        p.activeTab = 0;
+        p.url = firstTab.url;
         panels.add(p);
     }
 
@@ -449,6 +458,86 @@ public class WebPanels extends Module {
             if (!p.closing) n++;
         }
         return n;
+    }
+
+    private Tab activeTab(Panel p) {
+        if (p.tabs.isEmpty()) p.tabs.add(new Tab(defaultUrl.get()));
+        p.activeTab = MathHelper.clamp(p.activeTab, 0, p.tabs.size() - 1);
+        return p.tabs.get(p.activeTab);
+    }
+
+    private void persistActiveTab(Panel p) {
+        Tab tab = activeTab(p);
+        tab.browser = p.browser;
+        tab.url = p.url;
+        tab.lastCameraBootstrapMs = p.lastCameraBootstrapMs;
+        tab.lastCameraFrameSequence = p.lastCameraFrameSequence;
+    }
+
+    private void activateTab(Panel p, int index) {
+        if (index < 0 || index >= p.tabs.size() || index == p.activeTab) return;
+        exitFocusIf(p);
+        persistActiveTab(p);
+        p.activeTab = index;
+        Tab tab = activeTab(p);
+        p.browser = tab.browser;
+        p.url = tab.url;
+        p.addressDraft = p.url == null ? "" : p.url;
+        p.addressCursor = p.addressDraft.length();
+        p.addressEditing = false;
+        p.addressSelectAll = false;
+        p.lastCameraBootstrapMs = tab.lastCameraBootstrapMs;
+        p.lastCameraFrameSequence = tab.lastCameraFrameSequence;
+    }
+
+    private void createTab(Panel p) {
+        if (p.tabs.size() >= MAX_TABS) return;
+        exitFocusIf(p);
+        persistActiveTab(p);
+        p.tabs.add(new Tab(defaultUrl.get()));
+        p.activeTab = p.tabs.size() - 1;
+        Tab tab = activeTab(p);
+        p.browser = null;
+        p.url = tab.url;
+        p.addressDraft = p.url;
+        p.addressCursor = p.addressDraft.length();
+        p.lastCameraBootstrapMs = 0L;
+        p.lastCameraFrameSequence = 0L;
+    }
+
+    private void closeTab(Panel p, int index) {
+        if (index < 0 || index >= p.tabs.size()) return;
+        exitFocusIf(p);
+        persistActiveTab(p);
+        int previousActive = p.activeTab;
+        Tab removed = p.tabs.remove(index);
+        if (removed.browser != null) WebBrowserBridge.close(removed.browser);
+        if (p.tabs.isEmpty()) p.tabs.add(new Tab(defaultUrl.get()));
+        int next = index == previousActive
+                ? Math.min(index, p.tabs.size() - 1)
+                : previousActive - (index < previousActive ? 1 : 0);
+        p.activeTab = next;
+        Tab tab = activeTab(p);
+        p.browser = tab.browser;
+        p.url = tab.url;
+        p.addressDraft = p.url == null ? "" : p.url;
+        p.addressCursor = p.addressDraft.length();
+        p.addressEditing = false;
+        p.addressSelectAll = false;
+        p.lastCameraBootstrapMs = tab.lastCameraBootstrapMs;
+        p.lastCameraFrameSequence = tab.lastCameraFrameSequence;
+    }
+
+    private static String tabTitle(String url) {
+        if (url == null || url.isBlank()) return "Новая вкладка";
+        try {
+            String host = URI.create(url).getHost();
+            if (host != null && !host.isBlank()) {
+                return host.startsWith("www.") ? host.substring(4) : host;
+            }
+        } catch (IllegalArgumentException ignored) {
+        }
+        return url;
     }
 
     private void openAddress(Panel p) {
@@ -494,6 +583,7 @@ public class WebPanels extends Module {
         if (focusedPanel == p) focusedPanel = null;
         if (url.isEmpty()) return;
         p.url = url;
+        activeTab(p).url = url;
         p.addressDraft = url;
         p.addressCursor = url.length();
         if (p.browser != null) WebBrowserBridge.loadUrl(p.browser, url);
@@ -538,6 +628,7 @@ public class WebPanels extends Module {
         for (Panel p : panels) {
             if (!p.closing) {
                 ensureBrowser(p);
+                syncBrowserLocation(p);
                 pumpVirtualCamera(p);
             }
         }
@@ -713,12 +804,29 @@ public class WebPanels extends Module {
     }
 
     private void ensureBrowser(Panel p) {
+        Tab tab = activeTab(p);
+        if (p.browser == null && tab.browser != null) p.browser = tab.browser;
         if (p.browser != null || !WebBrowserBridge.isReady()) {
             return;
         }
         p.texW = 1920;
         p.texH = 1080;
         p.browser = WebBrowserBridge.create(p.url, p.texW, p.texH);
+        tab.browser = p.browser;
+        tab.url = p.url;
+    }
+
+    private void syncBrowserLocation(Panel p) {
+        if (p.browser == null) return;
+        String actualUrl = WebBrowserBridge.getUrl(p.browser);
+        if (actualUrl == null || actualUrl.isBlank() || actualUrl.equals(p.url)) return;
+        p.url = actualUrl;
+        activeTab(p).url = actualUrl;
+        if (!p.addressEditing) {
+            p.addressDraft = actualUrl;
+            p.addressCursor = actualUrl.length();
+            p.addressSelectAll = false;
+        }
     }
 
     private void pumpVirtualCamera(Panel p) {
@@ -727,20 +835,27 @@ public class WebPanels extends Module {
         if (now - p.lastCameraBootstrapMs >= 1_000L) {
             WebBrowserBridge.installMinecraftCamera(p.browser);
             p.lastCameraBootstrapMs = now;
+            activeTab(p).lastCameraBootstrapMs = now;
         }
         long sequence = MinecraftVirtualCamera.latestFrameSequence();
         String frame = MinecraftVirtualCamera.latestFrameDataUrl();
         if (sequence > p.lastCameraFrameSequence && frame != null) {
             WebBrowserBridge.pushMinecraftCameraFrame(p.browser, frame);
             p.lastCameraFrameSequence = sequence;
+            activeTab(p).lastCameraFrameSequence = sequence;
         }
     }
 
     private void disposePanel(Panel p) {
-        if (p.browser != null) {
-            WebBrowserBridge.close(p.browser);
-            p.browser = null;
+        persistActiveTab(p);
+        Set<Object> closed = new HashSet<>();
+        for (Tab tab : p.tabs) {
+            if (tab.browser != null && closed.add(tab.browser)) {
+                WebBrowserBridge.close(tab.browser);
+            }
+            tab.browser = null;
         }
+        p.browser = null;
     }
 
     private void drawCurvedFrostedBlur(BufferBuilder buffer, Matrix4f m, Matrix4f proj, Vec3d cam, Panel p) {
@@ -796,6 +911,12 @@ public class WebPanels extends Module {
         boolean queuedRelease = queuedMouseAction == GLFW.GLFW_RELEASE;
         boolean leftPress = queuedPress ? queuedMouseButton == 0 : left && !prevLeft;
         boolean rightPress = queuedPress ? queuedMouseButton == 1 : right && !prevRight;
+        if (leftPress) browserLeftHeld = true;
+        if (rightPress) browserRightHeld = true;
+        if (queuedMouseAction == -1) {
+            if (!left && prevLeft) browserLeftHeld = false;
+            if (!right && prevRight) browserRightHeld = false;
+        }
         boolean pressEdge = leftPress || rightPress;
         int pressButton = leftPress ? 0 : 1;
         if (rHeld && (left || right)) {
@@ -866,7 +987,16 @@ public class WebPanels extends Module {
                 if (focusedPanel != null && focusedPanel.addressEditing && region != 5) {
                     cancelAddressEdit(focusedPanel);
                 }
-                if (region == 3) {
+                if (region == 40) {
+                    createTab(p);
+                    uiPressHandled = true;
+                } else if (region >= 30 && region < 30 + MAX_TABS) {
+                    closeTab(p, region - 30);
+                    uiPressHandled = true;
+                } else if (region >= 20 && region < 20 + MAX_TABS) {
+                    activateTab(p, region - 20);
+                    uiPressHandled = true;
+                } else if (region == 3) {
                     p.closing = true;
                     exitFocusIf(p);
                     uiPressHandled = true;
@@ -915,15 +1045,14 @@ public class WebPanels extends Module {
                 pressedMouseButton = pressButton;
                 pressedMouseX = px[0];
                 pressedMouseY = px[1];
-                pressedMouseStartedNanos = System.nanoTime();
-                syntheticPointerHold = false;
                 focusedPanel = contentPanel;
                 releaseGameplayMovementKeys();
                 if (enteringControl) notifyControlEntered();
             }
         }
         if (pressedPanel != null) {
-            boolean pressedButtonHeld = !queuedRelease && (pressedMouseButton == 0 ? left : right);
+            boolean pressedButtonHeld = !queuedRelease
+                    && (pressedMouseButton == 0 ? browserLeftHeld : browserRightHeld);
             if (pressedButtonHeld && !pressedPanel.closing && pressedPanel.browser != null) {
                 double[] heldHit = hitPlane(pressedPanel, eye, look, true);
                 if (heldHit != null) {
@@ -934,28 +1063,12 @@ public class WebPanels extends Module {
                 // MCEF keeps its left/right button mask between press and release;
                 // forwarding moves preserves native Chromium pointer capture/long-press.
                 WebBrowserBridge.mouseMove(pressedPanel.browser, pressedMouseX, pressedMouseY);
-                if (pressedMouseButton == 0
-                        && System.nanoTime() - pressedMouseStartedNanos >= 180_000_000L) {
-                    if (!syntheticPointerHold) {
-                        WebBrowserBridge.beginPointerHold(
-                                pressedPanel.browser, pressedMouseX, pressedMouseY);
-                        syntheticPointerHold = true;
-                    } else {
-                        WebBrowserBridge.movePointerHold(
-                                pressedPanel.browser, pressedMouseX, pressedMouseY);
-                    }
-                }
             } else {
                 if (pressedPanel.browser != null) {
-                    if (syntheticPointerHold) {
-                        WebBrowserBridge.endPointerHold(
-                                pressedPanel.browser, pressedMouseX, pressedMouseY);
-                    }
                     WebBrowserBridge.mouseRelease(pressedPanel.browser,
                             pressedMouseX, pressedMouseY, pressedMouseButton);
                 }
                 pressedPanel = null;
-                syntheticPointerHold = false;
             }
         }
         prevLeft = left;
@@ -1027,7 +1140,7 @@ public class WebPanels extends Module {
         }
         if (t > 64) return null;
         double lv = oy + dy * t;
-        if (!unbounded && (Math.abs(lu) > p.halfW + 0.36 || Math.abs(lv) > p.halfH + 0.30)) return null;
+        if (!unbounded && (Math.abs(lu) > p.halfW + 0.36 || Math.abs(lv) > p.halfH + 0.52)) return null;
         return new double[]{lu, lv};
     }
 
@@ -1051,6 +1164,28 @@ public class WebPanels extends Module {
         return p.halfH + NAV_GAP * controlScale(p);
     }
 
+    private double tabsY(Panel p) {
+        return navY(p) + 0.096 * controlScale(p);
+    }
+
+    private double tabAddU(Panel p) {
+        return navHalfWidth(p) - 0.050 * controlScale(p);
+    }
+
+    private double tabWidth(Panel p) {
+        double control = controlScale(p);
+        double left = -navHalfWidth(p) + 0.018 * control;
+        double right = tabAddU(p) - 0.060 * control;
+        return Math.min(0.270 * control, Math.max(0.12 * control,
+                (right - left) / Math.max(1, p.tabs.size())));
+    }
+
+    private double tabCenterU(Panel p, int index) {
+        double control = controlScale(p);
+        double left = -navHalfWidth(p) + 0.018 * control;
+        return left + tabWidth(p) * (index + 0.5);
+    }
+
     private static double controlScale(Panel p) {
         double widthScale = p.halfW / 1.20;
         double heightScale = p.halfH / 0.675;
@@ -1069,6 +1204,19 @@ public class WebPanels extends Module {
             return 1; // grab bar
         }
 
+        double tabsY = tabsY(p);
+        if (Math.abs(lv - tabsY) < 0.048 * control) {
+            if (Math.abs(lu - tabAddU(p)) < 0.040 * control
+                    && p.tabs.size() < MAX_TABS) return 40;
+            double width = tabWidth(p);
+            for (int i = 0; i < p.tabs.size(); i++) {
+                double center = tabCenterU(p, i);
+                if (Math.abs(lu - center) > width * 0.5) continue;
+                if (lu > center + width * 0.5 - 0.052 * control) return 30 + i;
+                return 20 + i;
+            }
+        }
+
         // Compact navigation ornament sits close to the panel instead of floating far above it.
         double navY = navY(p), abHalfW = navHalfWidth(p);
         if (Math.abs(lv - navY) < 0.068 * control
@@ -1085,7 +1233,7 @@ public class WebPanels extends Module {
 
         // Resize exists only at the two lower corners, matching the requested
         // outline corner controls instead of a ring around the perimeter.
-        double cornerRadius = 0.135 * control;
+        double cornerRadius = 0.095 * control;
         if (Math.hypot(lu + p.halfW, lv + p.halfH) < cornerRadius) return 10;
         if (Math.hypot(lu - p.halfW, lv + p.halfH) < cornerRadius) return 11;
 
@@ -1148,7 +1296,7 @@ public class WebPanels extends Module {
 
         drawSdfRoundedSurface(matrix, cam, p, -0.055 * control * reveal, barY,
                 0.140 * control, 0.014 * control, 0.014 * control, 0.009,
-                245, 247, 251, (int) ((220 + 35 * reveal) * a));
+                245, 247, 251, (int) ((220 + 35 * reveal) * a), 2.0f);
         if (reveal > 0.02f) {
             drawSdfRoundedSurface(matrix, cam, p, 0.165 * control * reveal, barY,
                     0.032 * control, 0.032 * control, 0.032 * control, 0.0105,
@@ -1187,6 +1335,34 @@ public class WebPanels extends Module {
                 pillHalfW, pillHalfH, pillHalfH, 0.009,
                 overPill ? 0x31 : 0x21, overPill ? 0x35 : 0x25, overPill ? 0x3D : 0x2C,
                 (int) ((overPill ? 225 : 180) * a));
+
+        double tabsY = navY + 0.096 * control;
+        double tabsHalfH = 0.043 * control;
+        drawSdfRoundedSurface(matrix, cam, p, 0, tabsY,
+                navHalfW, tabsHalfH, tabsHalfH, 0.006,
+                0x13, 0x16, 0x1D, (int) (218 * a), 2.15f);
+        double addU = navHalfW - 0.050 * control;
+        double tabsLeft = -navHalfW + 0.018 * control;
+        double tabsRight = addU - 0.060 * control;
+        double width = Math.min(0.270 * control, Math.max(0.12 * control,
+                (tabsRight - tabsLeft) / Math.max(1, p.tabs.size())));
+        for (int i = 0; i < p.tabs.size(); i++) {
+            double centerU = tabsLeft + width * (i + 0.5);
+            boolean active = i == p.activeTab;
+            boolean over = hovered == 20 + i || hovered == 30 + i;
+            if (active || over) {
+                drawSdfRoundedSurface(matrix, cam, p, centerU, tabsY,
+                        width * 0.5 - 0.003 * control, 0.035 * control,
+                        0.026 * control, 0.009,
+                        active ? 0x2A : 0x21, active ? 0x2E : 0x25, active ? 0x37 : 0x2D,
+                        (int) ((active ? 238 : 190) * a), 2.35f);
+            }
+        }
+        if (p.tabs.size() < MAX_TABS && hovered == 40) {
+            drawSdfRoundedSurface(matrix, cam, p, addU, tabsY,
+                    0.030 * control, 0.030 * control, 0.030 * control, 0.009,
+                    0xF2, 0xF4, 0xF8, (int) (34 * a), 2.0f);
+        }
 
         drawBottomCornerHandle(matrix, cam, p, -hw, -hh, false,
                 control, p.edgeReveal[0] * a);
@@ -1243,6 +1419,38 @@ public class WebPanels extends Module {
                 visibleAddress, textU, navY, textSize, 0.013,
                 argb((int) (226 * a), 238, 240, 245), FontWeight.MEDIUM, false);
 
+        double tabsY = navY + 0.096 * control;
+        double addU = abHalfW - 0.050 * control;
+        double tabsLeft = -abHalfW + 0.018 * control;
+        double tabsRight = addU - 0.060 * control;
+        double tabWidth = Math.min(0.270 * control, Math.max(0.12 * control,
+                (tabsRight - tabsLeft) / Math.max(1, p.tabs.size())));
+        for (int i = 0; i < p.tabs.size(); i++) {
+            double centerU = tabsLeft + tabWidth * (i + 0.5);
+            boolean active = i == p.activeTab;
+            boolean over = hovered == 20 + i || hovered == 30 + i;
+            double titleU = centerU - tabWidth * 0.5 + 0.020 * control;
+            float titleSize = (float) (0.027 * control);
+            float maxTitleWidth = (float) Math.max(0.02 * control, tabWidth - 0.078 * control);
+            String title = CustomFontRenderer.trimToWidth(
+                    tabTitle(p.tabs.get(i).url), maxTitleWidth, titleSize, FontWeight.MEDIUM);
+            drawPanelWorldText(matrix, c, p, n, title, titleU, tabsY,
+                    titleSize, 0.013,
+                    argb((int) ((active ? 235 : over ? 205 : 148) * a), 232, 235, 242),
+                    FontWeight.MEDIUM, false);
+            drawPanelWorldText(matrix, c, p, n, SolarIcons.CLOSE,
+                    centerU + tabWidth * 0.5 - 0.028 * control, tabsY,
+                    0.026 * control, 0.014,
+                    argb((int) ((hovered == 30 + i ? 255 : active ? 178 : 112) * a),
+                            238, 240, 245), FontWeight.SOLAR_ICONS, true);
+        }
+        if (p.tabs.size() < MAX_TABS) {
+            drawPanelWorldText(matrix, c, p, n, SolarIcons.ADD, addU, tabsY,
+                    0.031 * control, 0.014,
+                    argb((int) ((hovered == 40 ? 255 : 172) * a), 232, 235, 242),
+                    FontWeight.SOLAR_ICONS, true);
+        }
+
         if (p.barReveal > 0.02f) {
             drawPanelWorldText(matrix, c, p, n,
                     SolarIcons.DELETE, 0.165 * control * p.barReveal,
@@ -1292,8 +1500,17 @@ public class WebPanels extends Module {
                                        double centerU, double centerV,
                                        double hw, double hh, double radius, double depth,
                                        int red, int green, int blue, int alpha) {
+        drawSdfRoundedSurface(matrix, cam, p, centerU, centerV, hw, hh, radius, depth,
+                red, green, blue, alpha, 3.35f);
+    }
+
+    private void drawSdfRoundedSurface(Matrix4f matrix, Vec3d cam, Panel p,
+                                       double centerU, double centerV,
+                                       double hw, double hh, double radius, double depth,
+                                       int red, int green, int blue, int alpha, float exponent) {
         if (alpha <= 0 || hw <= 0.0 || hh <= 0.0) return;
-        WebPanelShaders.useColor((float) (hw * 2.0), (float) (hh * 2.0), (float) radius);
+        WebPanelShaders.useColor((float) (hw * 2.0), (float) (hh * 2.0),
+                (float) radius, exponent);
         Vec3d center = p.center.subtract(cam);
         Vec3d normal = p.right.crossProduct(p.up).normalize();
         BufferBuilder buffer = Tessellator.getInstance().begin(
@@ -1328,10 +1545,10 @@ public class WebPanels extends Module {
                                         double controlScale, float reveal) {
         if (reveal <= 0.01f) return;
         double growth = 0.82 + 0.18 * reveal;
-        double radius = 0.055 * growth * controlScale;
-        double leg = 0.095 * growth * controlScale;
-        double gap = 0.010 * controlScale;
-        double thickness = 0.0062 * controlScale;
+        double radius = 0.022 * growth * controlScale;
+        double leg = 0.046 * growth * controlScale;
+        double gap = 0.008 * controlScale;
+        double thickness = 0.0054 * controlScale;
         double width = leg + radius;
         double height = leg + radius;
         double outerU = u + (rightSide ? gap : -gap);
@@ -1541,5 +1758,18 @@ public class WebPanels extends Module {
         int texW, texH;
         long lastCameraBootstrapMs;
         long lastCameraFrameSequence;
+        final List<Tab> tabs = new ArrayList<>();
+        int activeTab;
+    }
+
+    private static final class Tab {
+        String url;
+        Object browser;
+        long lastCameraBootstrapMs;
+        long lastCameraFrameSequence;
+
+        Tab(String url) {
+            this.url = url == null ? "" : url;
+        }
     }
 }
