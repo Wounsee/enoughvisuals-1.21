@@ -41,6 +41,11 @@ public abstract class KeyInputMixin {
                 return;
             }
         }
+        if (webPanels != null && client.currentScreen == null
+                && webPanels.handleControlKey(key, modifiers, action)) {
+            ci.cancel();
+            return;
+        }
         if (key != GLFW.GLFW_KEY_UNKNOWN && key >= 0 && EmotionWheelManager.getInstance().onKey(key, action)) {
             ci.cancel();
             return;

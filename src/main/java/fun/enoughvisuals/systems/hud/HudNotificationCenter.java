@@ -44,9 +44,21 @@ public final class HudNotificationCenter {
 
     public static synchronized void post(Type type, String text) {
         if (text == null || text.isBlank()) return;
+        String normalized = text.trim();
         long now = System.currentTimeMillis();
+        Notification duplicate = QUEUE.stream()
+                .filter(notification -> notification.type() == type
+                        && notification.text().equals(normalized))
+                .findFirst()
+                .orElse(null);
+        if (duplicate != null) {
+            QUEUE.remove(duplicate);
+            QUEUE.addLast(new Notification(duplicate.id(), type, normalized, now,
+                    now + DEFAULT_DURATION));
+            return;
+        }
         while (QUEUE.size() >= MAX_VISIBLE) QUEUE.removeFirst();
-        QUEUE.addLast(new Notification(IDS.incrementAndGet(), type, text.trim(), now,
+        QUEUE.addLast(new Notification(IDS.incrementAndGet(), type, normalized, now,
                 now + DEFAULT_DURATION));
     }
 

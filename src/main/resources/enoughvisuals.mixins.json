@@ -66,8 +66,10 @@
       "minecraft.client.gui.hud.MixinBossBarHud",
       "minecraft.entity.LivingEntitySwingMixin",
       "minecraft.entity.LivingEntityJumpMixin",
-      "minecraft.client.network.ClientPlayerInteractionManagerMixin"
-      ,"compat.PunchyConfigMixin"
+      "minecraft.client.network.ClientPlayerInteractionManagerMixin",
+      "compat.McefCommandLineMixin",
+      "compat.McefSettingsMixin",
+      "compat.PunchyConfigMixin"
     ],
     "injectors":  {
       "defaultRequire":  1

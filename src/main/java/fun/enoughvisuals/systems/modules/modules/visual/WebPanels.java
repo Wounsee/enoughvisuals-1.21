@@ -101,12 +101,48 @@ public class WebPanels extends Module {
         return grabbed != null && grabMode == 1;
     }
 
-    public void scroll(double yOffset) {
+    public boolean scroll(double yOffset, boolean controlDown) {
+        Panel hoveredPanel = hoveredPanel();
+        if (controlDown && hoveredPanel != null && grabbed == null) {
+            hoveredPanel.targetCenter = hoveredPanel.targetCenter.add(0.0, yOffset * 0.24, 0.0);
+            return true;
+        }
         if (isMoving()) {
             grabDist = MathHelper.clamp(grabDist + yOffset * 0.45, 1.2, 16.0);
+            return true;
         } else if (isHoveringContent()) {
             forwardScroll(yOffset);
+            return true;
         }
+        return false;
+    }
+
+    public boolean handleControlKey(int key, int modifiers, int action) {
+        if (!isEnabled() || isBrowserFocused() || key != GLFW.GLFW_KEY_R
+                || action != GLFW.GLFW_PRESS) return false;
+        Panel panel = hoveredPanel();
+        if (panel == null) return false;
+        double direction = (modifiers & GLFW.GLFW_MOD_SHIFT) != 0 ? -1.0 : 1.0;
+        double angle = Math.toRadians(15.0 * direction);
+        panel.targetRight = rotateAroundY(panel.targetRight, angle).normalize();
+        panel.targetUp = rotateAroundY(panel.targetUp, angle).normalize();
+        return true;
+    }
+
+    private Panel hoveredPanel() {
+        for (int i = panels.size() - 1; i >= 0; i--) {
+            Panel panel = panels.get(i);
+            if (!panel.closing && panel.hoveredRegion >= 0) return panel;
+        }
+        return null;
+    }
+
+    private static Vec3d rotateAroundY(Vec3d vector, double angle) {
+        double cosine = Math.cos(angle);
+        double sine = Math.sin(angle);
+        return new Vec3d(vector.x * cosine + vector.z * sine,
+                vector.y,
+                -vector.x * sine + vector.z * cosine);
     }
 
     public boolean isHoveringContent() {
@@ -1115,23 +1151,33 @@ public class WebPanels extends Module {
     private void drawBottomCornerHandle(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
                                         double u, double v, boolean rightSide, float reveal) {
         if (reveal <= 0.01f) return;
-        double radius = 0.072 * (0.74 + 0.26 * reveal);
-        double centerU = u + (rightSide ? radius : -radius);
-        double centerV = v - radius;
-        double start = rightSide ? Math.PI * 0.5 : 0.0;
-        double thickness = 0.0092;
-        drawArc(buf, m, c, p, n, centerU, centerV, radius, start, Math.PI * 0.5,
+        double growth = 0.82 + 0.18 * reveal;
+        double radius = 0.030 * growth;
+        double leg = 0.072 * growth;
+        double gap = 0.010;
+        double outerU = u + (rightSide ? gap : -gap);
+        double bottomV = v - gap;
+        double centerU = outerU + (rightSide ? -radius : radius);
+        double centerV = bottomV + radius;
+        double start = rightSide ? 0.0 : Math.PI;
+        double sweep = rightSide ? -Math.PI * 0.5 : Math.PI * 0.5;
+        double thickness = 0.0074;
+
+        drawThickLine(buf, m, c, p, n,
+                outerU, v + leg, outerU, centerV,
+                thickness, 245, 247, 251, (int) (238 * reveal));
+        drawArc(buf, m, c, p, n, centerU, centerV, radius, start, sweep,
                 thickness, 245, 247, 251, (int) (232 * reveal));
-        double end0X = centerU + radius * Math.cos(start);
-        double end0Y = centerV + radius * Math.sin(start);
-        double end1 = start + Math.PI * 0.5;
-        double end1X = centerU + radius * Math.cos(end1);
-        double end1Y = centerV + radius * Math.sin(end1);
+        double horizontalEndU = u + (rightSide ? -leg : leg);
+        drawThickLine(buf, m, c, p, n,
+                centerU, bottomV, horizontalEndU, bottomV,
+                thickness, 245, 247, 251, (int) (238 * reveal));
+
         double cap = thickness * 0.52;
-        fillRound(buf, m, c, p, n, 7, end0X, end0Y, cap, cap, cap,
-                245, 247, 251, (int) (232 * reveal));
-        fillRound(buf, m, c, p, n, 7, end1X, end1Y, cap, cap, cap,
-                245, 247, 251, (int) (232 * reveal));
+        fillRound(buf, m, c, p, n, 7, outerU, v + leg, cap, cap, cap,
+                245, 247, 251, (int) (238 * reveal));
+        fillRound(buf, m, c, p, n, 7, horizontalEndU, bottomV, cap, cap, cap,
+                245, 247, 251, (int) (238 * reveal));
     }
 
     private void drawSpinner(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,

@@ -363,10 +363,11 @@ public abstract class InGameHudMixin {
         }
         WebPanels webPanels = WebPanels.getInstance();
         boolean panelHover = webPanels != null && webPanels.isHovering();
-        float frameDelta = Math.max(1f / 240f, Math.min(0.05f, RenderUtil.getFrameDelta()));
+        float frameDelta = Math.max(1f / 240f,
+                Math.min(0.05f, RenderUtil.getFrameDelta() / 60f));
         float morphTarget = panelHover ? 1f : 0f;
         enough$webPanelCrosshairMorph += (morphTarget - enough$webPanelCrosshairMorph)
-                * (1f - (float) Math.exp(-15f * frameDelta));
+                * (1f - (float) Math.exp(-8.5f * frameDelta));
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.options != null && client.options.hudHidden) {
             ci.cancel();

@@ -1202,7 +1202,7 @@ public class RenderUtil {
             ShaderManager.stopProgram();
             endShaderDraw();
         } else {
-            drawCircleOutlineCPU(ctx, cx, cy, radius, lineWidth, r, g, b, a);                                         
+            drawCircleOutlineCPU(ctx, cx, cy, radius, lineWidth, r, g, b, a, progress);
         }
     }
 
@@ -1658,8 +1658,17 @@ public class RenderUtil {
 
     private static void drawCircleOutlineCPU(DrawContext ctx, float cx, float cy, float radius,
                                              float lineWidth, float r, float g, float b, float a) {
+        drawCircleOutlineCPU(ctx, cx, cy, radius, lineWidth, r, g, b, a, 1f);
+    }
+
+    private static void drawCircleOutlineCPU(DrawContext ctx, float cx, float cy, float radius,
+                                             float lineWidth, float r, float g, float b, float a,
+                                             float progress) {
         Matrix4f matrix = ctx.getMatrices().peek().getPositionMatrix();
-        int segments = Math.max(48, (int) (radius * 4));
+        progress = Math.max(0f, Math.min(1f, progress));
+        if (progress <= 0.001f) return;
+        int fullSegments = Math.max(48, (int) (radius * 4));
+        int segments = Math.max(1, (int) Math.ceil(fullSegments * progress));
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -1672,7 +1681,8 @@ public class RenderUtil {
         float outer = radius + lineWidth / 2f;
 
         for (int i = 0; i <= segments; i++) {
-            float angle = (float) (i * Math.PI * 2.0 / segments);
+            float angle = (float) (-Math.PI * 0.5
+                    + i * Math.PI * 2.0 * progress / segments);
             float cos = (float) Math.cos(angle);
             float sin = (float) Math.sin(angle);
             buffer.vertex(matrix, cx + cos * inner, cy + sin * inner, 0).color(r, g, b, a);

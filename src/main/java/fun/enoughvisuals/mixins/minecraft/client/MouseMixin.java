@@ -84,8 +84,9 @@ public class MouseMixin {
             ci.cancel();
             return;
         }
-        if (webPanels != null && (webPanels.isMoving() || webPanels.isHoveringContent())) {
-            webPanels.scroll(vertical);
+        boolean controlDown = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
+                || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
+        if (webPanels != null && webPanels.scroll(vertical, controlDown)) {
             ci.cancel();
             return;
         }

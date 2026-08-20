@@ -3,6 +3,7 @@ package fun.enoughvisuals.systems.webpanel;
 import net.minecraft.util.Identifier;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 
 /**
  * Reflection bridge to MCEF (Minecraft Chromium Embedded Framework).
@@ -274,6 +275,22 @@ public final class WebBrowserBridge {
 
     public static void close(Object browser) {
         call(browser, "close", new Class<?>[]{});
+        flushPersistentStorage();
+    }
+
+    /** Flushes the global cookie store; LocalStorage/IndexedDB share the same persistent CEF profile. */
+    public static void flushPersistentStorage() {
+        try {
+            Class<?> managerClass = Class.forName("org.cef.network.CefCookieManager");
+            Object manager = managerClass.getMethod("getGlobalManager").invoke(null);
+            if (manager == null) return;
+            Class<?> callbackClass = Class.forName("org.cef.callback.CefCompletionCallback");
+            Object callback = Proxy.newProxyInstance(callbackClass.getClassLoader(),
+                    new Class<?>[]{callbackClass}, (proxy, method, args) -> null);
+            Method flush = managerClass.getMethod("flushStore", callbackClass);
+            flush.invoke(manager, callback);
+        } catch (Throwable ignored) {
+        }
     }
 
     private static Object invoke(Object target, String method) {

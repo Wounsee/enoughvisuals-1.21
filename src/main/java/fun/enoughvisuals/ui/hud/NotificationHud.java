@@ -24,6 +24,7 @@ import java.util.Map;
 /** Main/HUD notification stack (Figma node 151:204). */
 public final class NotificationHud extends HudElement {
     private static final float BASE_WIDTH = 170f;
+    private static final float MAX_WIDTH = 310f;
     private static final float ROW_HEIGHT = 23f;
     private static final float ROW_STEP = 30.5f;
     private static final float TOGGLE_WIDTH = 18f;
@@ -79,7 +80,7 @@ public final class NotificationHud extends HudElement {
             lastPosition = Math.max(springPosition, lastPosition + ROW_STEP);
         }
         float rowsHeight = visualRows.isEmpty() ? ROW_HEIGHT : ROW_HEIGHT + Math.max(0f, lastPosition);
-        setWidth(BASE_WIDTH * s);
+        setWidth(requiredBaseWidth(visualRows) * s);
         setHeight(rowsHeight * s);
         setX((HudElement.hudScreenWidth() - getWidth()) * 0.5f);
     }
@@ -99,7 +100,7 @@ public final class NotificationHud extends HudElement {
             float visualPosition = Math.max(springPosition, previousPosition + ROW_STEP);
             previousPosition = visualPosition;
             float rowY = y + visualPosition * s;
-            float rowWidth = BASE_WIDTH * s;
+            float rowWidth = w;
             float rowX = x + (w - rowWidth) * 0.5f;
             float centerX = rowX + rowWidth * 0.5f;
             float centerY = rowY + ROW_HEIGHT * 0.5f * s;
@@ -125,6 +126,22 @@ public final class NotificationHud extends HudElement {
             if (row != null) result.add(row);
         }
         return result;
+    }
+
+    private float requiredBaseWidth(List<HudListAnimator.Row> rows) {
+        float required = BASE_WIDTH;
+        for (HudListAnimator.Row row : rows) {
+            Notification notification = visuals.get(row.key());
+            if (notification == null) continue;
+            boolean moduleState = notification.type() == Type.MODULE_ENABLED
+                    || notification.type() == Type.MODULE_DISABLED;
+            float chrome = moduleState ? 69f : 44f;
+            float textWidth = CustomFontRenderer.getTextWidth(cleanText(notification.text()),
+                    7f, FontWeight.MEDIUM);
+            required = Math.max(required, chrome + textWidth + 4f);
+        }
+        float screenLimit = Math.max(BASE_WIDTH, HudElement.hudScreenWidth() - 16f);
+        return Math.min(required, Math.min(MAX_WIDTH, screenLimit));
     }
 
     private static void drawNotification(DrawContext ctx, Notification notification,
