@@ -128,9 +128,10 @@ public final class MinecraftVirtualCamera {
     private static void ensureFramebuffer(Framebuffer source) {
         if (captureFramebuffer != null
                 && captureFramebuffer.textureWidth == WIDTH
-                && captureFramebuffer.textureHeight == HEIGHT) return;
+                && captureFramebuffer.textureHeight == HEIGHT
+                && captureFramebuffer.useDepthAttachment) return;
         if (captureFramebuffer != null) captureFramebuffer.delete();
-        captureFramebuffer = new SimpleFramebuffer(WIDTH, HEIGHT, false);
+        captureFramebuffer = new SimpleFramebuffer(WIDTH, HEIGHT, true);
         captureFramebuffer.setTexFilter(GL11.GL_LINEAR);
         // SimpleFramebuffer construction changes the bound target and viewport.
         source.beginWrite(true);
