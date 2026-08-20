@@ -6,10 +6,12 @@ import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BindSetting;
+import fun.enoughvisuals.systems.modules.settings.ModeSetting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.systems.modules.settings.StringSetting;
 import fun.enoughvisuals.systems.hud.HudNotificationCenter;
 import fun.enoughvisuals.systems.webpanel.WebBrowserBridge;
+import fun.enoughvisuals.systems.webpanel.MinecraftVirtualCamera;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
@@ -19,6 +21,7 @@ import fun.enoughvisuals.utils.render.blur.GlassUtil;
 import fun.enoughvisuals.utils.system.BindKeyUtil;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.gl.ShaderProgramKeys;
+import net.minecraft.client.option.Perspective;
 import net.minecraft.client.render.*;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -62,6 +65,9 @@ public class WebPanels extends Module {
             "Создать окно", "create_bind", "Клавиша для создания нового окна", GLFW.GLFW_KEY_UNKNOWN));
     private final SliderSetting curveSetting = add(new SliderSetting(
             "Изгиб", "curve", "Мягкий цилиндрический изгиб окна", 0.11f, 0.0f, 0.22f, 0.01f));
+    private final ModeSetting virtualCameraMode = add(new ModeSetting(
+            "Камера браузера", "virtual_camera_mode", "Ракурс Minecraft для звонков в браузере",
+            "Селфи", "Селфи", "От первого лица", "От третьего лица"));
     private final List<Panel> panels = new ArrayList<>();
     private int nextId = 1;
     private Panel grabbed;
@@ -94,6 +100,20 @@ public class WebPanels extends Module {
 
     public static WebPanels getInstance() {
         return instance;
+    }
+
+    public boolean needsVirtualCameraFrames() {
+        if (!isEnabled()) return false;
+        for (Panel panel : panels) {
+            if (!panel.closing && panel.browser != null) return true;
+        }
+        return false;
+    }
+
+    public Perspective virtualCameraPerspective() {
+        if (virtualCameraMode.is("От первого лица")) return Perspective.FIRST_PERSON;
+        if (virtualCameraMode.is("От третьего лица")) return Perspective.THIRD_PERSON_BACK;
+        return Perspective.THIRD_PERSON_FRONT;
     }
 
     public boolean isHovering() {
@@ -478,6 +498,7 @@ public class WebPanels extends Module {
     }
 
     public static void renderInWorld(WorldRenderContext context) {
+        if (MinecraftVirtualCamera.isRenderingVirtualView()) return;
         if (instance == null || !instance.isEnabled() || instance.panels.isEmpty()) return;
         if (mc.player == null || mc.world == null || context.camera() == null || context.matrixStack() == null) return;
         instance.renderPanels(context);
@@ -504,6 +525,7 @@ public class WebPanels extends Module {
         for (Panel p : panels) {
             if (!p.closing) {
                 ensureBrowser(p);
+                pumpVirtualCamera(p);
             }
         }
 
@@ -656,6 +678,21 @@ public class WebPanels extends Module {
         p.texW = 1920;
         p.texH = 1080;
         p.browser = WebBrowserBridge.create(p.url, p.texW, p.texH);
+    }
+
+    private void pumpVirtualCamera(Panel p) {
+        if (p.browser == null) return;
+        long now = System.currentTimeMillis();
+        if (now - p.lastCameraBootstrapMs >= 1_000L) {
+            WebBrowserBridge.installMinecraftCamera(p.browser);
+            p.lastCameraBootstrapMs = now;
+        }
+        long sequence = MinecraftVirtualCamera.latestFrameSequence();
+        String frame = MinecraftVirtualCamera.latestFrameDataUrl();
+        if (sequence > p.lastCameraFrameSequence && frame != null) {
+            WebBrowserBridge.pushMinecraftCameraFrame(p.browser, frame);
+            p.lastCameraFrameSequence = sequence;
+        }
     }
 
     private void disposePanel(Panel p) {
@@ -1484,5 +1521,7 @@ public class WebPanels extends Module {
         int addressCursor;
         Object browser;
         int texW, texH;
+        long lastCameraBootstrapMs;
+        long lastCameraFrameSequence;
     }
 }

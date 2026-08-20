@@ -12,6 +12,80 @@ import java.lang.reflect.Proxy;
  */
 public final class WebBrowserBridge {
 
+    private static final String MINECRAFT_CAMERA_BOOTSTRAP = """
+            (() => {
+              if (!navigator.mediaDevices) return;
+              if (window.__enoughMinecraftCameraV3) {
+                const existing = window.__enoughMinecraftCameraV3;
+                navigator.mediaDevices.getUserMedia = existing.getUserMedia;
+                if (existing.enumerateDevices) navigator.mediaDevices.enumerateDevices = existing.enumerateDevices;
+                navigator.getUserMedia = existing.legacyGetUserMedia;
+                navigator.webkitGetUserMedia = existing.legacyGetUserMedia;
+                return;
+              }
+              const nativeGetUserMedia = typeof navigator.mediaDevices.getUserMedia === 'function'
+                ? navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices)
+                : async () => new MediaStream();
+              const nativeEnumerateDevices = navigator.mediaDevices.enumerateDevices
+                ? navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices) : null;
+              const canvas = document.createElement('canvas');
+              canvas.width = 640; canvas.height = 360;
+              const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+              ctx.fillStyle = '#0b0d12'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+              const image = new Image();
+              let imageLoading = false;
+              image.onload = () => {
+                ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+                imageLoading = false;
+              };
+              image.onerror = () => { imageLoading = false; };
+
+              window.__enoughPushMinecraftFrame = dataUrl => {
+                if (!dataUrl || imageLoading) return;
+                imageLoading = true;
+                image.src = dataUrl;
+              };
+
+              const getUserMedia = async constraints => {
+                if (!constraints || !constraints.video) return nativeGetUserMedia(constraints);
+                const videoStream = canvas.captureStream(12);
+                const result = new MediaStream(videoStream.getVideoTracks());
+                if (constraints.audio) {
+                  try {
+                    const audio = await nativeGetUserMedia({ audio: constraints.audio, video: false });
+                    audio.getAudioTracks().forEach(track => result.addTrack(track));
+                  } catch (_) {}
+                }
+                return result;
+              };
+
+              let enumerateDevices = null;
+              if (nativeEnumerateDevices) {
+                enumerateDevices = async () => {
+                  const devices = await nativeEnumerateDevices();
+                  const virtual = {
+                    deviceId: 'enough-minecraft-world',
+                    groupId: 'enough-minecraft',
+                    kind: 'videoinput',
+                    label: 'Minecraft Virtual Camera',
+                    toJSON() { return { deviceId: this.deviceId, groupId: this.groupId, kind: this.kind, label: this.label }; }
+                  };
+                  return [virtual, ...devices.filter(device => device.deviceId !== virtual.deviceId)];
+                };
+              }
+              const legacyGetUserMedia = (constraints, success, failure) =>
+                getUserMedia(constraints).then(success, failure);
+              window.__enoughMinecraftCameraV3 = {
+                canvas, ctx, nativeGetUserMedia, nativeEnumerateDevices,
+                getUserMedia, enumerateDevices, legacyGetUserMedia
+              };
+              navigator.mediaDevices.getUserMedia = getUserMedia;
+              if (enumerateDevices) navigator.mediaDevices.enumerateDevices = enumerateDevices;
+              navigator.getUserMedia = legacyGetUserMedia;
+              navigator.webkitGetUserMedia = legacyGetUserMedia;
+            })();
+            """;
+
     private static Boolean present;
     private static Class<?> mcefClass;
     private static Method createBrowser;
@@ -232,6 +306,25 @@ public final class WebBrowserBridge {
         if (!call(browser, "loadURL", new Class<?>[]{String.class}, url)) {
             call(browser, "loadUrl", new Class<?>[]{String.class}, url);
         }
+    }
+
+    /** Installs a browser-local camera that supplies a canvas MediaStream instead of an OS webcam. */
+    public static void installMinecraftCamera(Object browser) {
+        executeJavaScript(browser, MINECRAFT_CAMERA_BOOTSTRAP);
+    }
+
+    public static void pushMinecraftCameraFrame(Object browser, String dataUrl) {
+        if (dataUrl == null || dataUrl.isEmpty()) return;
+        executeJavaScript(browser, "window.__enoughPushMinecraftFrame && window.__enoughPushMinecraftFrame('"
+                + dataUrl + "');");
+    }
+
+    public static void executeJavaScript(Object browser, String script) {
+        if (browser == null || script == null || script.isEmpty()) return;
+        String url = getUrl(browser);
+        call(browser, "executeJavaScript",
+                new Class<?>[]{String.class, String.class, int.class},
+                script, url == null ? "" : url, 0);
     }
 
     public static void goBack(Object browser) {
