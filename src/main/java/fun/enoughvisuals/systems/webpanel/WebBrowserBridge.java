@@ -268,6 +268,11 @@ public final class WebBrowserBridge {
         call(browser, "resize", new Class<?>[]{int.class, int.class}, w, h);
     }
 
+    /** Lets CEF stop painting and throttle page work while its spatial panel is not visible. */
+    public static void setVisible(Object browser, boolean visible) {
+        call(browser, "setWindowVisibility", new Class<?>[]{boolean.class}, visible);
+    }
+
     public static void mouseMove(Object browser, int x, int y) {
         call(browser, "sendMouseMove", new Class<?>[]{int.class, int.class}, x, y);
     }

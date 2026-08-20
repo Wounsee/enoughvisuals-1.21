@@ -33,8 +33,11 @@ import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
 import org.joml.Matrix4f;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
@@ -105,9 +108,6 @@ public class WebPanels extends Module {
     private final BooleanSetting showOtherScreens = add(new BooleanSetting(
             "Показывать чужие экраны", "show_other_screens",
             "Отображать окна других пользователей EnoughVisuals", true));
-    private final ModeSetting displayMode = add(new ModeSetting(
-            "Режим окон", "display_mode", "3D — окна в мире, 2D — приватный HUD",
-            "3D", "3D", "2D"));
     private final ModeSetting videoQuality = add(new ModeSetting(
             "Качество трансляции", "video_quality", "Разрешение кадров для других игроков",
             "Низкое", "Низкое", "Среднее", "Высокое", "Максимум"));
@@ -154,7 +154,6 @@ public class WebPanels extends Module {
     private long nextSharedCaptureMs;
     private int sharedCaptureCursor;
     private int sharedOutgoingCursor;
-    private boolean hudModeActive;
 
     public WebPanels() {
         instance = this;
@@ -220,7 +219,7 @@ public class WebPanels extends Module {
     }
 
     public boolean handleRotationKey(int key) {
-        if (!isEnabled() || isHudMode() || key != GLFW.GLFW_KEY_R || mc.getWindow() == null) return false;
+        if (!isEnabled() || key != GLFW.GLFW_KEY_R || mc.getWindow() == null) return false;
         long window = mc.getWindow().getHandle();
         boolean mouseDown = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS
                 || GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
@@ -229,7 +228,7 @@ public class WebPanels extends Module {
 
     /** Consumes Minecraft look deltas while LMB/RMB + R rotates the spatial panel. */
     public boolean rotateWithMouse(double yawDelta, double pitchDelta) {
-        if (!isEnabled() || isHudMode() || mc.getWindow() == null) return false;
+        if (!isEnabled() || mc.getWindow() == null) return false;
         long window = mc.getWindow().getHandle();
         boolean left = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
         boolean right = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
@@ -258,7 +257,7 @@ public class WebPanels extends Module {
     private Panel hoveredPanel() {
         for (int i = panels.size() - 1; i >= 0; i--) {
             Panel panel = panels.get(i);
-            if (!panel.closing && panel.hoveredRegion >= 0) return panel;
+            if (panel.renderVisible && !panel.closing && panel.hoveredRegion >= 0) return panel;
         }
         return null;
     }
@@ -310,18 +309,14 @@ public class WebPanels extends Module {
         }
     }
 
-    private boolean isHudMode() {
-        return displayMode.is("2D");
-    }
-
     /** Adds privacy preferences, panel transforms and at most one fresh video frame to /v1/sync. */
     public void appendSync(JsonObject root) {
         JsonObject web = new JsonObject();
-        boolean publish = isEnabled() && shareMyScreens.get() && !isHudMode();
-        boolean receive = isEnabled() && showOtherScreens.get() && !isHudMode();
+        boolean publish = isEnabled() && shareMyScreens.get();
+        boolean receive = isEnabled() && showOtherScreens.get();
         web.addProperty("publish", publish);
         web.addProperty("receive", receive);
-        web.addProperty("mode_2d", isHudMode());
+        web.addProperty("mode_2d", false);
 
         JsonObject known = new JsonObject();
         if (receive) {
@@ -367,7 +362,7 @@ public class WebPanels extends Module {
 
     /** Applies other users' same-server panel metadata and asynchronously uploads changed JPEG frames. */
     public void applySync(JsonObject root) {
-        if (!isEnabled() || !showOtherScreens.get() || isHudMode()) {
+        if (!isEnabled() || !showOtherScreens.get()) {
             MinecraftClient client = MinecraftClient.getInstance();
             if (client != null) client.execute(this::clearRemotePanels);
             return;
@@ -922,15 +917,15 @@ public class WebPanels extends Module {
         long now = System.nanoTime();
         float frameDt = MathHelper.clamp((now - lastFrameNanos) / 1_000_000_000f, 1f / 240f, 0.05f);
         lastFrameNanos = now;
-        prepareHudPanels(eye, look);
-        handleInput(eye, look);
-        updateHudGrabOffset(eye, look);
         for (Panel p : panels) {
             animatePanel(p, frameDt);
         }
         for (Panel p : remotePanels.values()) {
             animatePanel(p, frameDt);
         }
+        for (Panel p : panels) updatePanelVisibility(context, p, eye);
+        for (Panel p : remotePanels.values()) updatePanelVisibility(context, p, eye);
+        handleInput(eye, look);
         updateSharedPanelSnapshot();
 
         Matrix4f matrix = context.matrixStack().peek().getPositionMatrix();
@@ -940,18 +935,24 @@ public class WebPanels extends Module {
         WebBrowserBridge.runMessageLoop();
         for (Panel p : panels) {
             if (!p.closing) {
-                ensureBrowser(p);
-                syncBrowserLocation(p);
-                pumpVirtualCamera(p);
+                if (p.renderVisible) {
+                    ensureBrowser(p);
+                    syncBrowserLocation(p);
+                    pumpVirtualCamera(p);
+                }
+                updateBrowserVisibility(p, p.renderVisible);
             }
         }
         maybeCaptureSharedFrame();
 
-        List<Panel> visiblePanels = new ArrayList<>(panels);
-        if (!isHudMode() && showOtherScreens.get()) visiblePanels.addAll(remotePanels.values());
+        List<Panel> visiblePanels = new ArrayList<>();
+        for (Panel panel : panels) if (panel.renderVisible) visiblePanels.add(panel);
+        if (showOtherScreens.get()) {
+            for (Panel panel : remotePanels.values()) if (panel.renderVisible) visiblePanels.add(panel);
+        }
 
         // Capture in-world blur frame if theme blur enabled
-        if (!CustomTheme.blurDisabled()) {
+        if (!visiblePanels.isEmpty() && !CustomTheme.blurDisabled()) {
             GlassUtil.BLUR_OFFSET = CustomTheme.hudBlurLevel();
             GlassUtil.beginFrame();
         }
@@ -962,14 +963,9 @@ public class WebPanels extends Module {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableCull();
-        if (isHudMode()) {
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-        } else {
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthFunc(GL11.GL_LEQUAL);
-            RenderSystem.depthMask(true);
-        }
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(true);
 
         try {
             // 1. Front face only. The back never samples the screen framebuffer;
@@ -1007,14 +1003,9 @@ public class WebPanels extends Module {
                 double scale = 0.88 + 0.12 * a;
                 double hw = p.halfW * scale;
                 double hh = p.halfH * scale;
-                if (isFrontFacing(p, eye)) {
-                    if (blurTex <= 0 || CustomTheme.blurDisabled()) {
-                        drawSdfSurface(matrix, cam, p, hw, hh, 0.0015,
-                                0x10, 0x13, 0x1A, (int) (242 * a));
-                    }
-                } else {
-                    drawSdfSurface(matrix, cam, p, hw, hh, 0.0,
-                            0x0C, 0x0E, 0x13, (int) (248 * a));
+                if (blurTex <= 0 || CustomTheme.blurDisabled()) {
+                    drawSdfSurface(matrix, cam, p, hw, hh, 0.0015,
+                            0x10, 0x13, 0x1A, (int) (242 * a));
                 }
             }
 
@@ -1089,48 +1080,62 @@ public class WebPanels extends Module {
         });
     }
 
-    private void prepareHudPanels(Vec3d eye, Vec3d look) {
-        boolean hud = isHudMode();
-        if (!hud) {
-            hudModeActive = false;
+    private void updatePanelVisibility(WorldRenderContext context, Panel panel, Vec3d eye) {
+        if (panel.closing || panel.anim <= 0.005f || !isFrontFacing(panel, eye)) {
+            panel.renderVisible = false;
             return;
         }
-        Vec3d worldUp = new Vec3d(0, 1, 0);
-        Vec3d cameraRight = look.crossProduct(worldUp);
-        if (cameraRight.lengthSquared() < 1e-6) cameraRight = new Vec3d(1, 0, 0);
-        cameraRight = cameraRight.normalize();
-        Vec3d cameraUp = cameraRight.crossProduct(look).normalize();
-        boolean entering = !hudModeActive;
-        hudModeActive = true;
-        int visibleIndex = 0;
-        for (Panel panel : panels) {
-            if (panel.closing) continue;
-            if (entering || !panel.hudInitialized) {
-                int column = visibleIndex % 3;
-                int row = visibleIndex / 3;
-                panel.hudU = (column - 1) * 0.34;
-                panel.hudV = (1.5 - row) * 0.22;
-                panel.hudInitialized = true;
-            }
-            panel.targetCenter = eye.add(look.multiply(3.2))
-                    .add(cameraRight.multiply(panel.hudU))
-                    .add(cameraUp.multiply(panel.hudV));
-            panel.targetRight = cameraRight;
-            panel.targetUp = cameraUp;
-            visibleIndex++;
+        double radius = Math.sqrt(panel.halfW * panel.halfW + panel.halfH * panel.halfH) + 0.28;
+        if (eye.squaredDistanceTo(panel.center) > (24.0 + radius) * (24.0 + radius)) {
+            panel.renderVisible = false;
+            return;
         }
+        Box bounds = new Box(
+                panel.center.x - radius, panel.center.y - radius, panel.center.z - radius,
+                panel.center.x + radius, panel.center.y + radius, panel.center.z + radius);
+        if (context.frustum() != null && !context.frustum().isVisible(bounds)) {
+            panel.renderVisible = false;
+            return;
+        }
+        if (panel == grabbed || panel == rotatingPanel || panel == pressedPanel) {
+            panel.renderVisible = true;
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now >= panel.nextOcclusionCheckMs) {
+            panel.notOccluded = panelHasLineOfSight(panel, eye);
+            panel.nextOcclusionCheckMs = now + 120L;
+        }
+        panel.renderVisible = panel.notOccluded;
     }
 
-    private void updateHudGrabOffset(Vec3d eye, Vec3d look) {
-        if (!isHudMode() || grabbed == null || grabMode != 1) return;
-        Vec3d cameraRight = look.crossProduct(new Vec3d(0, 1, 0));
-        if (cameraRight.lengthSquared() < 1e-6) return;
-        cameraRight = cameraRight.normalize();
-        Vec3d cameraUp = cameraRight.crossProduct(look).normalize();
-        Vec3d base = eye.add(look.multiply(3.2));
-        Vec3d offset = grabbed.targetCenter.subtract(base);
-        grabbed.hudU = offset.dotProduct(cameraRight);
-        grabbed.hudV = offset.dotProduct(cameraUp);
+    private boolean panelHasLineOfSight(Panel panel, Vec3d eye) {
+        double u = panel.halfW * 0.78;
+        double v = panel.halfH * 0.78;
+        return clearLineOfSight(eye, panel.center)
+                || clearLineOfSight(eye, panel.center.add(panel.right.multiply(u)).add(panel.up.multiply(v)))
+                || clearLineOfSight(eye, panel.center.subtract(panel.right.multiply(u)).add(panel.up.multiply(v)))
+                || clearLineOfSight(eye, panel.center.add(panel.right.multiply(u)).subtract(panel.up.multiply(v)))
+                || clearLineOfSight(eye, panel.center.subtract(panel.right.multiply(u)).subtract(panel.up.multiply(v)));
+    }
+
+    private boolean clearLineOfSight(Vec3d eye, Vec3d target) {
+        HitResult hit = mc.world.raycast(new RaycastContext(
+                eye, target, RaycastContext.ShapeType.VISUAL,
+                RaycastContext.FluidHandling.NONE, mc.player));
+        return hit.getType() == HitResult.Type.MISS
+                || eye.squaredDistanceTo(hit.getPos()) + 0.04 >= eye.squaredDistanceTo(target);
+    }
+
+    private void updateBrowserVisibility(Panel panel, boolean panelVisible) {
+        Tab active = activeTab(panel);
+        for (Tab tab : panel.tabs) {
+            boolean visible = panelVisible && tab == active && !panel.closing;
+            if (tab.browser != null && tab.browserVisible != visible) {
+                WebBrowserBridge.setVisible(tab.browser, visible);
+                tab.browserVisible = visible;
+            }
+        }
     }
 
     private int panelTextureId(Panel panel) {
@@ -1142,7 +1147,7 @@ public class WebPanels extends Module {
     }
 
     private void updateSharedPanelSnapshot() {
-        if (!isEnabled() || !shareMyScreens.get() || isHudMode()) {
+        if (!isEnabled() || !shareMyScreens.get()) {
             sharedPanelSnapshot = List.of();
             pendingSharedFrames.clear();
             return;
@@ -1161,7 +1166,7 @@ public class WebPanels extends Module {
     }
 
     private void maybeCaptureSharedFrame() {
-        if (!isEnabled() || !shareMyScreens.get() || isHudMode() || panels.isEmpty()
+        if (!isEnabled() || !shareMyScreens.get() || panels.isEmpty()
                 || !sharedCaptureInFlight.compareAndSet(false, true)) return;
         long now = System.currentTimeMillis();
         if (now < nextSharedCaptureMs) {
@@ -1169,7 +1174,7 @@ public class WebPanels extends Module {
             return;
         }
         List<Panel> candidates = panels.stream()
-                .filter(panel -> !panel.closing && panel.browser != null
+                .filter(panel -> panel.renderVisible && !panel.closing && panel.browser != null
                         && WebBrowserBridge.isTextureReady(panel.browser))
                 .toList();
         if (candidates.isEmpty()) {
@@ -1206,31 +1211,23 @@ public class WebPanels extends Module {
 
     private void encodeSharedFrame(Panel panel, BufferedImage image, float quality, long revision) {
         try {
-            byte[] bytes = null;
-            float adaptiveQuality = quality;
-            // A noisy 1080p browser frame can exceed the launcher's request cap.
-            // Preserve the selected resolution and lower JPEG quality only for that frame.
-            for (int attempt = 0; attempt < 5; attempt++) {
-                try (ByteArrayOutputStream output = new ByteArrayOutputStream();
-                     ImageOutputStream imageOutput = ImageIO.createImageOutputStream(output)) {
-                    ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
-                    try {
-                        writer.setOutput(imageOutput);
-                        ImageWriteParam params = writer.getDefaultWriteParam();
-                        if (params.canWriteCompressed()) {
-                            params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-                            params.setCompressionQuality(adaptiveQuality);
-                        }
-                        writer.write(null, new IIOImage(image, null, null), params);
-                    } finally {
-                        writer.dispose();
-                    }
-                    bytes = output.toByteArray();
-                }
-                if (bytes.length <= MAX_SHARED_FRAME_BYTES) break;
-                adaptiveQuality = Math.max(0.22f, adaptiveQuality * 0.72f);
+            if (Math.abs(panel.sharedJpegProfileQuality - quality) > 0.001f) {
+                panel.sharedJpegProfileQuality = quality;
+                panel.sharedJpegQuality = quality;
+            }
+            float adaptiveQuality = panel.sharedJpegQuality > 0.0f
+                    ? Math.min(quality, panel.sharedJpegQuality) : quality;
+            byte[] bytes = encodeJpeg(image, adaptiveQuality);
+            // Usually one encode is enough. Detailed video gets at most two
+            // corrective encodes, then reuses the learned quality next frame.
+            for (int attempt = 0; attempt < 2 && bytes.length > MAX_SHARED_FRAME_BYTES; attempt++) {
+                float ratio = MAX_SHARED_FRAME_BYTES / (float) bytes.length;
+                adaptiveQuality *= MathHelper.clamp(ratio * 0.96f, 0.45f, 0.92f);
+                adaptiveQuality = Math.max(0.22f, adaptiveQuality);
+                bytes = encodeJpeg(image, adaptiveQuality);
             }
             if (bytes == null || bytes.length == 0 || bytes.length > MAX_SHARED_FRAME_BYTES) return;
+            panel.sharedJpegQuality = Math.min(quality, adaptiveQuality + 0.012f);
             String encoded = Base64.getEncoder().encodeToString(bytes);
             panel.lastSharedFrameRevision = revision;
             pendingSharedFrames.put(panel.id, new SharedFrame(panel.id, revision, encoded));
@@ -1238,6 +1235,25 @@ public class WebPanels extends Module {
         } catch (Exception ignored) {
         } finally {
             sharedCaptureInFlight.set(false);
+        }
+    }
+
+    private static byte[] encodeJpeg(BufferedImage image, float quality) throws Exception {
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream();
+             ImageOutputStream imageOutput = ImageIO.createImageOutputStream(output)) {
+            ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+            try {
+                writer.setOutput(imageOutput);
+                ImageWriteParam params = writer.getDefaultWriteParam();
+                if (params.canWriteCompressed()) {
+                    params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                    params.setCompressionQuality(MathHelper.clamp(quality, 0.0f, 1.0f));
+                }
+                writer.write(null, new IIOImage(image, null, null), params);
+            } finally {
+                writer.dispose();
+            }
+            return output.toByteArray();
         }
     }
 
@@ -1260,9 +1276,9 @@ public class WebPanels extends Module {
     }
 
     private VideoProfile videoProfile() {
-        if (videoQuality.is("Максимум")) return new VideoProfile(1920, 1080, 0.84f, 420L);
-        if (videoQuality.is("Высокое")) return new VideoProfile(1280, 720, 0.76f, 330L);
-        if (videoQuality.is("Среднее")) return new VideoProfile(854, 480, 0.64f, 250L);
+        if (videoQuality.is("Максимум")) return new VideoProfile(1920, 1080, 0.96f, 420L);
+        if (videoQuality.is("Высокое")) return new VideoProfile(1280, 720, 0.88f, 330L);
+        if (videoQuality.is("Среднее")) return new VideoProfile(854, 480, 0.74f, 250L);
         return new VideoProfile(480, 270, 0.48f, 180L);
     }
 
@@ -1272,16 +1288,11 @@ public class WebPanels extends Module {
         p.animVelocity *= (float) Math.exp(-17f * dt);
         p.anim = MathHelper.clamp(p.anim + p.animVelocity * dt, 0f, 1.035f);
 
-        if (isHudMode() && !p.remote) {
-            p.center = p.targetCenter;
-            p.moveVelocity = Vec3d.ZERO;
-        } else {
-            double moveStiffness = grabbed == p && grabMode == 1 ? 125.0 : 92.0;
-            double moveDamping = grabbed == p && grabMode == 1 ? 17.5 : 16.0;
-            p.moveVelocity = p.moveVelocity.add(p.targetCenter.subtract(p.center).multiply(moveStiffness * dt));
-            p.moveVelocity = p.moveVelocity.multiply(Math.exp(-moveDamping * dt));
-            p.center = p.center.add(p.moveVelocity.multiply(dt));
-        }
+        double moveStiffness = grabbed == p && grabMode == 1 ? 125.0 : 92.0;
+        double moveDamping = grabbed == p && grabMode == 1 ? 17.5 : 16.0;
+        p.moveVelocity = p.moveVelocity.add(p.targetCenter.subtract(p.center).multiply(moveStiffness * dt));
+        p.moveVelocity = p.moveVelocity.multiply(Math.exp(-moveDamping * dt));
+        p.center = p.center.add(p.moveVelocity.multiply(dt));
 
         double sizeStiffness = grabbed == p && grabMode == 2 ? 145.0 : 105.0;
         double sizeDamping = grabbed == p && grabMode == 2 ? 18.5 : 17.0;
@@ -1293,15 +1304,10 @@ public class WebPanels extends Module {
         p.halfW += p.widthVelocity * dt;
         p.halfH += p.heightVelocity * dt;
 
-        if (isHudMode() && !p.remote) {
-            p.right = p.targetRight;
-            p.up = p.targetUp;
-        } else {
-            double orientationBlend = 1.0 - Math.exp(-((grabbed == p || rotatingPanel == p) ? 15.0 : 10.0) * dt);
-            p.right = p.right.lerp(p.targetRight, orientationBlend).normalize();
-            p.up = p.up.lerp(p.targetUp, orientationBlend);
-            p.up = p.up.subtract(p.right.multiply(p.up.dotProduct(p.right))).normalize();
-        }
+        double orientationBlend = 1.0 - Math.exp(-((grabbed == p || rotatingPanel == p) ? 15.0 : 10.0) * dt);
+        p.right = p.right.lerp(p.targetRight, orientationBlend).normalize();
+        p.up = p.up.lerp(p.targetUp, orientationBlend);
+        p.up = p.up.subtract(p.right.multiply(p.up.dotProduct(p.right))).normalize();
 
         float barTarget = p.hoveredRegion == 1 || p.hoveredRegion == 3
                 || (grabbed == p && grabMode == 1) || rotatingPanel == p ? 1f : 0f;
@@ -1441,7 +1447,7 @@ public class WebPanels extends Module {
         long win = mc.getWindow().getHandle();
         boolean left = GLFW.glfwGetMouseButton(win, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
         boolean right = GLFW.glfwGetMouseButton(win, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
-        boolean rHeld = !isHudMode() && GLFW.glfwGetKey(win, GLFW.GLFW_KEY_R) == GLFW.GLFW_PRESS;
+        boolean rHeld = GLFW.glfwGetKey(win, GLFW.GLFW_KEY_R) == GLFW.GLFW_PRESS;
         boolean queuedPress = queuedMouseAction == GLFW.GLFW_PRESS;
         boolean queuedRelease = queuedMouseAction == GLFW.GLFW_RELEASE;
         boolean leftPress = queuedPress ? queuedMouseButton == 0 : left && !prevLeft;
@@ -1495,7 +1501,7 @@ public class WebPanels extends Module {
         }
         for (int i = panels.size() - 1; i >= 0; i--) {
             Panel p = panels.get(i);
-            if (p.closing) continue;
+            if (p.closing || !p.renderVisible) continue;
             double[] h = hit(p, eye, look);
             if (h == null) continue;
             int region = region(p, h[0], h[1]);
@@ -1514,7 +1520,7 @@ public class WebPanels extends Module {
         if (pressEdge && grabbed == null && rotatingPanel == null) {
             for (int i = panels.size() - 1; i >= 0; i--) {
                 Panel p = panels.get(i);
-                if (p.closing) continue;
+                if (p.closing || !p.renderVisible) continue;
                 double[] h = hit(p, eye, look);
                 if (h == null) continue;
                 int region = region(p, h[0], h[1]);
@@ -2382,6 +2388,8 @@ public class WebPanels extends Module {
         long lastCameraBootstrapMs;
         long lastCameraFrameSequence;
         volatile long lastSharedFrameRevision;
+        float sharedJpegProfileQuality = -1.0f;
+        float sharedJpegQuality = -1.0f;
         boolean remote;
         String remoteKey = "";
         String ownerName = "";
@@ -2389,9 +2397,9 @@ public class WebPanels extends Module {
         long remoteFrameRevision;
         long lastRemoteSeenMs;
         double remoteCurve;
-        boolean hudInitialized;
-        double hudU;
-        double hudV;
+        boolean renderVisible;
+        boolean notOccluded = true;
+        long nextOcclusionCheckMs;
         final List<Tab> tabs = new ArrayList<>();
         final List<ClosingTab> closingTabs = new ArrayList<>();
         int activeTab;
@@ -2402,6 +2410,7 @@ public class WebPanels extends Module {
         Object browser;
         long lastCameraBootstrapMs;
         long lastCameraFrameSequence;
+        boolean browserVisible = true;
         float reveal;
         double visualCenter = Double.NaN;
         double visualWidth;
