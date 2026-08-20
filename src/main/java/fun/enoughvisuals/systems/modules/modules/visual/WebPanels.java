@@ -868,10 +868,8 @@ public class WebPanels extends Module {
 
         if (contentPanel != null && grabbed == null && rotatingPanel == null) {
             int[] px = pixel(contentPanel, contentHit);
-            WebBrowserBridge.mouseMove(contentPanel.browser, px[0], px[1]);
-            if (pressedPanel == contentPanel) {
-                pressedMouseX = px[0];
-                pressedMouseY = px[1];
+            if (pressedPanel != contentPanel) {
+                WebBrowserBridge.mouseMove(contentPanel.browser, px[0], px[1]);
             }
             if (pressEdge && !uiPressHandled && pressedPanel == null) {
                 boolean enteringControl = focusedPanel != contentPanel || focusedPanel.addressEditing;
@@ -885,13 +883,25 @@ public class WebPanels extends Module {
                 if (enteringControl) notifyControlEntered();
             }
         }
-        boolean pressedButtonReleased = pressedPanel != null
-                && (pressedMouseButton == 0 ? (!left && prevLeft) : (!right && prevRight));
-        if (pressedButtonReleased) {
-            if (pressedPanel.browser != null) {
-                WebBrowserBridge.mouseRelease(pressedPanel.browser, pressedMouseX, pressedMouseY, pressedMouseButton);
+        if (pressedPanel != null) {
+            boolean pressedButtonHeld = pressedMouseButton == 0 ? left : right;
+            if (pressedButtonHeld && !pressedPanel.closing && pressedPanel.browser != null) {
+                double[] heldHit = hitPlane(pressedPanel, eye, look, true);
+                if (heldHit != null) {
+                    int[] px = pixel(pressedPanel, heldHit);
+                    pressedMouseX = px[0];
+                    pressedMouseY = px[1];
+                }
+                // MCEF keeps its left/right button mask between press and release;
+                // forwarding moves preserves native Chromium pointer capture/long-press.
+                WebBrowserBridge.mouseMove(pressedPanel.browser, pressedMouseX, pressedMouseY);
+            } else {
+                if (pressedPanel.browser != null) {
+                    WebBrowserBridge.mouseRelease(pressedPanel.browser,
+                            pressedMouseX, pressedMouseY, pressedMouseButton);
+                }
+                pressedPanel = null;
             }
-            pressedPanel = null;
         }
         prevLeft = left;
         prevRight = right;
