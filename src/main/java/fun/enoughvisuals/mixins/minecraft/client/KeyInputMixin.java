@@ -92,7 +92,7 @@ public abstract class KeyInputMixin {
     private void enough$onChar(long window, int codepoint, int modifiers, CallbackInfo ci) {
         WebPanels webPanels = WebPanels.getInstance();
         if (webPanels != null && webPanels.isBrowserFocused()) {
-            webPanels.forwardChar((char) codepoint, modifiers);
+            webPanels.forwardChar(codepoint, modifiers);
             ci.cancel();
         }
     }

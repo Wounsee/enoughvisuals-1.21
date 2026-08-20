@@ -32,6 +32,8 @@ public class MouseMixin {
             at = @At(value = "INVOKE",
                     target = "Lnet/minecraft/client/network/ClientPlayerEntity;changeLookDirection(DD)V"))
     private void enough$redirectFreeLook(ClientPlayerEntity player, double yawDelta, double pitchDelta) {
+        WebPanels webPanels = WebPanels.getInstance();
+        if (webPanels != null && webPanels.isAddressEditing()) return;
         if (!FreeLook.handleLookDelta(yawDelta, pitchDelta)) {
             player.changeLookDirection(yawDelta, pitchDelta);
         }
@@ -43,7 +45,8 @@ public class MouseMixin {
         if (client == null) return;
 
         WebPanels webPanels = WebPanels.getInstance();
-        if (webPanels != null && webPanels.isHovering() && client.currentScreen == null) {
+        if (webPanels != null && (webPanels.isAddressEditing() || webPanels.isHovering())
+                && client.currentScreen == null) {
             ci.cancel();
             return;
         }
@@ -77,6 +80,10 @@ public class MouseMixin {
     @Inject(method = "onMouseScroll", at = @At("HEAD"), cancellable = true)
     private void onMouseScroll(long window, double horizontal, double vertical, CallbackInfo ci) {
         WebPanels webPanels = WebPanels.getInstance();
+        if (webPanels != null && webPanels.isAddressEditing()) {
+            ci.cancel();
+            return;
+        }
         if (webPanels != null && (webPanels.isMoving() || webPanels.isHoveringContent())) {
             webPanels.scroll(vertical);
             ci.cancel();

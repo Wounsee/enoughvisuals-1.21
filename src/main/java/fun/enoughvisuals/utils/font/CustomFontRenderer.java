@@ -21,6 +21,7 @@ import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 import org.lwjgl.opengl.GL13;
@@ -287,6 +288,105 @@ public class CustomFontRenderer {
     public static void drawText(DrawContext ctx, String text, float x, float y,
                                 float size, int color, FontWeight weight) {
         drawTextInternal(ctx, text, x, y, size, color, weight, false, 0f, 0f, 0f, 0f);
+    }
+
+    /**
+     * Draws the same MTSDF atlas used by the 2D UI directly on a world-space
+     * plane. No vanilla bitmap fallback is used here because mixing bitmap and
+     * distance-field glyphs is visibly inconsistent on a spatial panel.
+     */
+    public static void drawWorldText(Matrix4f matrix, Vec3d origin, Vec3d right, Vec3d up, Vec3d normal,
+                                     String text, double anchorU, double centerV, double size, double depth,
+                                     int color, FontWeight weight, boolean centered) {
+        text = NameProtect.protect(ClientLanguage.localizeLiteral(text));
+        if (text == null || text.isEmpty() || size <= 0.0) return;
+        if (!initialized && !failedInit) init();
+        if (!initialized || failedInit || msdfShaderKey == null) return;
+
+        MsdfAtlas atlas = getAtlas(weight);
+        if (atlas == null) return;
+
+        ShaderProgram shader;
+        try {
+            shader = RenderSystem.setShader(msdfShaderKey);
+        } catch (Exception ignored) {
+            return;
+        }
+        if (shader == null) return;
+
+        float alpha = ((color >>> 24) & 0xFF) / 255f;
+        if (alpha <= 0.001f) return;
+        float red = ((color >>> 16) & 0xFF) / 255f;
+        float green = ((color >>> 8) & 0xFF) / 255f;
+        float blue = (color & 0xFF) / 255f;
+
+        ensureTextureFiltering(atlas);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        // Explicit unit-zero bind matters after dynamic Chromium textures: it
+        // prevents their sampler state from replacing the MTSDF atlas.
+        RenderSystem.setShaderTexture(0, atlas.textureId);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        MinecraftClient.getInstance().getTextureManager().getTexture(atlas.textureId).bindTexture();
+
+        setUniform(shader, "uColor", red, green, blue, alpha);
+        setUniform(shader, "uPxRange", atlas.distanceRange);
+        setUniform(shader, "uMtsdf", atlas.mtsdf ? 1f : 0f);
+        setUniform(shader, "uIconAtlas", isIconAtlas(weight) ? 1f : 0f);
+        setUniform(shader, "uClipFade", -1f, -1f, 0f, 0f);
+
+        float worldSize = (float) size;
+        float penU = (float) anchorU;
+        if (centered) penU -= getTextWidth(text, worldSize, weight) * 0.5f;
+        float lineTop = (float) centerV + atlas.lineHeight * worldSize * 0.5f;
+        float baselineV = lineTop - atlas.ascender * worldSize;
+        int previousCodePoint = -1;
+        boolean wroteAny = false;
+        BufferBuilder buffer = Tessellator.getInstance()
+                .begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
+
+        for (int i = 0; i < text.length(); ) {
+            int codePoint = text.codePointAt(i);
+            i += Character.charCount(codePoint);
+            Glyph glyph = atlas.glyphs.get(codePoint);
+            if (glyph == null && !Character.isWhitespace(codePoint)) glyph = atlas.glyphs.get((int) '?');
+            if (glyph == null) {
+                penU += missingGlyphAdvance(atlas, codePoint) * worldSize;
+                previousCodePoint = -1;
+                continue;
+            }
+            if (previousCodePoint >= 0) {
+                Float kern = atlas.kerningPairs.get(packPair(previousCodePoint, codePoint));
+                if (kern != null) penU += kern * worldSize;
+            }
+            if (glyph.hasPlaneBounds && glyph.hasAtlasBounds) {
+                double u0 = penU + glyph.left * worldSize;
+                double u1 = penU + glyph.right * worldSize;
+                double v0 = baselineV + glyph.bottom * worldSize;
+                double v1 = baselineV + glyph.top * worldSize;
+                worldVertex(buffer, matrix, origin, right, up, normal, u0, v0, depth, glyph.u0, glyph.v1);
+                worldVertex(buffer, matrix, origin, right, up, normal, u1, v0, depth, glyph.u1, glyph.v1);
+                worldVertex(buffer, matrix, origin, right, up, normal, u1, v1, depth, glyph.u1, glyph.v0);
+                worldVertex(buffer, matrix, origin, right, up, normal, u0, v1, depth, glyph.u0, glyph.v0);
+                wroteAny = true;
+            }
+            penU += glyph.advance * worldSize;
+            previousCodePoint = codePoint;
+        }
+
+        var builtBuffer = buffer.endNullable();
+        if (wroteAny && builtBuffer != null) BufferRenderer.drawWithGlobalProgram(builtBuffer);
+        RenderSystem.disableBlend();
+    }
+
+    private static void worldVertex(BufferBuilder buffer, Matrix4f matrix,
+                                    Vec3d origin, Vec3d right, Vec3d up, Vec3d normal,
+                                    double u, double v, double depth, float textureU, float textureV) {
+        double x = origin.x + right.x * u + up.x * v + normal.x * depth;
+        double y = origin.y + right.y * u + up.y * v + normal.y * depth;
+        double z = origin.z + right.z * u + up.z * v + normal.z * depth;
+        buffer.vertex(matrix, (float) x, (float) y, (float) z).texture(textureU, textureV);
     }
 
     public static void drawTextWithFade(DrawContext ctx, String text, float x, float y,
