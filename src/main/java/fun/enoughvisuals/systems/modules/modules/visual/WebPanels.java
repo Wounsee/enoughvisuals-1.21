@@ -946,9 +946,9 @@ public class WebPanels extends Module {
         maybeCaptureSharedFrame();
 
         List<Panel> visiblePanels = new ArrayList<>();
-        for (Panel panel : panels) if (panel.renderVisible) visiblePanels.add(panel);
+        for (Panel panel : panels) if (panel.geometryVisible) visiblePanels.add(panel);
         if (showOtherScreens.get()) {
-            for (Panel panel : remotePanels.values()) if (panel.renderVisible) visiblePanels.add(panel);
+            for (Panel panel : remotePanels.values()) if (panel.geometryVisible) visiblePanels.add(panel);
         }
 
         // Capture in-world blur frame if theme blur enabled
@@ -979,7 +979,7 @@ public class WebPanels extends Module {
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
                 for (Panel p : visiblePanels) {
-                    if (p.anim > 0.01f && isFrontFacing(p, eye)) {
+                    if (p.anim > 0.01f && p.renderVisible) {
                         float a = ease(p.anim);
                         double scale = 0.88 + 0.12 * a;
                         double hw = p.halfW * scale;
@@ -1003,14 +1003,19 @@ public class WebPanels extends Module {
                 double scale = 0.88 + 0.12 * a;
                 double hw = p.halfW * scale;
                 double hh = p.halfH * scale;
-                if (blurTex <= 0 || CustomTheme.blurDisabled()) {
-                    drawSdfSurface(matrix, cam, p, hw, hh, 0.0015,
-                            0x10, 0x13, 0x1A, (int) (242 * a));
+                if (isFrontFacing(p, eye)) {
+                    if (blurTex <= 0 || CustomTheme.blurDisabled()) {
+                        drawSdfSurface(matrix, cam, p, hw, hh, 0.0015,
+                                0x10, 0x13, 0x1A, (int) (242 * a));
+                    }
+                } else {
+                    drawSdfSurface(matrix, cam, p, hw, hh, 0.0,
+                            0x0C, 0x0E, 0x13, (int) (248 * a));
                 }
             }
 
             for (Panel p : visiblePanels) {
-                if (p.anim > 0.01f && isFrontFacing(p, eye)) {
+                if (p.anim > 0.01f && p.renderVisible) {
                     drawPanelSdfControls(matrix, cam, p, hit(p, eye, look));
                 }
             }
@@ -1019,7 +1024,7 @@ public class WebPanels extends Module {
             RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
             BufferBuilder colorBuf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
             for (Panel p : visiblePanels) {
-                if (p.anim > 0.01f && isFrontFacing(p, eye)) {
+                if (p.anim > 0.01f && p.renderVisible) {
                     drawPanelChrome(colorBuf, matrix, cam, p);
                 }
             }
@@ -1031,7 +1036,7 @@ public class WebPanels extends Module {
             // 4. Chromium content uses the same analytic SDF mask as the shell.
             for (Panel p : visiblePanels) {
                 int glTex = panelTextureId(p);
-                if (glTex > 0 && p.anim > 0.01f && isFrontFacing(p, eye)) {
+                if (glTex > 0 && p.anim > 0.01f && p.renderVisible) {
                     float a = ease(p.anim);
                     double scale = 0.88 + 0.12 * a;
                     double hw = p.halfW * scale;
@@ -1057,7 +1062,7 @@ public class WebPanels extends Module {
             // 5. The controls and address use the real MTSDF atlases in world
             // space. This pass replaces all hand-built arrow/globe/trash paths.
             for (Panel p : visiblePanels) {
-                if (p.anim > 0.01f && isFrontFacing(p, eye)) {
+                if (p.anim > 0.01f && p.renderVisible) {
                     drawPanelMtsdf(matrix, cam, p, hit(p, eye, look));
                 }
             }
@@ -1081,12 +1086,14 @@ public class WebPanels extends Module {
     }
 
     private void updatePanelVisibility(WorldRenderContext context, Panel panel, Vec3d eye) {
-        if (panel.closing || panel.anim <= 0.005f || !isFrontFacing(panel, eye)) {
+        if (panel.closing || panel.anim <= 0.005f) {
+            panel.geometryVisible = false;
             panel.renderVisible = false;
             return;
         }
         double radius = Math.sqrt(panel.halfW * panel.halfW + panel.halfH * panel.halfH) + 0.28;
         if (eye.squaredDistanceTo(panel.center) > (24.0 + radius) * (24.0 + radius)) {
+            panel.geometryVisible = false;
             panel.renderVisible = false;
             return;
         }
@@ -1094,11 +1101,17 @@ public class WebPanels extends Module {
                 panel.center.x - radius, panel.center.y - radius, panel.center.z - radius,
                 panel.center.x + radius, panel.center.y + radius, panel.center.z + radius);
         if (context.frustum() != null && !context.frustum().isVisible(bounds)) {
+            panel.geometryVisible = false;
             panel.renderVisible = false;
             return;
         }
+        panel.geometryVisible = true;
         if (panel == grabbed || panel == rotatingPanel || panel == pressedPanel) {
             panel.renderVisible = true;
+            return;
+        }
+        if (!isFrontFacing(panel, eye)) {
+            panel.renderVisible = false;
             return;
         }
         long now = System.currentTimeMillis();
@@ -2398,6 +2411,7 @@ public class WebPanels extends Module {
         long lastRemoteSeenMs;
         double remoteCurve;
         boolean renderVisible;
+        boolean geometryVisible;
         boolean notOccluded = true;
         long nextOcclusionCheckMs;
         final List<Tab> tabs = new ArrayList<>();
