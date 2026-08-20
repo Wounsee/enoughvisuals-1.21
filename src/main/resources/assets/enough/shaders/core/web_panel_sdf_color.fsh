@@ -2,6 +2,7 @@
 
 uniform vec2 Size;
 uniform float Radius;
+uniform float BottomRadius;
 uniform float Exponent;
 
 in vec2 TexCoord;
@@ -18,8 +19,10 @@ float roundedBoxSdf(vec2 p, vec2 halfSize, float radius) {
 
 void main() {
     vec2 p = (TexCoord - vec2(0.5)) * Size;
-    float dist = roundedBoxSdf(p, Size * 0.5, min(Radius, min(Size.x, Size.y) * 0.5));
-    float smoothing = max(fwidth(dist) * 1.65, 0.0002);
+    float selectedRadius = p.y < 0.0 ? Radius : BottomRadius;
+    float dist = roundedBoxSdf(p, Size * 0.5,
+            min(selectedRadius, min(Size.x, Size.y) * 0.5));
+    float smoothing = max(fwidth(dist) * 0.85, 0.00012);
     float coverage = 1.0 - smoothstep(-smoothing, smoothing, dist);
     float alpha = vertexColor.a * coverage;
     if (alpha <= 0.002) discard;

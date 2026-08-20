@@ -23,7 +23,22 @@ public final class WebPanelShaders {
     }
 
     public static ShaderProgram useColor(float width, float height, float radius, float exponent) {
-        return configure(RenderSystem.setShader(COLOR), width, height, radius, exponent);
+        return useColor(width, height, radius, radius, exponent);
+    }
+
+    public static ShaderProgram useTopRoundedColor(float width, float height, float radius,
+                                                    float exponent) {
+        return useColor(width, height, radius, 0.0f, exponent);
+    }
+
+    private static ShaderProgram useColor(float width, float height, float topRadius,
+                                          float bottomRadius, float exponent) {
+        ShaderProgram shader = configure(RenderSystem.setShader(COLOR), width, height,
+                topRadius, exponent);
+        if (shader == null) return null;
+        GlUniform bottom = shader.getUniform("BottomRadius");
+        if (bottom != null) bottom.set(bottomRadius);
+        return shader;
     }
 
     public static ShaderProgram useTexture(float width, float height, float radius) {
@@ -35,11 +50,13 @@ public final class WebPanelShaders {
     }
 
     public static ShaderProgram useCorner(float width, float height, float radius,
-                                          float thickness, boolean rightSide) {
+                                          float thickness, float padding, boolean rightSide) {
         ShaderProgram shader = configure(RenderSystem.setShader(CORNER), width, height, radius, 2.0f);
         if (shader == null) return null;
         GlUniform stroke = shader.getUniform("Thickness");
         if (stroke != null) stroke.set(thickness);
+        GlUniform inset = shader.getUniform("Padding");
+        if (inset != null) inset.set(padding);
         GlUniform side = shader.getUniform("RightSide");
         if (side != null) side.set(rightSide ? 1 : 0);
         return shader;

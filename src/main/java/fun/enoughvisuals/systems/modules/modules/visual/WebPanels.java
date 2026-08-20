@@ -1165,7 +1165,7 @@ public class WebPanels extends Module {
     }
 
     private double tabsY(Panel p) {
-        return navY(p) + 0.096 * controlScale(p);
+        return navY(p) + 0.092 * controlScale(p);
     }
 
     private double tabAddU(Panel p) {
@@ -1306,8 +1306,13 @@ public class WebPanels extends Module {
         double navHalfW = Math.min(hw * 0.62, 0.86 * control);
         double navHalfH = 0.053 * control;
         double navY = hh + NAV_GAP * control;
-        drawSdfRoundedSurface(matrix, cam, p, 0, navY, navHalfW, navHalfH, navHalfH, 0.006,
-                0x16, 0x19, 0x20, (int) (218 * a));
+        double tabsY = navY + 0.092 * control;
+        double tabsHalfH = 0.043 * control;
+        double chromeTop = tabsY + tabsHalfH;
+        double chromeBottom = navY - navHalfH;
+        drawSdfRoundedSurface(matrix, cam, p, 0, (chromeTop + chromeBottom) * 0.5,
+                navHalfW, (chromeTop - chromeBottom) * 0.5, 0.045 * control, 0.006,
+                0x16, 0x19, 0x20, (int) (218 * a), 2.35f);
 
         double backU = -navHalfW + 0.075 * control;
         double fwdU = backU + 0.105 * control;
@@ -1336,11 +1341,6 @@ public class WebPanels extends Module {
                 overPill ? 0x31 : 0x21, overPill ? 0x35 : 0x25, overPill ? 0x3D : 0x2C,
                 (int) ((overPill ? 225 : 180) * a));
 
-        double tabsY = navY + 0.096 * control;
-        double tabsHalfH = 0.043 * control;
-        drawSdfRoundedSurface(matrix, cam, p, 0, tabsY,
-                navHalfW, tabsHalfH, tabsHalfH, 0.006,
-                0x13, 0x16, 0x1D, (int) (218 * a), 2.15f);
         double addU = navHalfW - 0.050 * control;
         double tabsLeft = -navHalfW + 0.018 * control;
         double tabsRight = addU - 0.060 * control;
@@ -1351,7 +1351,7 @@ public class WebPanels extends Module {
             boolean active = i == p.activeTab;
             boolean over = hovered == 20 + i || hovered == 30 + i;
             if (active || over) {
-                drawSdfRoundedSurface(matrix, cam, p, centerU, tabsY,
+                drawSdfTopRoundedSurface(matrix, cam, p, centerU, tabsY,
                         width * 0.5 - 0.003 * control, 0.035 * control,
                         0.026 * control, 0.009,
                         active ? 0x2A : 0x21, active ? 0x2E : 0x25, active ? 0x37 : 0x2D,
@@ -1419,7 +1419,7 @@ public class WebPanels extends Module {
                 visibleAddress, textU, navY, textSize, 0.013,
                 argb((int) (226 * a), 238, 240, 245), FontWeight.MEDIUM, false);
 
-        double tabsY = navY + 0.096 * control;
+        double tabsY = navY + 0.092 * control;
         double addU = abHalfW - 0.050 * control;
         double tabsLeft = -abHalfW + 0.018 * control;
         double tabsRight = addU - 0.060 * control;
@@ -1534,6 +1534,36 @@ public class WebPanels extends Module {
         if (built != null) BufferRenderer.drawWithGlobalProgram(built);
     }
 
+    private void drawSdfTopRoundedSurface(Matrix4f matrix, Vec3d cam, Panel p,
+                                          double centerU, double centerV,
+                                          double hw, double hh, double radius, double depth,
+                                          int red, int green, int blue, int alpha, float exponent) {
+        if (alpha <= 0 || hw <= 0.0 || hh <= 0.0) return;
+        WebPanelShaders.useTopRoundedColor((float) (hw * 2.0), (float) (hh * 2.0),
+                (float) radius, exponent);
+        Vec3d center = p.center.subtract(cam);
+        Vec3d normal = p.right.crossProduct(p.up).normalize();
+        BufferBuilder buffer = Tessellator.getInstance().begin(
+                VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+        int columns = PANEL_SEGMENTS;
+        for (int i = 0; i < columns; i++) {
+            double u0 = centerU - hw + 2.0 * hw * i / columns;
+            double u1 = centerU - hw + 2.0 * hw * (i + 1) / columns;
+            float t0 = (float) i / columns;
+            float t1 = (float) (i + 1) / columns;
+            sdfVert(buffer, matrix, center, p, normal, u0, centerV + hh, depth,
+                    t0, 0f, red, green, blue, alpha);
+            sdfVert(buffer, matrix, center, p, normal, u1, centerV + hh, depth,
+                    t1, 0f, red, green, blue, alpha);
+            sdfVert(buffer, matrix, center, p, normal, u1, centerV - hh, depth,
+                    t1, 1f, red, green, blue, alpha);
+            sdfVert(buffer, matrix, center, p, normal, u0, centerV - hh, depth,
+                    t0, 1f, red, green, blue, alpha);
+        }
+        BuiltBuffer built = buffer.endNullable();
+        if (built != null) BufferRenderer.drawWithGlobalProgram(built);
+    }
+
     private static double smartCorner(double hw, double hh) {
         // Roughly 28-40 Chromium pixels at the default 1920x1080 panel. This
         // keeps the silhouette rounded without eating page buttons or text.
@@ -1545,20 +1575,27 @@ public class WebPanels extends Module {
                                         double controlScale, float reveal) {
         if (reveal <= 0.01f) return;
         double growth = 0.82 + 0.18 * reveal;
-        double radius = 0.022 * growth * controlScale;
-        double leg = 0.046 * growth * controlScale;
-        double gap = 0.008 * controlScale;
-        double thickness = 0.0054 * controlScale;
-        double width = leg + radius;
-        double height = leg + radius;
+        double radius = 0.030 * growth * controlScale;
+        double leg = 0.052 * growth * controlScale;
+        double gap = 0.014 * controlScale;
+        double thickness = 0.0110 * controlScale;
+        double padding = thickness;
+        double pathWidth = leg + radius;
+        double pathHeight = leg + radius;
         double outerU = u + (rightSide ? gap : -gap);
-        double minU = rightSide ? outerU - width : outerU;
-        double maxU = rightSide ? outerU : outerU + width;
-        double minV = v - gap;
-        double maxV = minV + height;
+        double pathMinU = rightSide ? outerU - pathWidth : outerU;
+        double pathMaxU = rightSide ? outerU : outerU + pathWidth;
+        double pathMinV = v - gap;
+        double pathMaxV = pathMinV + pathHeight;
+        double minU = pathMinU - padding;
+        double maxU = pathMaxU + padding;
+        double minV = pathMinV - padding;
+        double maxV = pathMaxV + padding;
+        double width = maxU - minU;
+        double height = maxV - minV;
 
         WebPanelShaders.useCorner((float) width, (float) height, (float) radius,
-                (float) thickness, rightSide);
+                (float) thickness, (float) padding, rightSide);
         Vec3d center = p.center.subtract(cam);
         Vec3d normal = p.right.crossProduct(p.up).normalize();
         BufferBuilder buffer = Tessellator.getInstance().begin(

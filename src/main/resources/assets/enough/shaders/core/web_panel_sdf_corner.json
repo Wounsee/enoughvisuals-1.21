@@ -8,6 +8,7 @@
     { "name": "Size", "type": "float", "count": 2, "values": [1.0, 1.0] },
     { "name": "Radius", "type": "float", "count": 1, "values": [0.1] },
     { "name": "Thickness", "type": "float", "count": 1, "values": [0.01] },
+    { "name": "Padding", "type": "float", "count": 1, "values": [0.01] },
     { "name": "RightSide", "type": "int", "count": 1, "values": [1] }
   ]
 }
