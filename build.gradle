@@ -262,6 +262,13 @@ java {
 }
 
 jar {
+    // MCEF starts its downloader before client entrypoints and before mixins on
+    // com.cinemamod.mcef.MCEF are guaranteed to be applied.  The protected
+    // loader exposes the outer mod manifest, not the nested mcef.jar manifest,
+    // so keep the pinned java-cef revision on the outer artifact as well.
+    manifest {
+        attributes "java-cef-commit": "eaeb3d4370aa3526ee237ad1981ad59af3de4dd1"
+    }
     from("LICENSE") {
         rename { "${it}_${project.archives_base_name}" }
     }
