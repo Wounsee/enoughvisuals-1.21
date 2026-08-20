@@ -77,7 +77,7 @@ import javax.imageio.stream.ImageOutputStream;
         name = "WebPanels",
         id = "web_panels",
         description = "Плавающие окна браузера в мире (Apple Vision)",
-        category = Category.VISUAL
+        category = Category.CLIENT
 )
 public class WebPanels extends Module {
 
@@ -719,7 +719,8 @@ public class WebPanels extends Module {
     }
 
     public void spawnPanel() {
-        if (mc.player == null || activeCount() >= MAX_PANELS) {
+        int panelLimit = shareMyScreens.get() ? 2 : MAX_PANELS;
+        if (mc.player == null || activeCount() >= panelLimit) {
             return;
         }
         WebBrowserBridge.requestInit();
