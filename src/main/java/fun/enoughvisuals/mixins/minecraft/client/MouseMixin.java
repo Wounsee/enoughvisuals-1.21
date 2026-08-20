@@ -33,6 +33,7 @@ public class MouseMixin {
                     target = "Lnet/minecraft/client/network/ClientPlayerEntity;changeLookDirection(DD)V"))
     private void enough$redirectFreeLook(ClientPlayerEntity player, double yawDelta, double pitchDelta) {
         WebPanels webPanels = WebPanels.getInstance();
+        if (webPanels != null && webPanels.rotateWithMouse(yawDelta, pitchDelta)) return;
         if (webPanels != null && webPanels.isAddressEditing()) return;
         if (!FreeLook.handleLookDelta(yawDelta, pitchDelta)) {
             player.changeLookDirection(yawDelta, pitchDelta);

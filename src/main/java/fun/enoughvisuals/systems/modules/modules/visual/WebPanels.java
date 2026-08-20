@@ -70,7 +70,10 @@ public class WebPanels extends Module {
     private double grabDist;
     private double grabLocalU;
     private double grabLocalV;
+    private double grabVerticalOffset;
     private int grabButton;
+    private Panel rotatingPanel;
+    private int rotateButton = -1;
     private boolean prevLeft;
     private boolean prevRight;
     private boolean hovering;
@@ -103,12 +106,18 @@ public class WebPanels extends Module {
 
     public boolean scroll(double yOffset, boolean controlDown) {
         Panel hoveredPanel = hoveredPanel();
-        if (controlDown && hoveredPanel != null && grabbed == null) {
-            hoveredPanel.targetCenter = hoveredPanel.targetCenter.add(0.0, yOffset * 0.24, 0.0);
-            return true;
+        if (controlDown) {
+            if (isMoving()) {
+                grabVerticalOffset += yOffset * 0.12;
+                return true;
+            }
+            if (hoveredPanel != null && rotatingPanel == null) {
+                hoveredPanel.targetCenter = hoveredPanel.targetCenter.add(0.0, yOffset * 0.12, 0.0);
+                return true;
+            }
         }
         if (isMoving()) {
-            grabDist = MathHelper.clamp(grabDist + yOffset * 0.45, 1.2, 16.0);
+            grabDist = MathHelper.clamp(grabDist + yOffset * 0.24, 1.2, 16.0);
             return true;
         } else if (isHoveringContent()) {
             forwardScroll(yOffset);
@@ -117,15 +126,39 @@ public class WebPanels extends Module {
         return false;
     }
 
-    public boolean handleControlKey(int key, int modifiers, int action) {
-        if (!isEnabled() || isBrowserFocused() || key != GLFW.GLFW_KEY_R
-                || action != GLFW.GLFW_PRESS) return false;
-        Panel panel = hoveredPanel();
-        if (panel == null) return false;
-        double direction = (modifiers & GLFW.GLFW_MOD_SHIFT) != 0 ? -1.0 : 1.0;
-        double angle = Math.toRadians(15.0 * direction);
-        panel.targetRight = rotateAroundY(panel.targetRight, angle).normalize();
-        panel.targetUp = rotateAroundY(panel.targetUp, angle).normalize();
+    public boolean handleRotationKey(int key) {
+        if (!isEnabled() || key != GLFW.GLFW_KEY_R || mc.getWindow() == null) return false;
+        long window = mc.getWindow().getHandle();
+        boolean mouseDown = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS
+                || GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
+        return rotatingPanel != null || mouseDown && rotationCandidate() != null;
+    }
+
+    /** Consumes Minecraft look deltas while LMB/RMB + R rotates the spatial panel. */
+    public boolean rotateWithMouse(double yawDelta, double pitchDelta) {
+        if (!isEnabled() || mc.getWindow() == null) return false;
+        long window = mc.getWindow().getHandle();
+        boolean left = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+        boolean right = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
+        boolean rHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_R) == GLFW.GLFW_PRESS;
+        if (!rHeld || (!left && !right)) {
+            rotatingPanel = null;
+            rotateButton = -1;
+            return false;
+        }
+        if (!ensureRotationGesture(left, right)) return false;
+
+        Panel panel = rotatingPanel;
+        double yaw = Math.toRadians(-yawDelta * 0.15);
+        panel.targetRight = rotateAroundAxis(panel.targetRight, new Vec3d(0, 1, 0), yaw).normalize();
+        panel.targetUp = rotateAroundAxis(panel.targetUp, new Vec3d(0, 1, 0), yaw).normalize();
+
+        double pitch = Math.toRadians(pitchDelta * 0.15);
+        Vec3d pitchedUp = rotateAroundAxis(panel.targetUp, panel.targetRight, pitch).normalize();
+        if (pitchedUp.y > 0.12) panel.targetUp = pitchedUp;
+        panel.targetUp = panel.targetUp
+                .subtract(panel.targetRight.multiply(panel.targetUp.dotProduct(panel.targetRight)))
+                .normalize();
         return true;
     }
 
@@ -137,22 +170,50 @@ public class WebPanels extends Module {
         return null;
     }
 
-    private static Vec3d rotateAroundY(Vec3d vector, double angle) {
+    private Panel rotationCandidate() {
+        if (grabbed != null && !grabbed.closing) return grabbed;
+        if (pressedPanel != null && !pressedPanel.closing) return pressedPanel;
+        return hoveredPanel();
+    }
+
+    private boolean ensureRotationGesture(boolean left, boolean right) {
+        if (rotatingPanel != null) {
+            boolean held = rotateButton == GLFW.GLFW_MOUSE_BUTTON_LEFT ? left : right;
+            if (held && !rotatingPanel.closing) return true;
+            rotatingPanel = null;
+            rotateButton = -1;
+        }
+        Panel candidate = rotationCandidate();
+        if (candidate == null) return false;
+        rotatingPanel = candidate;
+        rotateButton = left ? GLFW.GLFW_MOUSE_BUTTON_LEFT : GLFW.GLFW_MOUSE_BUTTON_RIGHT;
+        if (pressedPanel != null && pressedPanel.browser != null) {
+            WebBrowserBridge.mouseRelease(pressedPanel.browser,
+                    pressedMouseX, pressedMouseY, pressedMouseButton);
+        }
+        pressedPanel = null;
+        grabbed = null;
+        return true;
+    }
+
+    private static Vec3d rotateAroundAxis(Vec3d vector, Vec3d axis, double angle) {
+        Vec3d normalizedAxis = axis.normalize();
         double cosine = Math.cos(angle);
         double sine = Math.sin(angle);
-        return new Vec3d(vector.x * cosine + vector.z * sine,
-                vector.y,
-                -vector.x * sine + vector.z * cosine);
+        return vector.multiply(cosine)
+                .add(normalizedAxis.crossProduct(vector).multiply(sine))
+                .add(normalizedAxis.multiply(normalizedAxis.dotProduct(vector) * (1.0 - cosine)));
     }
 
     public boolean isHoveringContent() {
-        return isEnabled() && contentPanel != null && contentPanel.browser != null && grabbed == null;
+        return isEnabled() && contentPanel != null && contentPanel.browser != null
+                && grabbed == null && rotatingPanel == null;
     }
 
     public void forwardScroll(double yOffset) {
         if (contentPanel != null && contentPanel.browser != null && contentHit != null) {
             int[] px = pixel(contentPanel, contentHit);
-            WebBrowserBridge.mouseWheel(contentPanel.browser, px[0], px[1], yOffset * 40.0);
+            WebBrowserBridge.mouseWheel(contentPanel.browser, px[0], px[1], yOffset * 18.0);
         }
     }
 
@@ -570,12 +631,13 @@ public class WebPanels extends Module {
         p.halfW += p.widthVelocity * dt;
         p.halfH += p.heightVelocity * dt;
 
-        double orientationBlend = 1.0 - Math.exp(-(grabbed == p ? 15.0 : 10.0) * dt);
+        double orientationBlend = 1.0 - Math.exp(-((grabbed == p || rotatingPanel == p) ? 15.0 : 10.0) * dt);
         p.right = p.right.lerp(p.targetRight, orientationBlend).normalize();
         p.up = p.up.lerp(p.targetUp, orientationBlend);
         p.up = p.up.subtract(p.right.multiply(p.up.dotProduct(p.right))).normalize();
 
-        float barTarget = p.hoveredRegion == 1 || p.hoveredRegion == 3 || (grabbed == p && grabMode == 1) ? 1f : 0f;
+        float barTarget = p.hoveredRegion == 1 || p.hoveredRegion == 3
+                || (grabbed == p && grabMode == 1) || rotatingPanel == p ? 1f : 0f;
         p.barReveal = smoothTowards(p.barReveal, barTarget, 15f, dt);
         for (int i = 0; i < p.edgeReveal.length; i++) {
             float edgeTarget = p.hoveredRegion == 10 + i || (grabbed == p && resizeSide == 10 + i) ? 1f : 0f;
@@ -657,10 +719,17 @@ public class WebPanels extends Module {
         long win = mc.getWindow().getHandle();
         boolean left = GLFW.glfwGetMouseButton(win, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
         boolean right = GLFW.glfwGetMouseButton(win, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
+        boolean rHeld = GLFW.glfwGetKey(win, GLFW.GLFW_KEY_R) == GLFW.GLFW_PRESS;
         boolean leftPress = left && !prevLeft;
         boolean rightPress = right && !prevRight;
         boolean pressEdge = leftPress || rightPress;
         int pressButton = leftPress ? 0 : 1;
+        if (rHeld && (left || right)) {
+            ensureRotationGesture(left, right);
+        } else if (rotatingPanel != null) {
+            rotatingPanel = null;
+            rotateButton = -1;
+        }
         boolean grabHeld = grabbed != null && (grabButton == 0 ? left : right);
 
         if (grabbed != null && grabHeld && !grabbed.closing) {
@@ -681,7 +750,8 @@ public class WebPanels extends Module {
                 grabbed.targetCenter = grabbedPoint
                         .subtract(newRight.multiply(curved[0]))
                         .subtract(newUp.multiply(grabLocalV))
-                        .subtract(normal.multiply(curved[1]));
+                        .subtract(normal.multiply(curved[1]))
+                        .add(0.0, grabVerticalOffset, 0.0);
             }
         } else {
             grabbed = null;
@@ -711,7 +781,7 @@ public class WebPanels extends Module {
         }
 
         boolean uiPressHandled = false;
-        if (pressEdge && grabbed == null) {
+        if (pressEdge && grabbed == null && rotatingPanel == null) {
             for (int i = panels.size() - 1; i >= 0; i--) {
                 Panel p = panels.get(i);
                 if (p.closing) continue;
@@ -740,6 +810,7 @@ public class WebPanels extends Module {
                     grabDist = hitWorld.distanceTo(eye);
                     grabLocalU = h[0];
                     grabLocalV = h[1];
+                    grabVerticalOffset = 0.0;
                     uiPressHandled = true;
                 } else if (region == 5) {
                     openAddress(p);
@@ -758,7 +829,7 @@ public class WebPanels extends Module {
             }
         }
 
-        if (contentPanel != null && grabbed == null) {
+        if (contentPanel != null && grabbed == null && rotatingPanel == null) {
             int[] px = pixel(contentPanel, contentHit);
             WebBrowserBridge.mouseMove(contentPanel.browser, px[0], px[1]);
             if (pressedPanel == contentPanel) {
@@ -857,51 +928,60 @@ public class WebPanels extends Module {
     }
 
     private double grabBarY(Panel p) {
-        return -p.halfH - BAR_GAP;
+        return -p.halfH - BAR_GAP * controlScale(p);
     }
 
     private double deleteU(Panel p) {
-        return 0.165 * p.barReveal;
+        return 0.165 * controlScale(p) * p.barReveal;
     }
 
     private double grabU(Panel p) {
-        return -0.055 * p.barReveal;
+        return -0.055 * controlScale(p) * p.barReveal;
     }
 
     private double navHalfWidth(Panel p) {
-        return Math.min(p.halfW * 0.62, 0.86);
+        return Math.min(p.halfW * 0.62, 0.86 * controlScale(p));
     }
 
     private double navY(Panel p) {
-        return p.halfH + NAV_GAP;
+        return p.halfH + NAV_GAP * controlScale(p);
+    }
+
+    private static double controlScale(Panel p) {
+        double widthScale = p.halfW / 1.20;
+        double heightScale = p.halfH / 0.675;
+        return MathHelper.clamp(Math.sqrt(Math.max(0.01, widthScale * heightScale)), 0.72, 1.75);
     }
 
     private int region(Panel p, double lu, double lv) {
         // A standalone iOS capsule. Hover reveals only the separate delete
         // action; there is deliberately no hover shell behind the grabber.
+        double control = controlScale(p);
         double barY = grabBarY(p);
         if (p.barReveal > 0.35f
-                && Math.hypot(lu - deleteU(p), lv - barY) < 0.052) return 3;
-        if (Math.abs(lv - barY) < 0.060 && Math.abs(lu - grabU(p)) < 0.155) {
+                && Math.hypot(lu - deleteU(p), lv - barY) < 0.052 * control) return 3;
+        if (Math.abs(lv - barY) < 0.060 * control
+                && Math.abs(lu - grabU(p)) < 0.155 * control) {
             return 1; // grab bar
         }
 
         // Compact navigation ornament sits close to the panel instead of floating far above it.
         double navY = navY(p), abHalfW = navHalfWidth(p);
-        if (Math.abs(lv - navY) < 0.068 && Math.abs(lu) <= abHalfW + 0.025) {
-            double backU = -abHalfW + 0.075;
-            double fwdU = backU + 0.105;
-            double reloadU = fwdU + 0.105;
+        if (Math.abs(lv - navY) < 0.068 * control
+                && Math.abs(lu) <= abHalfW + 0.025 * control) {
+            double backU = -abHalfW + 0.075 * control;
+            double fwdU = backU + 0.105 * control;
+            double reloadU = fwdU + 0.105 * control;
 
-            if (Math.abs(lu - backU) < 0.050) return 6;
-            if (Math.abs(lu - fwdU) < 0.050) return 7;
-            if (Math.abs(lu - reloadU) < 0.050) return 8;
+            if (Math.abs(lu - backU) < 0.050 * control) return 6;
+            if (Math.abs(lu - fwdU) < 0.050 * control) return 7;
+            if (Math.abs(lu - reloadU) < 0.050 * control) return 8;
             return 5;
         }
 
         // Resize exists only at the two lower corners, matching the requested
         // outline corner controls instead of a ring around the perimeter.
-        double cornerRadius = 0.135;
+        double cornerRadius = 0.135 * control;
         if (Math.hypot(lu + p.halfW, lv + p.halfH) < cornerRadius) return 10;
         if (Math.hypot(lu - p.halfW, lv + p.halfH) < cornerRadius) return 11;
 
@@ -919,6 +999,7 @@ public class WebPanels extends Module {
         double scale = 0.88 + 0.12 * a;
         double hw = p.halfW * scale;
         double hh = p.halfH * scale;
+        double control = controlScale(p) * scale;
 
         int accentLight = MenuScreen.ACCENT_LIGHT;
         int alr = (accentLight >> 16) & 0xFF;
@@ -941,38 +1022,40 @@ public class WebPanels extends Module {
 
         // Large rounded iOS grabber. Hover never creates a background behind it.
         float br = p.barReveal;
-        double barY = -hh - BAR_GAP;
-        double grabU = grabU(p);
-        fillRound(buf, m, c, p, n, 6, grabU, barY, 0.140, 0.014, 0.014,
+        double barY = -hh - BAR_GAP * control;
+        double grabU = -0.055 * control * br;
+        fillRound(buf, m, c, p, n, 6, grabU, barY,
+                0.140 * control, 0.014 * control, 0.014 * control,
                 245, 247, 251, (int) ((220 + 35 * br) * a));
 
         if (br > 0.02f) {
-            double trashU = deleteU(p);
-            fillRound(buf, m, c, p, n, 7, trashU, barY, 0.032, 0.032, 0.032,
+            double trashU = 0.165 * control * br;
+            fillRound(buf, m, c, p, n, 7, trashU, barY,
+                    0.032 * control, 0.032 * control, 0.032 * control,
                     0xFF, 0x3B, 0x45, (int) (232 * br * a));
         }
 
-        drawBottomCornerHandle(buf, m, c, p, n, -hw, -hh, false, p.edgeReveal[0] * a);
-        drawBottomCornerHandle(buf, m, c, p, n, hw, -hh, true, p.edgeReveal[1] * a);
+        drawBottomCornerHandle(buf, m, c, p, n, -hw, -hh, false, control, p.edgeReveal[0] * a);
+        drawBottomCornerHandle(buf, m, c, p, n, hw, -hh, true, control, p.edgeReveal[1] * a);
 
         // Compact navigation ornament, aligned to the window and using Solar icon geometry.
-        double abH = 0.053;
-        double abHalfW = Math.min(hw * 0.62, 0.86);
-        double navY = hh + NAV_GAP;
+        double abH = 0.053 * control;
+        double abHalfW = Math.min(hw * 0.62, 0.86 * control);
+        double navY = hh + NAV_GAP * control;
 
         fillRound(buf, m, c, p, n, 4, 0, navY, abHalfW, abH, abH,
                 0x16, 0x19, 0x20, (int) (218 * a));
 
-        double backU = -abHalfW + 0.075;
-        double fwdU = backU + 0.105;
-        double reloadU = fwdU + 0.105;
+        double backU = -abHalfW + 0.075 * control;
+        double fwdU = backU + 0.105 * control;
+        double reloadU = fwdU + 0.105 * control;
 
         boolean overBack = h != null && region(p, h[0], h[1]) == 6;
         boolean overFwd = h != null && region(p, h[0], h[1]) == 7;
         boolean overReload = h != null && region(p, h[0], h[1]) == 8;
         boolean overPill = h != null && region(p, h[0], h[1]) == 5;
 
-        double btnR = 0.038;
+        double btnR = 0.038 * control;
         fillRound(buf, m, c, p, n, 6, backU, navY, btnR, btnR, btnR,
                 0xF2, 0xF4, 0xF8, (int) ((overBack ? 38 : 0) * a));
 
@@ -982,11 +1065,11 @@ public class WebPanels extends Module {
         fillRound(buf, m, c, p, n, 6, reloadU, navY, btnR, btnR, btnR,
                 0xF2, 0xF4, 0xF8, (int) ((overReload ? 38 : 0) * a));
 
-        double pillLeft = reloadU + 0.060;
-        double pillRight = abHalfW - 0.028;
+        double pillLeft = reloadU + 0.060 * control;
+        double pillRight = abHalfW - 0.028 * control;
         double pillU = (pillLeft + pillRight) * 0.5;
         double pillHW = (pillRight - pillLeft) * 0.5;
-        double pillHH = 0.034;
+        double pillHH = 0.034 * control;
 
         fillRound(buf, m, c, p, n, 6, pillU, navY, pillHW, pillHH, pillHH,
                 overPill ? 0x31 : 0x21, overPill ? 0x35 : 0x25, overPill ? 0x3D : 0x2C,
@@ -994,12 +1077,13 @@ public class WebPanels extends Module {
 
         if (p.addressEditing && (System.currentTimeMillis() / 450L) % 2L == 0L) {
             String prefix = p.addressDraft.substring(0, Math.min(p.addressCursor, p.addressDraft.length()));
-            double textSize = 0.032;
-            double textStart = pillU - pillHW + 0.072;
+            double textSize = 0.032 * control;
+            double textStart = pillU - pillHW + 0.072 * control;
             double caretU = textStart + CustomFontRenderer.getTextWidth(prefix, (float) textSize, FontWeight.MEDIUM);
-            caretU = Math.min(caretU, pillU + pillHW - 0.020);
-            drawThickLine(buf, m, c, p, n, caretU, navY - 0.020, caretU, navY + 0.020,
-                    0.0035, 255, 255, 255, (int) (235 * a));
+            caretU = Math.min(caretU, pillU + pillHW - 0.020 * control);
+            drawThickLine(buf, m, c, p, n,
+                    caretU, navY - 0.020 * control, caretU, navY + 0.020 * control,
+                    0.0035 * control, 255, 255, 255, (int) (235 * a));
         }
     }
 
@@ -1024,41 +1108,42 @@ public class WebPanels extends Module {
         double scale = 0.88 + 0.12 * a;
         double hw = p.halfW * scale;
         double hh = p.halfH * scale;
-        double navY = hh + NAV_GAP;
-        double abHalfW = Math.min(hw * 0.62, 0.86);
-        double backU = -abHalfW + 0.075;
-        double fwdU = backU + 0.105;
-        double reloadU = fwdU + 0.105;
+        double control = controlScale(p) * scale;
+        double navY = hh + NAV_GAP * control;
+        double abHalfW = Math.min(hw * 0.62, 0.86 * control);
+        double backU = -abHalfW + 0.075 * control;
+        double fwdU = backU + 0.105 * control;
+        double reloadU = fwdU + 0.105 * control;
         int hovered = hit == null ? -1 : region(p, hit[0], hit[1]);
         int muted = argb((int) ((hovered == 6 ? 255 : 188) * a), 232, 235, 242);
         int forward = argb((int) ((hovered == 7 ? 255 : 188) * a), 232, 235, 242);
         int reload = argb((int) ((hovered == 8 ? 255 : 188) * a), 232, 235, 242);
 
         drawPanelWorldText(matrix, c, p, n,
-                SolarIcons.ARROW_LEFT, backU, navY, 0.050, 0.013,
+                SolarIcons.ARROW_LEFT, backU, navY, 0.050 * control, 0.013,
                 muted, FontWeight.SOLAR_ICONS, true);
         drawPanelWorldText(matrix, c, p, n,
-                SolarIcons.ARROW_RIGHT, fwdU, navY, 0.050, 0.013,
+                SolarIcons.ARROW_RIGHT, fwdU, navY, 0.050 * control, 0.013,
                 forward, FontWeight.SOLAR_ICONS, true);
         drawPanelWorldText(matrix, c, p, n,
-                SolarIcons.REFRESH, reloadU, navY, 0.047, 0.013,
+                SolarIcons.REFRESH, reloadU, navY, 0.047 * control, 0.013,
                 reload, FontWeight.SOLAR_ICONS, true);
 
-        double pillLeft = reloadU + 0.060;
-        double pillRight = abHalfW - 0.028;
+        double pillLeft = reloadU + 0.060 * control;
+        double pillRight = abHalfW - 0.028 * control;
         double pillU = (pillLeft + pillRight) * 0.5;
         double pillHW = (pillRight - pillLeft) * 0.5;
-        double iconU = pillU - pillHW + 0.043;
+        double iconU = pillU - pillHW + 0.043 * control;
         int addressColor = argb((int) ((hovered == 5 || p.addressEditing ? 240 : 172) * a),
                 210, 215, 225);
         drawPanelWorldText(matrix, c, p, n,
-                SolarIcons.GLOBAL, iconU, navY, 0.034, 0.013,
+                SolarIcons.GLOBAL, iconU, navY, 0.034 * control, 0.013,
                 addressColor, FontWeight.SOLAR_ICONS, true);
 
         String address = p.addressEditing ? p.addressDraft : p.url;
-        double textSize = 0.032;
-        double textU = pillU - pillHW + 0.072;
-        float maxTextWidth = (float) Math.max(0.04, pillRight - 0.020 - textU);
+        double textSize = 0.032 * control;
+        double textU = pillU - pillHW + 0.072 * control;
+        float maxTextWidth = (float) Math.max(0.04 * control, pillRight - 0.020 * control - textU);
         String visibleAddress = CustomFontRenderer.trimToWidth(
                 address == null ? "" : address, maxTextWidth, (float) textSize, FontWeight.MEDIUM);
         drawPanelWorldText(matrix, c, p, n,
@@ -1067,7 +1152,8 @@ public class WebPanels extends Module {
 
         if (p.barReveal > 0.02f) {
             drawPanelWorldText(matrix, c, p, n,
-                    SolarIcons.DELETE, deleteU(p), -hh - BAR_GAP, 0.039, 0.013,
+                    SolarIcons.DELETE, 0.165 * control * p.barReveal,
+                    -hh - BAR_GAP * control, 0.039 * control, 0.013,
                     argb((int) (245 * p.barReveal * a), 255, 255, 255),
                     FontWeight.SOLAR_ICONS, true);
         }
@@ -1083,9 +1169,14 @@ public class WebPanels extends Module {
     private void drawPanelWorldText(Matrix4f matrix, Vec3d center, Panel p, Vec3d normal,
                                     String text, double anchorU, double centerV, double size, double depth,
                                     int color, FontWeight weight, boolean centered) {
-        CustomFontRenderer.drawCurvedWorldText(matrix, center, p.right, p.up, normal,
-                p.halfW, curveAngle(), text, anchorU, centerV, size, depth,
-                color, weight, centered);
+        if (centered && weight == FontWeight.SOLAR_ICONS) {
+            CustomFontRenderer.drawCurvedWorldGlyph(matrix, center, p.right, p.up, normal,
+                    p.halfW, curveAngle(), text, anchorU, centerV, size, depth, color, weight);
+        } else {
+            CustomFontRenderer.drawCurvedWorldText(matrix, center, p.right, p.up, normal,
+                    p.halfW, curveAngle(), text, anchorU, centerV, size, depth,
+                    color, weight, centered);
+        }
     }
 
     private static int argb(int alpha, int red, int green, int blue) {
@@ -1121,9 +1212,9 @@ public class WebPanels extends Module {
         double straight = hw - corner;
         if (ax <= straight) return hh;
         double t = MathHelper.clamp((ax - straight) / Math.max(corner, 1e-6), 0.0, 1.0);
-        // Continuous superellipse corner. High tessellation removes the old
-        // visible vertical blocks while keeping the iOS-style soft shoulder.
-        double power = 3.35;
+        // A soft superellipse shoulder without the visually square power used
+        // by the previous silhouette.
+        double power = 2.20;
         double arc = Math.pow(Math.max(0.0, 1.0 - Math.pow(t, power)), 1.0 / power);
         return hh - corner + corner * arc;
     }
@@ -1131,37 +1222,42 @@ public class WebPanels extends Module {
     private static double smartCorner(double hw, double hh) {
         // Roughly 28-40 Chromium pixels at the default 1920x1080 panel. This
         // keeps the silhouette rounded without eating page buttons or text.
-        return MathHelper.clamp(Math.min(hw, hh) * 0.068, 0.032, 0.062);
+        return MathHelper.clamp(Math.min(hw, hh) * 0.10, 0.045, 0.085);
     }
 
     private void drawArc(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
                          double u, double v, double rad, double start, double sweep, double thickness,
                          int r, int g, int b, int a) {
-        int segments = 32;
+        if (a <= 0 || rad <= 0.0 || thickness <= 0.0) return;
+        int segments = 64;
+        double inner = Math.max(0.0, rad - thickness * 0.5);
+        double outer = rad + thickness * 0.5;
+        double d = 0.008;
         for (int i = 0; i < segments; i++) {
             double a0 = start + sweep * i / segments;
             double a1 = start + sweep * (i + 1) / segments;
-            drawThickLine(buf, m, c, p, n,
-                    u + rad * Math.cos(a0), v + rad * Math.sin(a0),
-                    u + rad * Math.cos(a1), v + rad * Math.sin(a1),
-                    thickness, r, g, b, a);
+            colorVert(buf, m, c, p, n, u + outer * Math.cos(a0), v + outer * Math.sin(a0), d, r, g, b, a);
+            colorVert(buf, m, c, p, n, u + outer * Math.cos(a1), v + outer * Math.sin(a1), d, r, g, b, a);
+            colorVert(buf, m, c, p, n, u + inner * Math.cos(a1), v + inner * Math.sin(a1), d, r, g, b, a);
+            colorVert(buf, m, c, p, n, u + inner * Math.cos(a0), v + inner * Math.sin(a0), d, r, g, b, a);
         }
     }
 
     private void drawBottomCornerHandle(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
-                                        double u, double v, boolean rightSide, float reveal) {
+                                        double u, double v, boolean rightSide,
+                                        double controlScale, float reveal) {
         if (reveal <= 0.01f) return;
         double growth = 0.82 + 0.18 * reveal;
-        double radius = 0.030 * growth;
-        double leg = 0.072 * growth;
-        double gap = 0.010;
+        double radius = 0.030 * growth * controlScale;
+        double leg = 0.072 * growth * controlScale;
+        double gap = 0.010 * controlScale;
         double outerU = u + (rightSide ? gap : -gap);
         double bottomV = v - gap;
         double centerU = outerU + (rightSide ? -radius : radius);
         double centerV = bottomV + radius;
         double start = rightSide ? 0.0 : Math.PI;
         double sweep = rightSide ? -Math.PI * 0.5 : Math.PI * 0.5;
-        double thickness = 0.0074;
+        double thickness = 0.0074 * controlScale;
 
         drawThickLine(buf, m, c, p, n,
                 outerU, v + leg, outerU, centerV,
@@ -1219,10 +1315,39 @@ public class WebPanels extends Module {
         if (a <= 0) return;
         double d = layer * 0.0015;
         cr = Math.min(cr, Math.min(hw, hh));
-        int columns = MathHelper.clamp((int) Math.ceil(hw * 320.0), 24, 256);
-        for (int i = 0; i < columns; i++) {
-            double x0 = -hw + 2.0 * hw * i / columns;
-            double x1 = -hw + 2.0 * hw * (i + 1) / columns;
+        if (cr <= 1e-6) {
+            colorVert(buf, m, c, p, n, cu - hw, cv + hh, d, r, g, b, a);
+            colorVert(buf, m, c, p, n, cu + hw, cv + hh, d, r, g, b, a);
+            colorVert(buf, m, c, p, n, cu + hw, cv - hh, d, r, g, b, a);
+            colorVert(buf, m, c, p, n, cu - hw, cv - hh, d, r, g, b, a);
+            return;
+        }
+
+        // Sample the round caps by angle. A uniform strip count spends almost
+        // all vertices on the straight center and leaves the actual radius faceted.
+        List<Double> xPositions = new ArrayList<>(112);
+        int capSegments = 48;
+        for (int i = 0; i <= capSegments; i++) {
+            double angle = Math.PI * 0.5 * i / capSegments;
+            xPositions.add(-hw + cr - cr * Math.cos(angle));
+        }
+        double straightLeft = -hw + cr;
+        double straightRight = hw - cr;
+        if (straightRight - straightLeft > 1e-6) {
+            int straightSegments = MathHelper.clamp(
+                    (int) Math.ceil((straightRight - straightLeft) * 96.0), 1, 384);
+            for (int i = 1; i <= straightSegments; i++) {
+                xPositions.add(straightLeft + (straightRight - straightLeft) * i / straightSegments);
+            }
+        }
+        for (int i = 1; i <= capSegments; i++) {
+            double angle = Math.PI * 0.5 * i / capSegments;
+            xPositions.add(straightRight + cr * Math.sin(angle));
+        }
+
+        for (int i = 0; i + 1 < xPositions.size(); i++) {
+            double x0 = xPositions.get(i);
+            double x1 = xPositions.get(i + 1);
             double y0 = roundedHalfHeight(x0, hw, hh, cr);
             double y1 = roundedHalfHeight(x1, hw, hh, cr);
             colorVert(buf, m, c, p, n, cu + x0, cv + y0, d, r, g, b, a);

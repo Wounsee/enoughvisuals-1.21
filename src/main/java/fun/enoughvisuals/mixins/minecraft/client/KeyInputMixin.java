@@ -35,16 +35,15 @@ public abstract class KeyInputMixin {
     @Inject(method = "onKey", at = @At("HEAD"), cancellable = true)
     private void enough$onKey(long window, int key, int scancode, int action, int modifiers, CallbackInfo ci) {
         WebPanels webPanels = WebPanels.getInstance();
+        if (webPanels != null && client.currentScreen == null && webPanels.handleRotationKey(key)) {
+            ci.cancel();
+            return;
+        }
         if (webPanels != null && webPanels.isBrowserFocused()) {
             if (webPanels.forwardKeySafe(key, scancode, modifiers, action)) {
                 ci.cancel();
                 return;
             }
-        }
-        if (webPanels != null && client.currentScreen == null
-                && webPanels.handleControlKey(key, modifiers, action)) {
-            ci.cancel();
-            return;
         }
         if (key != GLFW.GLFW_KEY_UNKNOWN && key >= 0 && EmotionWheelManager.getInstance().onKey(key, action)) {
             ci.cancel();

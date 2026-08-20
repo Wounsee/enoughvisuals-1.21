@@ -1,10 +1,13 @@
 package fun.enoughvisuals.mixins.compat;
 
+import org.cef.CefSettings;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 /** Enables the real default media device while bypassing CEF's missing OSR permission UI. */
 @Mixin(targets = "com.cinemamod.mcef.CefUtil", remap = false)
@@ -19,7 +22,7 @@ public abstract class McefCommandLineMixin {
             index = 0,
             remap = false)
     private static String[] enough$allowDefaultMediaDeviceAtStartup(String[] arguments) {
-        return enough$withMediaPermission(arguments);
+        return enough$withBrowserDefaults(arguments);
     }
 
     @ModifyArg(method = "init",
@@ -29,18 +32,40 @@ public abstract class McefCommandLineMixin {
             index = 0,
             remap = false)
     private static String[] enough$allowDefaultMediaDeviceAtCreation(String[] arguments) {
-        return enough$withMediaPermission(arguments);
+        return enough$withBrowserDefaults(arguments);
     }
 
-    private static String[] enough$withMediaPermission(String[] arguments) {
-        if (arguments != null && Arrays.asList(arguments).contains(MEDIA_PERMISSION_SWITCH)) {
-            return arguments;
+    @ModifyArg(method = "init",
+            at = @At(value = "INVOKE",
+                    target = "Lorg/cef/CefApp;getInstance([Ljava/lang/String;Lorg/cef/CefSettings;)Lorg/cef/CefApp;",
+                    remap = false),
+            index = 1,
+            remap = false)
+    private static CefSettings enough$useSystemBrowserLocale(CefSettings settings) {
+        settings.locale = enough$systemLanguageTag();
+        return settings;
+    }
+
+    private static String[] enough$withBrowserDefaults(String[] arguments) {
+        List<String> result = new ArrayList<>();
+        if (arguments != null) {
+            for (String argument : arguments) {
+                if (argument == null || MEDIA_PERMISSION_SWITCH.equals(argument)
+                        || argument.startsWith("--lang=")) continue;
+                result.add(argument);
+            }
         }
-        int length = arguments == null ? 0 : arguments.length;
-        String[] result = arguments == null
-                ? new String[1]
-                : Arrays.copyOf(arguments, length + 1);
-        result[length] = MEDIA_PERMISSION_SWITCH;
-        return result;
+        result.add(MEDIA_PERMISSION_SWITCH);
+        result.add("--lang=" + enough$systemLanguageTag());
+        return result.toArray(String[]::new);
+    }
+
+    private static String enough$systemLanguageTag() {
+        Locale locale = Locale.getDefault(Locale.Category.DISPLAY);
+        String languageTag = locale == null ? "" : locale.toLanguageTag();
+        if (languageTag.isBlank() || "und".equalsIgnoreCase(languageTag)) {
+            languageTag = Locale.getDefault().toLanguageTag();
+        }
+        return languageTag.replace('_', '-');
     }
 }

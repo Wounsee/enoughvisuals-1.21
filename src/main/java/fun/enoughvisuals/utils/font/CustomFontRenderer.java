@@ -308,7 +308,16 @@ public class CustomFontRenderer {
                                            String text, double anchorU, double centerV, double size, double depth,
                                            int color, FontWeight weight, boolean centered) {
         drawWorldTextInternal(matrix, origin, right, up, normal, halfWidth, curveAngle,
-                text, anchorU, centerV, size, depth, color, weight, centered);
+                text, anchorU, centerV, size, depth, color, weight, centered, false);
+    }
+
+    /** Centers a single MTSDF glyph by its visible plane bounds instead of font advance metrics. */
+    public static void drawCurvedWorldGlyph(Matrix4f matrix, Vec3d origin, Vec3d right, Vec3d up, Vec3d normal,
+                                            double halfWidth, double curveAngle,
+                                            String glyph, double centerU, double centerV, double size, double depth,
+                                            int color, FontWeight weight) {
+        drawWorldTextInternal(matrix, origin, right, up, normal, halfWidth, curveAngle,
+                glyph, centerU, centerV, size, depth, color, weight, true, true);
     }
 
     private static void drawWorldTextInternal(Matrix4f matrix, Vec3d origin,
@@ -317,6 +326,17 @@ public class CustomFontRenderer {
                                               String text, double anchorU, double centerV,
                                               double size, double depth, int color,
                                               FontWeight weight, boolean centered) {
+        drawWorldTextInternal(matrix, origin, right, up, normal, halfWidth, curveAngle,
+                text, anchorU, centerV, size, depth, color, weight, centered, false);
+    }
+
+    private static void drawWorldTextInternal(Matrix4f matrix, Vec3d origin,
+                                              Vec3d right, Vec3d up, Vec3d normal,
+                                              double halfWidth, double curveAngle,
+                                              String text, double anchorU, double centerV,
+                                              double size, double depth, int color,
+                                              FontWeight weight, boolean centered,
+                                              boolean centerSingleGlyphByBounds) {
         text = NameProtect.protect(ClientLanguage.localizeLiteral(text));
         if (text == null || text.isEmpty() || size <= 0.0) return;
         if (!initialized && !failedInit) init();
@@ -357,9 +377,19 @@ public class CustomFontRenderer {
 
         float worldSize = (float) size;
         float penU = (float) anchorU;
-        if (centered) penU -= getTextWidth(text, worldSize, weight) * 0.5f;
         float lineTop = (float) centerV + atlas.lineHeight * worldSize * 0.5f;
         float baselineV = lineTop - atlas.ascender * worldSize;
+        if (centerSingleGlyphByBounds && text.codePointCount(0, text.length()) == 1) {
+            Glyph glyph = atlas.glyphs.get(text.codePointAt(0));
+            if (glyph != null && glyph.hasPlaneBounds) {
+                penU = (float) (anchorU - (glyph.left + glyph.right) * worldSize * 0.5f);
+                baselineV = (float) (centerV - (glyph.bottom + glyph.top) * worldSize * 0.5f);
+            } else if (centered) {
+                penU -= getTextWidth(text, worldSize, weight) * 0.5f;
+            }
+        } else if (centered) {
+            penU -= getTextWidth(text, worldSize, weight) * 0.5f;
+        }
         int previousCodePoint = -1;
         boolean wroteAny = false;
         BufferBuilder buffer = Tessellator.getInstance()
