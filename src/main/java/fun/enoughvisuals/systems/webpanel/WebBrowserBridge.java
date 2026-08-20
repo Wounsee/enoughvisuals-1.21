@@ -109,9 +109,26 @@ public final class WebBrowserBridge {
                 browser = createBrowser.invoke(null, url, false);
                 resize(browser, width, height);
             }
+            disableCursorListener(browser);
             return browser;
         } catch (Throwable t) {
             return null;
+        }
+    }
+
+    private static void disableCursorListener(Object browser) {
+        if (browser == null) return;
+        try {
+            Class<?> listenerClass = Class.forName("com.cinemamod.mcef.listeners.MCEFCursorChangeListener");
+            Object noopListener = java.lang.reflect.Proxy.newProxyInstance(
+                    listenerClass.getClassLoader(),
+                    new Class<?>[]{listenerClass},
+                    (proxy, method, args) -> null
+            );
+            Method setListener = browser.getClass().getMethod("setCursorChangeListener", listenerClass);
+            setListener.setAccessible(true);
+            setListener.invoke(browser, noopListener);
+        } catch (Throwable ignored) {
         }
     }
 

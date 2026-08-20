@@ -251,6 +251,7 @@ public class WebPanels extends Module {
 
         // Capture in-world blur frame if theme blur enabled
         if (!CustomTheme.blurDisabled()) {
+            GlassUtil.BLUR_OFFSET = CustomTheme.hudBlurLevel();
             GlassUtil.beginFrame();
         }
 
@@ -270,6 +271,11 @@ public class WebPanels extends Module {
                 RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
                 RenderSystem.setShaderTexture(0, blurTex);
                 GlStateManager._bindTexture(blurTex);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+
                 BufferBuilder blurBuf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
                 for (Panel p : panels) {
                     if (p.anim > 0.01f) {
@@ -884,7 +890,7 @@ public class WebPanels extends Module {
         }
         float invW = clip.w != 0 ? (1.0f / clip.w) : 1.0f;
         float tu = MathHelper.clamp((clip.x * invW) * 0.5f + 0.5f, 0f, 1f);
-        float tv = MathHelper.clamp(1.0f - ((clip.y * invW) * 0.5f + 0.5f), 0f, 1f);
+        float tv = MathHelper.clamp((clip.y * invW) * 0.5f + 0.5f, 0f, 1f);
 
         buf.vertex(m, (float) x, (float) y, (float) z).texture(tu, tv).color(1f, 1f, 1f, alpha);
     }
