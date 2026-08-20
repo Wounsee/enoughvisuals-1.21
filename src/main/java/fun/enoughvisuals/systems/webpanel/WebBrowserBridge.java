@@ -239,6 +239,22 @@ public final class WebBrowserBridge {
         return url instanceof String s ? s : null;
     }
 
+    public static void runMessageLoop() {
+        if (!resolve()) return;
+        try {
+            Object app = invoke(mcefClass, "getApp");
+            if (app != null) {
+                Object handle = invoke(app, "getHandle");
+                if (handle != null) {
+                    Method m = handle.getClass().getMethod("N_DoMessageLoopWork");
+                    m.setAccessible(true);
+                    m.invoke(handle);
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
     public static void close(Object browser) {
         call(browser, "close", new Class<?>[]{});
     }

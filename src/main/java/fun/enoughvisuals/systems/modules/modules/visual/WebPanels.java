@@ -22,6 +22,7 @@ import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -240,7 +241,8 @@ public class WebPanels extends Module {
         Matrix4f matrix = context.matrixStack().peek().getPositionMatrix();
         Matrix4f proj = context.projectionMatrix();
 
-        // Browser upkeep
+        // Upkeep MCEF browsers and pump message loop
+        WebBrowserBridge.runMessageLoop();
         for (Panel p : panels) {
             if (!p.closing) {
                 ensureBrowser(p);
@@ -265,8 +267,9 @@ public class WebPanels extends Module {
             // 1. Draw In-World Real Frosted Glass Blur (from blurred world framebuffer)
             int blurTex = GlassUtil.getResultTexture();
             if (blurTex > 0) {
-                GlStateManager._bindTexture(blurTex);
                 RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+                RenderSystem.setShaderTexture(0, blurTex);
+                GlStateManager._bindTexture(blurTex);
                 BufferBuilder blurBuf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
                 for (Panel p : panels) {
                     if (p.anim > 0.01f) {
@@ -293,12 +296,18 @@ public class WebPanels extends Module {
                 BufferRenderer.drawWithGlobalProgram(builtColor);
             }
 
-            // 3. Draw browser content (Chromium frame texture)
+            // 3. Draw browser content (Chromium frame texture) with crisp linear filtering
             RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
             for (Panel p : panels) {
                 int glTex = p.browser != null ? WebBrowserBridge.textureId(p.browser) : 0;
                 if (glTex > 0 && p.anim > 0.01f) {
+                    RenderSystem.setShaderTexture(0, glTex);
                     GlStateManager._bindTexture(glTex);
+                    GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+                    GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+                    GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+                    GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+
                     BufferBuilder texBuf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
                     drawContent(texBuf, matrix, cam, p);
                     BuiltBuffer builtTex = texBuf.endNullable();
@@ -567,10 +576,20 @@ public class WebPanels extends Module {
         int alg = (accentLight >> 8) & 0xFF;
         int alb = accentLight & 0xFF;
 
-        // 1. Frosted Glass Body Tint & Outline
-        drawCurvedSlicedPanel(buf, m, c, p, n, 2, 0, 0, hw + 0.03, hh + 0.03, 0x0A, 0x0C, 0x14, (int) (210 * a));
-        fillOutline(buf, m, c, p, n, 3, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0.012, ar, ag, ab, (int) (65 * a));
-        fillOutline(buf, m, c, p, n, 4, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0.005, alr, alg, alb, (int) (150 * a));
+        boolean isFocused = (focusedPanel == p);
+        float pulse = isFocused ? (0.75f + 0.25f * (float) Math.sin(System.currentTimeMillis() / 250.0)) : 1.0f;
+
+        // 1. Frosted Glass Body Tint & Solid Backing
+        drawCurvedSlicedPanel(buf, m, c, p, n, 2, 0, 0, hw + 0.03, hh + 0.03, 0x0A, 0x0C, 0x14, (int) (220 * a));
+
+        // Glass Outline with Focus Pulse Glow
+        if (isFocused) {
+            fillOutline(buf, m, c, p, n, 3, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0.014, alr, alg, alb, (int) (140 * pulse * a));
+            fillOutline(buf, m, c, p, n, 4, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0.006, 255, 255, 255, (int) (220 * pulse * a));
+        } else {
+            fillOutline(buf, m, c, p, n, 3, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0.012, ar, ag, ab, (int) (65 * a));
+            fillOutline(buf, m, c, p, n, 4, 0, 0, hw + 0.03, hh + 0.03, 0.12, 0.005, alr, alg, alb, (int) (150 * a));
+        }
 
         // Specular top edge shine (frosted glass reflection)
         drawThickLine(buf, m, c, p, n, -hw * 0.75, hh + 0.02, hw * 0.75, hh + 0.02, 0.006, 255, 255, 255, (int) (45 * a));
