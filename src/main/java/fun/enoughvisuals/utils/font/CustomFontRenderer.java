@@ -298,6 +298,25 @@ public class CustomFontRenderer {
     public static void drawWorldText(Matrix4f matrix, Vec3d origin, Vec3d right, Vec3d up, Vec3d normal,
                                      String text, double anchorU, double centerV, double size, double depth,
                                      int color, FontWeight weight, boolean centered) {
+        drawWorldTextInternal(matrix, origin, right, up, normal, 0.0, 0.0,
+                text, anchorU, centerV, size, depth, color, weight, centered);
+    }
+
+    /** Draws every MTSDF glyph vertex on the same cylindrical surface as a spatial panel. */
+    public static void drawCurvedWorldText(Matrix4f matrix, Vec3d origin, Vec3d right, Vec3d up, Vec3d normal,
+                                           double halfWidth, double curveAngle,
+                                           String text, double anchorU, double centerV, double size, double depth,
+                                           int color, FontWeight weight, boolean centered) {
+        drawWorldTextInternal(matrix, origin, right, up, normal, halfWidth, curveAngle,
+                text, anchorU, centerV, size, depth, color, weight, centered);
+    }
+
+    private static void drawWorldTextInternal(Matrix4f matrix, Vec3d origin,
+                                              Vec3d right, Vec3d up, Vec3d normal,
+                                              double halfWidth, double curveAngle,
+                                              String text, double anchorU, double centerV,
+                                              double size, double depth, int color,
+                                              FontWeight weight, boolean centered) {
         text = NameProtect.protect(ClientLanguage.localizeLiteral(text));
         if (text == null || text.isEmpty() || size <= 0.0) return;
         if (!initialized && !failedInit) init();
@@ -365,10 +384,14 @@ public class CustomFontRenderer {
                 double u1 = penU + glyph.right * worldSize;
                 double v0 = baselineV + glyph.bottom * worldSize;
                 double v1 = baselineV + glyph.top * worldSize;
-                worldVertex(buffer, matrix, origin, right, up, normal, u0, v0, depth, glyph.u0, glyph.v1);
-                worldVertex(buffer, matrix, origin, right, up, normal, u1, v0, depth, glyph.u1, glyph.v1);
-                worldVertex(buffer, matrix, origin, right, up, normal, u1, v1, depth, glyph.u1, glyph.v0);
-                worldVertex(buffer, matrix, origin, right, up, normal, u0, v1, depth, glyph.u0, glyph.v0);
+                worldVertex(buffer, matrix, origin, right, up, normal, halfWidth, curveAngle,
+                        u0, v0, depth, glyph.u0, glyph.v1);
+                worldVertex(buffer, matrix, origin, right, up, normal, halfWidth, curveAngle,
+                        u1, v0, depth, glyph.u1, glyph.v1);
+                worldVertex(buffer, matrix, origin, right, up, normal, halfWidth, curveAngle,
+                        u1, v1, depth, glyph.u1, glyph.v0);
+                worldVertex(buffer, matrix, origin, right, up, normal, halfWidth, curveAngle,
+                        u0, v1, depth, glyph.u0, glyph.v0);
                 wroteAny = true;
             }
             penU += glyph.advance * worldSize;
@@ -382,10 +405,19 @@ public class CustomFontRenderer {
 
     private static void worldVertex(BufferBuilder buffer, Matrix4f matrix,
                                     Vec3d origin, Vec3d right, Vec3d up, Vec3d normal,
+                                    double halfWidth, double curveAngle,
                                     double u, double v, double depth, float textureU, float textureV) {
-        double x = origin.x + right.x * u + up.x * v + normal.x * depth;
-        double y = origin.y + right.y * u + up.y * v + normal.y * depth;
-        double z = origin.z + right.z * u + up.z * v + normal.z * depth;
+        double mappedU = u;
+        double mappedDepth = depth;
+        if (curveAngle >= 1e-5 && halfWidth >= 1e-5) {
+            double radius = halfWidth / curveAngle;
+            double theta = u / radius;
+            mappedU = radius * Math.sin(theta);
+            mappedDepth += radius * (1.0 - Math.cos(theta));
+        }
+        double x = origin.x + right.x * mappedU + up.x * v + normal.x * mappedDepth;
+        double y = origin.y + right.y * mappedU + up.y * v + normal.y * mappedDepth;
+        double z = origin.z + right.z * mappedU + up.z * v + normal.z * mappedDepth;
         buffer.vertex(matrix, (float) x, (float) y, (float) z).texture(textureU, textureV);
     }
 

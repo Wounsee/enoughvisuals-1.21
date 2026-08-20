@@ -8,6 +8,7 @@ import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.BindSetting;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 import fun.enoughvisuals.systems.modules.settings.StringSetting;
+import fun.enoughvisuals.systems.hud.HudNotificationCenter;
 import fun.enoughvisuals.systems.webpanel.WebBrowserBridge;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
 import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
@@ -321,6 +322,7 @@ public class WebPanels extends Module {
     }
 
     private void openAddress(Panel p) {
+        boolean enteringControl = focusedPanel != p || !p.addressEditing;
         if (focusedPanel != null && focusedPanel != p) exitFocus();
         focusedPanel = p;
         p.addressDraft = p.url == null ? "" : p.url;
@@ -328,6 +330,11 @@ public class WebPanels extends Module {
         p.addressSelectAll = true;
         p.addressEditing = true;
         releaseGameplayMovementKeys();
+        if (enteringControl) notifyControlEntered();
+    }
+
+    private void notifyControlEntered() {
+        HudNotificationCenter.info("Нажмите ESC, чтобы выйти из управления браузером");
     }
 
     private void releaseGameplayMovementKeys() {
@@ -723,6 +730,7 @@ public class WebPanels extends Module {
                 pressedMouseY = px[1];
             }
             if (pressEdge && !uiPressHandled && pressedPanel == null) {
+                boolean enteringControl = focusedPanel != contentPanel || focusedPanel.addressEditing;
                 WebBrowserBridge.mousePress(contentPanel.browser, px[0], px[1], pressButton);
                 pressedPanel = contentPanel;
                 pressedMouseButton = pressButton;
@@ -730,6 +738,7 @@ public class WebPanels extends Module {
                 pressedMouseY = px[1];
                 focusedPanel = contentPanel;
                 releaseGameplayMovementKeys();
+                if (enteringControl) notifyControlEntered();
             }
         }
         boolean pressedButtonReleased = pressedPanel != null
@@ -856,7 +865,7 @@ public class WebPanels extends Module {
 
         // Resize exists only at the two lower corners, matching the requested
         // outline corner controls instead of a ring around the perimeter.
-        double cornerRadius = 0.112;
+        double cornerRadius = 0.135;
         if (Math.hypot(lu + p.halfW, lv + p.halfH) < cornerRadius) return 10;
         if (Math.hypot(lu - p.halfW, lv + p.halfH) < cornerRadius) return 11;
 
@@ -1038,13 +1047,9 @@ public class WebPanels extends Module {
     private void drawPanelWorldText(Matrix4f matrix, Vec3d center, Panel p, Vec3d normal,
                                     String text, double anchorU, double centerV, double size, double depth,
                                     int color, FontWeight weight, boolean centered) {
-        double[] curved = curvedLocal(p, anchorU);
-        double theta = p.halfW < 1e-5 ? 0.0 : anchorU / p.halfW * curveAngle();
-        Vec3d tangent = p.right.multiply(Math.cos(theta)).add(normal.multiply(Math.sin(theta))).normalize();
-        Vec3d surfaceNormal = normal.multiply(Math.cos(theta)).subtract(p.right.multiply(Math.sin(theta))).normalize();
-        Vec3d origin = center.add(p.right.multiply(curved[0])).add(normal.multiply(curved[1]));
-        CustomFontRenderer.drawWorldText(matrix, origin, tangent, p.up, surfaceNormal,
-                text, 0.0, centerV, size, depth, color, weight, centered);
+        CustomFontRenderer.drawCurvedWorldText(matrix, center, p.right, p.up, normal,
+                p.halfW, curveAngle(), text, anchorU, centerV, size, depth,
+                color, weight, centered);
     }
 
     private static int argb(int alpha, int red, int green, int blue) {
@@ -1110,16 +1115,18 @@ public class WebPanels extends Module {
     private void drawBottomCornerHandle(BufferBuilder buf, Matrix4f m, Vec3d c, Panel p, Vec3d n,
                                         double u, double v, boolean rightSide, float reveal) {
         if (reveal <= 0.01f) return;
-        double radius = 0.060 * (0.72 + 0.28 * reveal);
+        double radius = 0.072 * (0.74 + 0.26 * reveal);
+        double centerU = u + (rightSide ? radius : -radius);
+        double centerV = v - radius;
         double start = rightSide ? Math.PI * 0.5 : 0.0;
-        double thickness = 0.0052;
-        drawArc(buf, m, c, p, n, u, v, radius, start, Math.PI * 0.5,
+        double thickness = 0.0092;
+        drawArc(buf, m, c, p, n, centerU, centerV, radius, start, Math.PI * 0.5,
                 thickness, 245, 247, 251, (int) (232 * reveal));
-        double end0X = u + radius * Math.cos(start);
-        double end0Y = v + radius * Math.sin(start);
+        double end0X = centerU + radius * Math.cos(start);
+        double end0Y = centerV + radius * Math.sin(start);
         double end1 = start + Math.PI * 0.5;
-        double end1X = u + radius * Math.cos(end1);
-        double end1Y = v + radius * Math.sin(end1);
+        double end1X = centerU + radius * Math.cos(end1);
+        double end1Y = centerV + radius * Math.sin(end1);
         double cap = thickness * 0.52;
         fillRound(buf, m, c, p, n, 7, end0X, end0Y, cap, cap, cap,
                 245, 247, 251, (int) (232 * reveal));
@@ -1166,26 +1173,25 @@ public class WebPanels extends Module {
         if (a <= 0) return;
         double d = layer * 0.0015;
         cr = Math.min(cr, Math.min(hw, hh));
-        int seg = 12;
-        double[][] corners = {
-                {hw - cr, hh - cr, 0}, {-hw + cr, hh - cr, 90}, {-hw + cr, -hh + cr, 180}, {hw - cr, -hh + cr, 270}
-        };
-        List<double[]> pts = new ArrayList<>();
-        for (double[] cn : corners) {
-            for (int i = 0; i <= seg; i++) {
-                double ang = Math.toRadians(cn[2] + 90.0 * i / seg);
-                pts.add(new double[]{cu + cn[0] + cr * Math.cos(ang), cv + cn[1] + cr * Math.sin(ang)});
-            }
+        int columns = MathHelper.clamp((int) Math.ceil(hw * 320.0), 24, 256);
+        for (int i = 0; i < columns; i++) {
+            double x0 = -hw + 2.0 * hw * i / columns;
+            double x1 = -hw + 2.0 * hw * (i + 1) / columns;
+            double y0 = roundedHalfHeight(x0, hw, hh, cr);
+            double y1 = roundedHalfHeight(x1, hw, hh, cr);
+            colorVert(buf, m, c, p, n, cu + x0, cv + y0, d, r, g, b, a);
+            colorVert(buf, m, c, p, n, cu + x1, cv + y1, d, r, g, b, a);
+            colorVert(buf, m, c, p, n, cu + x1, cv - y1, d, r, g, b, a);
+            colorVert(buf, m, c, p, n, cu + x0, cv - y0, d, r, g, b, a);
         }
-        int sz = pts.size();
-        for (int i = 0; i < sz; i++) {
-            double[] a0 = pts.get(i);
-            double[] a1 = pts.get((i + 1) % sz);
-            colorVert(buf, m, c, p, n, cu, cv, d, r, g, b, a);
-            colorVert(buf, m, c, p, n, a0[0], a0[1], d, r, g, b, a);
-            colorVert(buf, m, c, p, n, a1[0], a1[1], d, r, g, b, a);
-            colorVert(buf, m, c, p, n, a1[0], a1[1], d, r, g, b, a);
-        }
+    }
+
+    private static double roundedHalfHeight(double x, double hw, double hh, double radius) {
+        double ax = Math.abs(x);
+        double straight = hw - radius;
+        if (ax <= straight) return hh;
+        double dx = Math.min(radius, ax - straight);
+        return hh - radius + Math.sqrt(Math.max(0.0, radius * radius - dx * dx));
     }
 
     private void screenTexVert(BufferBuilder buf, Matrix4f m, Matrix4f proj, Vec3d c, Panel p, Vec3d n,
