@@ -209,13 +209,13 @@ public final class EmotionWheelManager {
         mc.options.setPerspective(Perspective.THIRD_PERSON_FRONT);
         active.put(uuid, new ActiveEmotion(type, UUID.randomUUID().toString(), System.currentTimeMillis(),
                 savedPerspective, true, mc.player.getPos()));
-        RemoteConfig.getInstance().requestImmediateSync();
+        RemoteConfig.getInstance().requestImmediateRealtimeSync();
     }
 
     private void stopLocal(UUID uuid, ActiveEmotion emotion) {
         if (active.remove(uuid, emotion)) {
             restorePerspective();
-            RemoteConfig.getInstance().requestImmediateSync();
+            RemoteConfig.getInstance().requestImmediateRealtimeSync();
         }
     }
 

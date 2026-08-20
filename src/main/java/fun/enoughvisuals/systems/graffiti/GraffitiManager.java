@@ -174,7 +174,7 @@ public final class GraffitiManager {
         placements.put(id, placement);
         enforceLocalLimit(mc.player.getUuid().toString());
         pendingActions.addLast(PendingAction.place(placement));
-        RemoteConfig.getInstance().requestImmediateSync();
+        RemoteConfig.getInstance().requestImmediateRealtimeSync();
         Graffiti module = Graffiti.getInstance();
         if (module != null) module.rememberAsset(entry.id());
     }
@@ -220,7 +220,7 @@ public final class GraffitiManager {
         if (nearest == null) return false;
         placements.remove(nearest.id);
         pendingActions.addLast(PendingAction.delete(nearest.id));
-        RemoteConfig.getInstance().requestImmediateSync();
+        RemoteConfig.getInstance().requestImmediateRealtimeSync();
         return true;
     }
 

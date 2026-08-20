@@ -42,6 +42,7 @@ public final class RemoteConfig {
 
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean immediateSyncRequested = new AtomicBoolean(false);
+    private final AtomicBoolean realtimeSyncRequested = new AtomicBoolean(false);
     private final Object pollSignal = new Object();
     private volatile boolean multiplayerActive = false;
     private volatile String observedIdentity = "";
@@ -89,8 +90,9 @@ public final class RemoteConfig {
     private void loop() {
         while (true) {
             immediateSyncRequested.set(false);
+            boolean prioritizeRealtime = realtimeSyncRequested.getAndSet(false);
             try {
-                sync();
+                sync(prioritizeRealtime);
             } catch (Throwable t) {
                 LOGGER.debug("sync failed: {}", t.toString());
             }
@@ -108,8 +110,8 @@ public final class RemoteConfig {
         }
     }
 
-    private void sync() throws Exception {
-        String body = buildRequest();
+    private void sync(boolean prioritizeRealtime) throws Exception {
+        String body = buildRequest(prioritizeRealtime);
         String response = LauncherNetworkClient.sync(body);
         if (response == null || response.isBlank()) {
             return;
@@ -118,7 +120,7 @@ public final class RemoteConfig {
         everSynced = true;
     }
 
-    private String buildRequest() {
+    private String buildRequest(boolean prioritizeRealtime) {
         MinecraftClient mc = MinecraftClient.getInstance();
         String username = observedUsername;
         String uuid = observedUuid;
@@ -156,7 +158,7 @@ public final class RemoteConfig {
         CosmeticCatalog.appendSync(root);
         GraffitiManager.getInstance().appendSync(root);
         WebPanels webPanels = WebPanels.getInstance();
-        if (webPanels != null) webPanels.appendSync(root);
+        if (webPanels != null) webPanels.appendSync(root, !prioritizeRealtime);
         if (!observedGameServer.isBlank()) {
             root.addProperty("game_server", observedGameServer);
         }
@@ -201,6 +203,12 @@ public final class RemoteConfig {
         synchronized (pollSignal) {
             pollSignal.notifyAll();
         }
+    }
+
+    /** Wakes sync and keeps latency-sensitive state ahead of large browser video frames. */
+    public void requestImmediateRealtimeSync() {
+        realtimeSyncRequested.set(true);
+        requestImmediateSync();
     }
 
     private static void appendServerIcon(JsonObject root, MinecraftClient mc) {

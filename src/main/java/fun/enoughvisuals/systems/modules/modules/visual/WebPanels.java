@@ -311,6 +311,10 @@ public class WebPanels extends Module {
 
     /** Adds privacy preferences, panel transforms and at most one fresh video frame to /v1/sync. */
     public void appendSync(JsonObject root) {
+        appendSync(root, true);
+    }
+
+    public void appendSync(JsonObject root, boolean attachVideoFrame) {
         JsonObject web = new JsonObject();
         boolean publish = isEnabled() && shareMyScreens.get();
         boolean receive = isEnabled() && showOtherScreens.get();
@@ -326,7 +330,7 @@ public class WebPanels extends Module {
 
         JsonArray states = new JsonArray();
         SharedFrame outgoingFrame = null;
-        if (publish && !pendingSharedFrames.isEmpty()) {
+        if (publish && attachVideoFrame && !pendingSharedFrames.isEmpty()) {
             List<Integer> queued = pendingSharedFrames.keySet().stream().sorted().toList();
             if (!queued.isEmpty()) {
                 Integer selected = queued.get(Math.floorMod(sharedOutgoingCursor++, queued.size()));
@@ -703,7 +707,7 @@ public class WebPanels extends Module {
         clearRemotePanels();
         sharedPanelSnapshot = List.of();
         pendingSharedFrames.clear();
-        RemoteConfig.getInstance().requestImmediateSync();
+        RemoteConfig.getInstance().requestImmediateRealtimeSync();
     }
 
     @Override
@@ -747,6 +751,7 @@ public class WebPanels extends Module {
         firstTab.visualCenter = tabCenterU(p, 0);
         firstTab.visualWidth = tabWidth(p);
         panels.add(p);
+        RemoteConfig.getInstance().requestImmediateRealtimeSync();
     }
 
     private int activeCount() {
@@ -1553,6 +1558,7 @@ public class WebPanels extends Module {
                     uiPressHandled = true;
                 } else if (region == 3) {
                     p.closing = true;
+                    RemoteConfig.getInstance().requestImmediateRealtimeSync();
                     exitFocusIf(p);
                     uiPressHandled = true;
                 } else if (region == 10 || region == 11) {
