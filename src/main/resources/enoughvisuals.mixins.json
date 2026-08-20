@@ -67,6 +67,7 @@
       "minecraft.entity.LivingEntitySwingMixin",
       "minecraft.entity.LivingEntityJumpMixin",
       "minecraft.client.network.ClientPlayerInteractionManagerMixin",
+      "compat.McefCommitMixin",
       "compat.McefCommandLineMixin",
       "compat.McefSettingsMixin",
       "compat.PunchyConfigMixin"
