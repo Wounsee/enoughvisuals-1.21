@@ -36,6 +36,7 @@ import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.ScoreboardDisplaySlot;
 import net.minecraft.scoreboard.ScoreboardObjective;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.MathHelper;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -59,6 +60,8 @@ public abstract class InGameHudMixin {
     private float enough$smoothCooldown = 1.0f;
     @Unique
     private float enough$webPanelCrosshairMorph = 0.0f;
+    @Unique
+    private float enough$webPanelCrosshairVelocity = 0.0f;
 
     @Inject(method = "render", at = @At("HEAD"))
     private void enough$beginBlur(DrawContext ctx, RenderTickCounter counter, CallbackInfo ci) {
@@ -359,6 +362,7 @@ public abstract class InGameHudMixin {
         boolean customEnabled = module != null && module.isEnabled();
         if (!customEnabled) {
             enough$webPanelCrosshairMorph = 0f;
+            enough$webPanelCrosshairVelocity = 0f;
             return;
         }
         WebPanels webPanels = WebPanels.getInstance();
@@ -366,8 +370,16 @@ public abstract class InGameHudMixin {
         float frameDelta = Math.max(1f / 240f,
                 Math.min(0.05f, RenderUtil.getFrameDelta() / 60f));
         float morphTarget = panelHover ? 1f : 0f;
-        enough$webPanelCrosshairMorph += (morphTarget - enough$webPanelCrosshairMorph)
-                * (1f - (float) Math.exp(-8.5f * frameDelta));
+        enough$webPanelCrosshairVelocity += (morphTarget - enough$webPanelCrosshairMorph)
+                * 92.0f * frameDelta;
+        enough$webPanelCrosshairVelocity *= (float) Math.exp(-16.0f * frameDelta);
+        enough$webPanelCrosshairMorph = MathHelper.clamp(
+                enough$webPanelCrosshairMorph + enough$webPanelCrosshairVelocity * frameDelta,
+                0.0f, 1.0f);
+        if ((enough$webPanelCrosshairMorph <= 0.0f && enough$webPanelCrosshairVelocity < 0.0f)
+                || (enough$webPanelCrosshairMorph >= 1.0f && enough$webPanelCrosshairVelocity > 0.0f)) {
+            enough$webPanelCrosshairVelocity = 0.0f;
+        }
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.options != null && client.options.hudHidden) {
             ci.cancel();
@@ -459,8 +471,14 @@ public abstract class InGameHudMixin {
             enough$drawCrossArm(context, centerX - size * 0.5f, centerY - size * 0.5f,
                     size, size, outline, outlineWidth, outlineColor, color);
         }
-        if (morph > 0.001f) {
-            RenderUtil.drawCrispArc(context, centerX, centerY, targetRadius, 0.82f, color, morph);
+        float circleMorph = MathHelper.clamp((morph - 0.06f) / 0.94f, 0f, 1f);
+        circleMorph = circleMorph * circleMorph * (3f - 2f * circleMorph);
+        if (circleMorph > 0.001f) {
+            float sweep = 92.0f * circleMorph;
+            for (int i = 0; i < 4; i++) {
+                RenderUtil.drawCrispArcSegment(context, centerX, centerY,
+                        targetRadius, 0.82f, -91.0f + i * 90.0f, sweep, color);
+            }
         }
     }
 

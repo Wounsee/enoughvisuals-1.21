@@ -1156,7 +1156,8 @@ public class RenderUtil {
         ShaderManager.setUniform4f(name, "uColor", r, g, b, a);
         ShaderManager.setUniform1f(name, "uSmoothing", smoothing * ellipse.scalePx);
         ShaderManager.setUniform1f(name, "uLineWidth", lineWidth * ellipse.scalePx);
-        ShaderManager.setUniform1f(name, "uProgress", 1.0f);                     
+        ShaderManager.setUniform1f(name, "uProgress", 1.0f);
+        ShaderManager.setUniform1f(name, "uArcMode", 0.0f);
 
         float maxR = Math.max(rx, ry);
         float extra = lineWidth + EDGE_SMOOTHING + 2f;
@@ -1171,6 +1172,43 @@ public class RenderUtil {
     public static void drawCrispArc(DrawContext ctx, float cx, float cy, float radius,
                                     float lineWidth, int color, float progress) {
         drawArcInternal(ctx, cx, cy, radius, lineWidth, color, progress, 0.24f);
+    }
+
+    public static void drawCrispArcSegment(DrawContext ctx, float cx, float cy, float radius,
+                                           float lineWidth, float startDegrees,
+                                           float sweepDegrees, int color) {
+        float a = ((color >>> 24) & 0xFF) / 255f;
+        if (a <= 0.003f || radius <= 0f || lineWidth <= 0f || sweepDegrees <= 0.05f) return;
+        float r = ((color >>> 16) & 0xFF) / 255f;
+        float g = ((color >>> 8) & 0xFF) / 255f;
+        float b = (color & 0xFF) / 255f;
+        float clampedSweep = Math.min(359.9f, sweepDegrees);
+        Matrix4f matrix = ctx.getMatrices().peek().getPositionMatrix();
+
+        if (ShaderManager.isAvailable() && !hasComplex2DTransform(matrix)) {
+            beginShaderDraw();
+            String name = ShaderManager.CIRCLE;
+            ShaderEllipse ellipse = toShaderEllipse(ctx, cx, cy, radius, radius);
+            ShaderManager.useProgram(name);
+            ShaderManager.setUniform2f(name, "uCenter", ellipse.cxPx, ellipse.cyPx);
+            ShaderManager.setUniform2f(name, "uRadius", ellipse.rxPx, ellipse.ryPx);
+            ShaderManager.setUniform4f(name, "uColor", r, g, b, a);
+            ShaderManager.setUniform1f(name, "uSmoothing", 0.24f * ellipse.scalePx);
+            ShaderManager.setUniform1f(name, "uLineWidth", lineWidth * ellipse.scalePx);
+            ShaderManager.setUniform1f(name, "uProgress", 1.0f);
+            ShaderManager.setUniform1f(name, "uArcMode", 1.0f);
+            ShaderManager.setUniform1f(name, "uArcStart", (float) Math.toRadians(startDegrees));
+            ShaderManager.setUniform1f(name, "uArcSweep", (float) Math.toRadians(clampedSweep));
+            float extra = lineWidth + EDGE_SMOOTHING + 2f;
+            ShaderManager.drawQuad(name, ctx, cx - radius, cy - radius,
+                    radius * 2f, radius * 2f, extra);
+            ShaderManager.stopProgram();
+            endShaderDraw();
+        } else {
+            drawRingSector(ctx, cx, cy, radius - lineWidth * 0.5f,
+                    radius + lineWidth * 0.5f, startDegrees,
+                    startDegrees + clampedSweep, color);
+        }
     }
 
     private static void drawArcInternal(DrawContext ctx, float cx, float cy, float radius,
@@ -1195,7 +1233,8 @@ public class RenderUtil {
             ShaderManager.setUniform4f(name, "uColor", r, g, b, a);
             ShaderManager.setUniform1f(name, "uSmoothing", smoothing * ellipse.scalePx);
             ShaderManager.setUniform1f(name, "uLineWidth", lineWidth * ellipse.scalePx);
-            ShaderManager.setUniform1f(name, "uProgress", progress);                     
+            ShaderManager.setUniform1f(name, "uProgress", progress);
+            ShaderManager.setUniform1f(name, "uArcMode", 0.0f);
 
             float extra = lineWidth + EDGE_SMOOTHING + 2f;
             ShaderManager.drawQuad(name, ctx, cx - radius, cy - radius, radius * 2, radius * 2, extra);

@@ -51,7 +51,7 @@ import java.util.Set;
 )
 public class WebPanels extends Module {
 
-    private static final int MAX_PANELS = 3;
+    private static final int MAX_PANELS = 10;
     private static final int MAX_TABS = 6;
     private static final double MIN_HW = 0.65, MAX_HW = 3.4;
     private static final double MIN_HH = 0.38, MAX_HH = 2.2;
@@ -445,10 +445,12 @@ public class WebPanels extends Module {
         p.targetUp = p.up;
         p.halfW = p.targetHalfW = 1.20;
         p.halfH = p.targetHalfH = 0.675;
-        Tab firstTab = new Tab(defaultUrl.get());
+        Tab firstTab = new Tab(defaultUrl.get(), true);
         p.tabs.add(firstTab);
         p.activeTab = 0;
         p.url = firstTab.url;
+        firstTab.visualCenter = tabCenterU(p, 0);
+        firstTab.visualWidth = tabWidth(p);
         panels.add(p);
     }
 
@@ -495,6 +497,9 @@ public class WebPanels extends Module {
         exitFocusIf(p);
         persistActiveTab(p);
         p.tabs.add(new Tab(defaultUrl.get()));
+        Tab created = p.tabs.get(p.tabs.size() - 1);
+        created.visualCenter = tabAddU(p);
+        created.visualWidth = 0.0;
         p.activeTab = p.tabs.size() - 1;
         Tab tab = activeTab(p);
         p.browser = null;
@@ -511,6 +516,8 @@ public class WebPanels extends Module {
         persistActiveTab(p);
         int previousActive = p.activeTab;
         Tab removed = p.tabs.remove(index);
+        p.closingTabs.add(new ClosingTab(tabTitle(removed.url), removed.visualCenter,
+                Math.max(0.0, removed.visualWidth), Math.max(0.0f, removed.reveal)));
         if (removed.browser != null) WebBrowserBridge.close(removed.browser);
         if (p.tabs.isEmpty()) p.tabs.add(new Tab(defaultUrl.get()));
         int next = index == previousActive
@@ -797,6 +804,28 @@ public class WebPanels extends Module {
             float edgeTarget = p.hoveredRegion == 10 + i || (grabbed == p && resizeSide == 10 + i) ? 1f : 0f;
             p.edgeReveal[i] = smoothTowards(p.edgeReveal[i], edgeTarget, 17f, dt);
         }
+
+        animateTabs(p, dt);
+    }
+
+    private void animateTabs(Panel p, float dt) {
+        double targetWidth = tabWidth(p);
+        double layoutBlend = 1.0 - Math.exp(-18.0 * dt);
+        for (int i = 0; i < p.tabs.size(); i++) {
+            Tab tab = p.tabs.get(i);
+            double targetCenter = tabCenterU(p, i);
+            if (!Double.isFinite(tab.visualCenter)) tab.visualCenter = targetCenter;
+            tab.visualCenter += (targetCenter - tab.visualCenter) * layoutBlend;
+            tab.visualWidth += (targetWidth - tab.visualWidth) * layoutBlend;
+            tab.reveal = smoothTowards(tab.reveal, 1.0f, 15.0f, dt);
+        }
+
+        for (ClosingTab tab : p.closingTabs) {
+            tab.reveal = smoothTowards(tab.reveal, 0.0f, 14.0f, dt);
+            tab.width += (0.0 - tab.width) * (1.0 - Math.exp(-16.0 * dt));
+            tab.center += 0.018 * dt;
+        }
+        p.closingTabs.removeIf(tab -> tab.reveal < 0.015f || tab.width < 0.002);
     }
 
     private static float smoothTowards(float current, float target, float speed, float dt) {
@@ -1208,9 +1237,10 @@ public class WebPanels extends Module {
         if (Math.abs(lv - tabsY) < 0.048 * control) {
             if (Math.abs(lu - tabAddU(p)) < 0.040 * control
                     && p.tabs.size() < MAX_TABS) return 40;
-            double width = tabWidth(p);
             for (int i = 0; i < p.tabs.size(); i++) {
-                double center = tabCenterU(p, i);
+                Tab tab = p.tabs.get(i);
+                double width = Math.max(0.01 * control, tab.visualWidth);
+                double center = tab.visualCenter;
                 if (Math.abs(lu - center) > width * 0.5) continue;
                 if (lu > center + width * 0.5 - 0.052 * control) return 30 + i;
                 return 20 + i;
@@ -1342,21 +1372,28 @@ public class WebPanels extends Module {
                 (int) ((overPill ? 225 : 180) * a));
 
         double addU = navHalfW - 0.050 * control;
-        double tabsLeft = -navHalfW + 0.018 * control;
-        double tabsRight = addU - 0.060 * control;
-        double width = Math.min(0.270 * control, Math.max(0.12 * control,
-                (tabsRight - tabsLeft) / Math.max(1, p.tabs.size())));
         for (int i = 0; i < p.tabs.size(); i++) {
-            double centerU = tabsLeft + width * (i + 0.5);
+            Tab tab = p.tabs.get(i);
+            float tabReveal = ease(tab.reveal);
+            double centerU = tab.visualCenter;
+            double width = tab.visualWidth;
             boolean active = i == p.activeTab;
             boolean over = hovered == 20 + i || hovered == 30 + i;
-            if (active || over) {
+            if ((active || over) && width > 0.004 * control && tabReveal > 0.01f) {
                 drawSdfTopRoundedSurface(matrix, cam, p, centerU, tabsY,
                         width * 0.5 - 0.003 * control, 0.035 * control,
                         0.026 * control, 0.009,
                         active ? 0x2A : 0x21, active ? 0x2E : 0x25, active ? 0x37 : 0x2D,
-                        (int) ((active ? 238 : 190) * a), 2.35f);
+                        (int) ((active ? 238 : 190) * a * tabReveal), 2.35f);
             }
+        }
+        for (ClosingTab tab : p.closingTabs) {
+            float tabReveal = ease(tab.reveal);
+            if (tab.width <= 0.004 * control || tabReveal <= 0.01f) continue;
+            drawSdfTopRoundedSurface(matrix, cam, p, tab.center, tabsY,
+                    Math.max(0.002 * control, tab.width * 0.5 - 0.003 * control),
+                    0.035 * control, 0.026 * control, 0.009,
+                    0x21, 0x25, 0x2D, (int) (176 * a * tabReveal), 2.35f);
         }
         if (p.tabs.size() < MAX_TABS && hovered == 40) {
             drawSdfRoundedSurface(matrix, cam, p, addU, tabsY,
@@ -1421,28 +1458,40 @@ public class WebPanels extends Module {
 
         double tabsY = navY + 0.092 * control;
         double addU = abHalfW - 0.050 * control;
-        double tabsLeft = -abHalfW + 0.018 * control;
-        double tabsRight = addU - 0.060 * control;
-        double tabWidth = Math.min(0.270 * control, Math.max(0.12 * control,
-                (tabsRight - tabsLeft) / Math.max(1, p.tabs.size())));
         for (int i = 0; i < p.tabs.size(); i++) {
-            double centerU = tabsLeft + tabWidth * (i + 0.5);
+            Tab tab = p.tabs.get(i);
+            float tabReveal = ease(tab.reveal);
+            double centerU = tab.visualCenter;
+            double tabWidth = tab.visualWidth;
+            if (tabWidth <= 0.015 * control || tabReveal <= 0.01f) continue;
             boolean active = i == p.activeTab;
             boolean over = hovered == 20 + i || hovered == 30 + i;
             double titleU = centerU - tabWidth * 0.5 + 0.020 * control;
             float titleSize = (float) (0.027 * control);
             float maxTitleWidth = (float) Math.max(0.02 * control, tabWidth - 0.078 * control);
             String title = CustomFontRenderer.trimToWidth(
-                    tabTitle(p.tabs.get(i).url), maxTitleWidth, titleSize, FontWeight.MEDIUM);
+                    tabTitle(tab.url), maxTitleWidth, titleSize, FontWeight.MEDIUM);
             drawPanelWorldText(matrix, c, p, n, title, titleU, tabsY,
                     titleSize, 0.013,
-                    argb((int) ((active ? 235 : over ? 205 : 148) * a), 232, 235, 242),
+                    argb((int) ((active ? 235 : over ? 205 : 148) * a * tabReveal), 232, 235, 242),
                     FontWeight.MEDIUM, false);
             drawPanelWorldText(matrix, c, p, n, SolarIcons.CLOSE,
                     centerU + tabWidth * 0.5 - 0.028 * control, tabsY,
                     0.026 * control, 0.014,
-                    argb((int) ((hovered == 30 + i ? 255 : active ? 178 : 112) * a),
+                    argb((int) ((hovered == 30 + i ? 255 : active ? 178 : 112) * a * tabReveal),
                             238, 240, 245), FontWeight.SOLAR_ICONS, true);
+        }
+        for (ClosingTab tab : p.closingTabs) {
+            float tabReveal = ease(tab.reveal);
+            if (tab.width <= 0.030 * control || tabReveal <= 0.01f) continue;
+            double titleU = tab.center - tab.width * 0.5 + 0.020 * control;
+            float titleSize = (float) (0.027 * control);
+            float maxTitleWidth = (float) Math.max(0.02 * control, tab.width - 0.040 * control);
+            String title = CustomFontRenderer.trimToWidth(
+                    tab.title, maxTitleWidth, titleSize, FontWeight.MEDIUM);
+            drawPanelWorldText(matrix, c, p, n, title, titleU, tabsY,
+                    titleSize, 0.013, argb((int) (132 * a * tabReveal), 232, 235, 242),
+                    FontWeight.MEDIUM, false);
         }
         if (p.tabs.size() < MAX_TABS) {
             drawPanelWorldText(matrix, c, p, n, SolarIcons.ADD, addU, tabsY,
@@ -1796,6 +1845,7 @@ public class WebPanels extends Module {
         long lastCameraBootstrapMs;
         long lastCameraFrameSequence;
         final List<Tab> tabs = new ArrayList<>();
+        final List<ClosingTab> closingTabs = new ArrayList<>();
         int activeTab;
     }
 
@@ -1804,9 +1854,31 @@ public class WebPanels extends Module {
         Object browser;
         long lastCameraBootstrapMs;
         long lastCameraFrameSequence;
+        float reveal;
+        double visualCenter = Double.NaN;
+        double visualWidth;
 
         Tab(String url) {
+            this(url, false);
+        }
+
+        Tab(String url, boolean visible) {
             this.url = url == null ? "" : url;
+            this.reveal = visible ? 1.0f : 0.0f;
+        }
+    }
+
+    private static final class ClosingTab {
+        final String title;
+        double center;
+        double width;
+        float reveal;
+
+        ClosingTab(String title, double center, double width, float reveal) {
+            this.title = title;
+            this.center = center;
+            this.width = width;
+            this.reveal = reveal;
         }
     }
 }

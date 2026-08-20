@@ -9,6 +9,9 @@ uniform vec4 uColor;
 uniform float uSmoothing;
 uniform float uLineWidth; // 0 = filled
 uniform float uProgress;  // <--- НОВОЕ: Прогресс от 0.0 до 1.0
+uniform float uArcMode;
+uniform float uArcStart;
+uniform float uArcSweep;
 
 #define PI 3.14159265359
 
@@ -28,8 +31,16 @@ void main() {
         alpha = 1.0 - smoothstep(-uSmoothing, uSmoothing, pixelDist);
     }
 
-    // Вырезаем дугу для анимации КД
-    if (uProgress < 1.0) {
+    if (uArcMode > 0.5) {
+        float angle = atan(d.y, d.x);
+        if (angle < 0.0) angle += 2.0 * PI;
+        float delta = mod(angle - uArcStart + 2.0 * PI, 2.0 * PI);
+        float angularAa = max(uSmoothing / max(max(uRadius.x, uRadius.y), 0.001), 0.008);
+        float startMask = smoothstep(0.0, angularAa, delta);
+        float endMask = 1.0 - smoothstep(uArcSweep - angularAa, uArcSweep + angularAa, delta);
+        alpha *= startMask * endMask;
+    } else if (uProgress < 1.0) {
+        // Вырезаем дугу для анимации КД
         float angle = atan(d.x, d.y); // 0 градусов - ровно сверху
         if (angle < 0.0) angle += 2.0 * PI;
         float normalizedAngle = angle / (2.0 * PI);
