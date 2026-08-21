@@ -20,6 +20,65 @@ public final class WebBrowserBridge {
               if (!state) {
                 state = window.__enoughSpatialAudioV1 = { elements: new WeakMap() };
               }
+              state.spatialGain = gain;
+              if (!state.mediaElements && window.HTMLMediaElement) {
+                state.mediaElements = new Set();
+                state.logicalVolumes = new WeakMap();
+                const descriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'volume');
+                state.nativeVolume = descriptor;
+                state.applyMedia = media => {
+                  state.mediaElements.add(media);
+                  let pageVolume = state.logicalVolumes.get(media);
+                  if (pageVolume === undefined) {
+                    pageVolume = descriptor && descriptor.get ? descriptor.get.call(media) : media.volume;
+                    state.logicalVolumes.set(media, pageVolume);
+                  }
+                  const physical = Math.max(0, Math.min(1, pageVolume * state.spatialGain));
+                  if (descriptor && descriptor.set) descriptor.set.call(media, physical);
+                  else media.volume = physical;
+                };
+                if (descriptor && descriptor.get && descriptor.set && descriptor.configurable) {
+                  Object.defineProperty(HTMLMediaElement.prototype, 'volume', {
+                    configurable: true,
+                    enumerable: descriptor.enumerable,
+                    get() {
+                      const logical = state.logicalVolumes.get(this);
+                      return logical === undefined ? descriptor.get.call(this) : logical;
+                    },
+                    set(value) {
+                      const logical = Math.max(0, Math.min(1, Number(value)));
+                      state.logicalVolumes.set(this, logical);
+                      descriptor.set.call(this, logical * state.spatialGain);
+                    }
+                  });
+                }
+                state.observedRoots = new WeakSet();
+                state.watchRoot = root => {
+                  if (!root || state.observedRoots.has(root)) return;
+                  state.observedRoots.add(root);
+                  root.querySelectorAll && root.querySelectorAll('audio,video').forEach(state.applyMedia);
+                  root.querySelectorAll && root.querySelectorAll('*').forEach(element => {
+                    if (element.shadowRoot) state.watchRoot(element.shadowRoot);
+                  });
+                  new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(node => {
+                    if (node instanceof HTMLMediaElement) state.applyMedia(node);
+                    if (node instanceof Element) {
+                      node.querySelectorAll('audio,video').forEach(state.applyMedia);
+                      if (node.shadowRoot) state.watchRoot(node.shadowRoot);
+                      node.querySelectorAll('*').forEach(element => {
+                        if (element.shadowRoot) state.watchRoot(element.shadowRoot);
+                      });
+                    }
+                  }))).observe(root, { childList: true, subtree: true });
+                };
+                state.watchRoot(document);
+                const nativeAttachShadow = Element.prototype.attachShadow;
+                Element.prototype.attachShadow = function(options) {
+                  const root = nativeAttachShadow.call(this, options);
+                  state.watchRoot(root);
+                  return root;
+                };
+              }
               if (!state.contextGains && window.AudioNode) {
                 state.contextGains = new WeakMap();
                 state.gainNodes = new Set();
@@ -44,20 +103,12 @@ public final class WebBrowserBridge {
                   return nativeConnect.call(this, destination, ...args);
                 };
               }
-              document.querySelectorAll('audio,video').forEach(media => {
-                let entry = state.elements.get(media);
-                if (!entry) {
-                  entry = { pageVolume: media.volume, applied: media.volume };
-                  state.elements.set(media, entry);
-                } else if (Math.abs(media.volume - entry.applied) > 0.002) {
-                  // A site or the user changed its own volume. Keep that value
-                  // as the source volume and only layer distance attenuation on top.
-                  entry.pageVolume = media.volume;
-                }
-                const next = Math.max(0, Math.min(1, entry.pageVolume * gain));
-                if (Math.abs(media.volume - next) > 0.002) media.volume = next;
-                entry.applied = next;
-              });
+              if (state.mediaElements) {
+                state.mediaElements.forEach(media => {
+                  if (!media.isConnected) state.mediaElements.delete(media);
+                  else state.applyMedia(media);
+                });
+              }
               if (state.gainNodes) {
                 state.gainNodes.forEach(node => {
                   const now = node.context.currentTime;
