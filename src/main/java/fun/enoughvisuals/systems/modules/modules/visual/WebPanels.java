@@ -80,6 +80,8 @@ import javax.imageio.stream.ImageOutputStream;
         category = Category.CLIENT
 )
 public class WebPanels extends Module {
+    private static final double AUDIO_MAX_DISTANCE = 15.0;
+    private static final long AUDIO_UPDATE_INTERVAL_MS = 100L;
 
     private static final int MAX_PANELS = 10;
     private static final int MAX_TABS = 6;
@@ -941,6 +943,7 @@ public class WebPanels extends Module {
         WebBrowserBridge.runMessageLoop();
         for (Panel p : panels) {
             if (!p.closing) {
+                updateSpatialAudio(p, cam, frameDt);
                 if (p.renderVisible) {
                     ensureBrowser(p);
                     syncBrowserLocation(p);
@@ -1089,6 +1092,27 @@ public class WebPanels extends Module {
             }
             return false;
         });
+    }
+
+    private void updateSpatialAudio(Panel panel, Vec3d listener, float frameDt) {
+        Vec3d offset = listener.subtract(panel.center);
+        double localU = MathHelper.clamp(offset.dotProduct(panel.right), -panel.halfW, panel.halfW);
+        double localV = MathHelper.clamp(offset.dotProduct(panel.up), -panel.halfH, panel.halfH);
+        Vec3d closest = panel.center.add(panel.right.multiply(localU)).add(panel.up.multiply(localV));
+        double distance = listener.distanceTo(closest);
+
+        double remaining = MathHelper.clamp(1.0 - distance / AUDIO_MAX_DISTANCE, 0.0, 1.0);
+        double targetGain = remaining * remaining * (3.0 - 2.0 * remaining);
+        double smoothing = 1.0 - Math.exp(-10.0 * frameDt);
+        panel.audioGain += (targetGain - panel.audioGain) * smoothing;
+        if (panel.audioGain < 0.001) panel.audioGain = 0.0;
+
+        long now = System.currentTimeMillis();
+        if (now - panel.lastAudioUpdateMs < AUDIO_UPDATE_INTERVAL_MS) return;
+        panel.lastAudioUpdateMs = now;
+        for (Tab tab : panel.tabs) {
+            if (tab.browser != null) WebBrowserBridge.setSpatialVolume(tab.browser, panel.audioGain);
+        }
     }
 
     private void updatePanelVisibility(WorldRenderContext context, Panel panel, Vec3d eye) {
@@ -2421,6 +2445,8 @@ public class WebPanels extends Module {
         boolean geometryVisible;
         boolean notOccluded = true;
         long nextOcclusionCheckMs;
+        double audioGain = 1.0;
+        long lastAudioUpdateMs;
         final List<Tab> tabs = new ArrayList<>();
         final List<ClosingTab> closingTabs = new ArrayList<>();
         int activeTab;

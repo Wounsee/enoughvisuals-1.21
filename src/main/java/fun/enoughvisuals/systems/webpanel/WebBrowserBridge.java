@@ -4,6 +4,7 @@ import net.minecraft.util.Identifier;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.Collection;
 
 /**
  * Reflection bridge to MCEF (Minecraft Chromium Embedded Framework).
@@ -11,6 +12,61 @@ import java.lang.reflect.Proxy;
  * When MCEF is present, WebPanels will render a live Chromium browser.
  */
 public final class WebBrowserBridge {
+
+    private static final String SPATIAL_AUDIO_SCRIPT = """
+            (() => {
+              const gain = __GAIN__;
+              let state = window.__enoughSpatialAudioV1;
+              if (!state) {
+                state = window.__enoughSpatialAudioV1 = { elements: new WeakMap() };
+              }
+              if (!state.contextGains && window.AudioNode) {
+                state.contextGains = new WeakMap();
+                state.gainNodes = new Set();
+                state.ownedGainNodes = new WeakSet();
+                const nativeConnect = AudioNode.prototype.connect;
+                state.nativeConnect = nativeConnect;
+                state.gainFor = context => {
+                  let node = state.contextGains.get(context);
+                  if (!node) {
+                    node = context.createGain();
+                    state.contextGains.set(context, node);
+                    state.gainNodes.add(node);
+                    state.ownedGainNodes.add(node);
+                    nativeConnect.call(node, context.destination);
+                  }
+                  return node;
+                };
+                AudioNode.prototype.connect = function(destination, ...args) {
+                  if (destination === this.context.destination && !state.ownedGainNodes.has(this)) {
+                    return nativeConnect.call(this, state.gainFor(this.context), ...args);
+                  }
+                  return nativeConnect.call(this, destination, ...args);
+                };
+              }
+              document.querySelectorAll('audio,video').forEach(media => {
+                let entry = state.elements.get(media);
+                if (!entry) {
+                  entry = { pageVolume: media.volume, applied: media.volume };
+                  state.elements.set(media, entry);
+                } else if (Math.abs(media.volume - entry.applied) > 0.002) {
+                  // A site or the user changed its own volume. Keep that value
+                  // as the source volume and only layer distance attenuation on top.
+                  entry.pageVolume = media.volume;
+                }
+                const next = Math.max(0, Math.min(1, entry.pageVolume * gain));
+                if (Math.abs(media.volume - next) > 0.002) media.volume = next;
+                entry.applied = next;
+              });
+              if (state.gainNodes) {
+                state.gainNodes.forEach(node => {
+                  const now = node.context.currentTime;
+                  node.gain.cancelScheduledValues(now);
+                  node.gain.setTargetAtTime(gain, now, 0.04);
+                });
+              }
+            })();
+            """;
 
     private static final String MINECRAFT_CAMERA_BOOTSTRAP = """
             (() => {
@@ -332,6 +388,28 @@ public final class WebBrowserBridge {
                 script, url == null ? "" : url, 0);
     }
 
+    /** Applies a per-browser gain without changing the web site's own volume setting. */
+    public static void setSpatialVolume(Object browser, double gain) {
+        if (browser == null) return;
+        double clamped = Math.max(0.0, Math.min(1.0, gain));
+        String script = SPATIAL_AUDIO_SCRIPT.replace("__GAIN__", Double.toString(clamped));
+
+        // Run in every frame so embedded players receive the same attenuation.
+        Object identifiers = invoke(browser, "getFrameIdentifiers");
+        if (identifiers instanceof Collection<?> frames) {
+            for (Object identifier : frames) {
+                if (!(identifier instanceof Number number)) continue;
+                Object frame = invoke(browser, "getFrame", new Class<?>[]{long.class}, number.longValue());
+                if (frame == null) continue;
+                String frameUrl = invoke(frame, "getURL") instanceof String value ? value : "";
+                call(frame, "executeJavaScript",
+                        new Class<?>[]{String.class, String.class, int.class}, script, frameUrl, 0);
+            }
+            return;
+        }
+        executeJavaScript(browser, script);
+    }
+
     public static void goBack(Object browser) {
         call(browser, "goBack", new Class<?>[]{});
     }
@@ -396,6 +474,17 @@ public final class WebBrowserBridge {
             Method m = target.getClass().getMethod(method);
             m.setAccessible(true);
             return m.invoke(target);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static Object invoke(Object target, String method, Class<?>[] types, Object... args) {
+        if (target == null) return null;
+        try {
+            Method m = target.getClass().getMethod(method, types);
+            m.setAccessible(true);
+            return m.invoke(target, args);
         } catch (Throwable t) {
             return null;
         }
