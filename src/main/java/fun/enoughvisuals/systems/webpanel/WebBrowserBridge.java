@@ -292,6 +292,9 @@ public final class WebBrowserBridge {
                 resize(browser, width, height);
             }
             disableCursorListener(browser);
+            if (browser instanceof org.cef.browser.CefBrowser cefBrowser) {
+                CefSpatialAudio.register(cefBrowser);
+            }
             return browser;
         } catch (Throwable t) {
             return null;
@@ -443,6 +446,10 @@ public final class WebBrowserBridge {
     public static void setSpatialVolume(Object browser, double gain) {
         if (browser == null) return;
         double clamped = Math.max(0.0, Math.min(1.0, gain));
+        if (browser instanceof org.cef.browser.CefBrowser cefBrowser
+                && CefSpatialAudio.setGain(cefBrowser, clamped)) {
+            return;
+        }
         String script = SPATIAL_AUDIO_SCRIPT.replace("__GAIN__", Double.toString(clamped));
 
         // Run in every frame so embedded players receive the same attenuation.
@@ -501,6 +508,9 @@ public final class WebBrowserBridge {
     }
 
     public static void close(Object browser) {
+        if (browser instanceof org.cef.browser.CefBrowser cefBrowser) {
+            CefSpatialAudio.unregister(cefBrowser);
+        }
         call(browser, "close", new Class<?>[]{});
         flushPersistentStorage();
     }
