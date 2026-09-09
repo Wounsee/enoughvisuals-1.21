@@ -104,6 +104,9 @@ tasks.register("buildEmbeddedCosmetic", Exec) {
             "cosmetic-build/settings.gradle")
     outputs.file(embeddedCosmeticJar)
     workingDir cosmeticRuntimeDir
+    // The nested gradlew.bat needs JAVA_HOME; org.gradle.java.home from
+    // gradle.properties is not inherited by forked processes.
+    environment "JAVA_HOME", System.getProperty("java.home")
     commandLine new File(cosmeticRuntimeDir, "gradlew.bat"), ":fabric:remapJar", "--no-daemon"
 }
 

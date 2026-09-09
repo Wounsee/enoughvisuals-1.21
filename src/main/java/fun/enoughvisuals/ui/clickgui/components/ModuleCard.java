@@ -49,7 +49,6 @@ public final class ModuleCard {
     private static final float SLIDER_TRACK_RIGHT = 4f;
     private static final String ICON_GEAR = SolarIcons.SETTINGS;
     private static final String ICON_BIND = SolarIcons.BIND;
-
     private final Module module;
     private final MenuScreen screen;
     private final Map<Setting<?>, Float> hoverAnimations = new HashMap<>();
@@ -64,7 +63,6 @@ public final class ModuleCard {
     private final Map<Setting<?>, Float> smoothOptionScroll = new HashMap<>();
     private final Map<Setting<?>, Integer> typedIndices = new HashMap<>();
     private final Map<Setting<?>, Long> typedAt = new HashMap<>();
-
     public int column;
     private float x;
     private float y;
