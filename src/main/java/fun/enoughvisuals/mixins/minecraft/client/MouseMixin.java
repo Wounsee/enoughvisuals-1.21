@@ -2,7 +2,6 @@ package fun.enoughvisuals.mixins.minecraft.client;
 
 import fun.enoughvisuals.systems.gps.GpsSystem;
 import fun.enoughvisuals.systems.graffiti.GraffitiManager;
-
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
 import fun.enoughvisuals.systems.modules.modules.utils.ClickPearl;
 import fun.enoughvisuals.systems.modules.modules.utils.FastSearch;

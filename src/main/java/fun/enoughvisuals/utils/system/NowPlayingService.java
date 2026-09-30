@@ -3,7 +3,6 @@ package fun.enoughvisuals.utils.system;
 import dev.redstones.mediaplayerinfo.IMediaSession;
 import dev.redstones.mediaplayerinfo.MediaInfo;
 import dev.redstones.mediaplayerinfo.MediaPlayerInfo;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -130,7 +129,6 @@ public final class NowPlayingService {
 
             IMediaSession best = null;
 
-                              
             for (IMediaSession s : sessions) {
                 if (s == null) continue;
 
@@ -143,7 +141,6 @@ public final class NowPlayingService {
                 }
             }
 
-                                            
             if (best == null) {
                 for (IMediaSession s : sessions) {
                     if (s == null) continue;
@@ -192,7 +189,6 @@ public final class NowPlayingService {
                     artwork != null && artwork.length > 0,
                     artwork
             );
-
         } catch (LinkageError e) {
             activeSession = null;
             MediaSessionSupport.disable("native media library failed to link: " + e);

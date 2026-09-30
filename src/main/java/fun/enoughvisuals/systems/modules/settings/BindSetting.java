@@ -28,7 +28,6 @@ public class BindSetting extends Setting<Integer> {
         return isBound() && get() == keyCode;
     }
 
-    
     public String getKeyName() {
         return BindKeyUtil.getBindName(get());
     }

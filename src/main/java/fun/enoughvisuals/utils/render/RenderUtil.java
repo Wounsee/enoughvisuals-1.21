@@ -28,16 +28,11 @@ public class RenderUtil {
         ShaderManager.setUniform1f(shader, "uExponent", activeSquircleExponent);
     }
 
-
-
-
-
     public static void drawRoundedRect(DrawContext ctx, float x, float y, float width, float height,
                                        float radius, int color) {
         drawRoundedRect(ctx, x, y, width, height, radius, radius, radius, radius, color);
     }
 
-                                                                                
     public static void drawRoundedMask(DrawContext ctx, float x, float y, float width, float height, float radius) {
         if (width <= 0 || height <= 0) return;
 
@@ -66,14 +61,12 @@ public class RenderUtil {
         BufferRenderer.drawWithGlobalProgram(buffer.end());
     }
 
-      
     public static void drawSmoothFilledCircle(Matrix4f matrix, int colorARGB, double x, double y, double radius) {
         float alpha = (colorARGB >> 24 & 0xFF) / 255.0f;
         float red = (colorARGB >> 16 & 0xFF) / 255.0f;
         float green = (colorARGB >> 8 & 0xFF) / 255.0f;
         float blue = (colorARGB & 0xFF) / 255.0f;
 
-                                                                            
         BufferBuilder bufferBuilder = Tessellator.getInstance()
                 .begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
@@ -87,21 +80,16 @@ public class RenderUtil {
             float px2 = (float) (x + Math.sin(rad2) * radius);
             float py2 = (float) (y - Math.cos(rad2) * radius);
 
-                                
             bufferBuilder.vertex(matrix, (float) x, (float) y, 0).color(red, green, blue, alpha);
-                                   
+
             bufferBuilder.vertex(matrix, px1, py1, 0).color(red, green, blue, alpha);
-                                   
+
             bufferBuilder.vertex(matrix, px2, py2, 0).color(red, green, blue, alpha);
         }
 
-                                                         
         BufferRenderer.drawWithGlobalProgram(bufferBuilder.end());
     }
 
-       
-                                                               
-       
     public static void drawSmoothArcOutline(Matrix4f matrix, int colorARGB, double x, double y, double radius, float lineWidth, float startAngleDegrees, float endAngleDegrees) {
         if (endAngleDegrees <= 0) return;
 
@@ -113,7 +101,6 @@ public class RenderUtil {
         BufferBuilder bufferBuilder = Tessellator.getInstance()
                 .begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
-                                                      
         float innerRadius = (float) radius;
         float outerRadius = (float) (radius + lineWidth);
 
@@ -147,10 +134,8 @@ public class RenderUtil {
             bufferBuilder.vertex(matrix, p4x, p4y, 0).color(red, green, blue, alpha);
         }
 
-                                                         
         BufferRenderer.drawWithGlobalProgram(bufferBuilder.end());
     }
-
 
     public static void drawRoundedRect(DrawContext ctx, float x, float y, float width, float height,
                                        float topLeft, float topRight, float bottomRight, float bottomLeft,
@@ -192,10 +177,6 @@ public class RenderUtil {
                     topLeft, topRight, bottomRight, bottomLeft, r, g, b, a);
         }
     }
-
-    
-    
-    
 
     public static void drawRoundedOutline(DrawContext ctx, float x, float y, float width, float height,
                                           float radius, float lineWidth, int color) {
@@ -289,10 +270,6 @@ public class RenderUtil {
                 withAlpha(color, a * progress));
     }
 
-    
-    
-    
-
     public static void drawRoundedGradient(DrawContext ctx, float x, float y, float width, float height,
                                            float radius, int topLeft, int topRight, int bottomRight, int bottomLeft) {
         drawRoundedGradient(ctx, x, y, width, height, radius, radius, radius, radius,
@@ -333,10 +310,6 @@ public class RenderUtil {
         drawRoundedGradient(ctx, x, y, width, height, radius, colorLeft, colorRight, colorRight, colorLeft);
     }
 
-    
-    
-    
-
     public static void drawRect(DrawContext ctx, float x, float y, float width, float height, int color) {
         if (width <= 0 || height <= 0) return;
 
@@ -362,10 +335,6 @@ public class RenderUtil {
         drawRect(ctx, x, y + lineWidth, lineWidth, height - lineWidth * 2, color);
         drawRect(ctx, x + width - lineWidth, y + lineWidth, lineWidth, height - lineWidth * 2, color);
     }
-
-    
-    
-    
 
     public static void drawGradientRect(DrawContext ctx, float x, float y, float width, float height,
                                         int colorTop, int colorBottom) {
@@ -397,10 +366,6 @@ public class RenderUtil {
 
         RenderSystem.disableBlend();
     }
-
-    
-    
-    
 
     public static void drawCircle(DrawContext ctx, float cx, float cy, float radius, int color) {
         drawEllipse(ctx, cx, cy, radius, radius, color);
@@ -516,10 +481,6 @@ public class RenderUtil {
         RenderSystem.disableBlend();
     }
 
-    
-    
-    
-
     public static void drawLine(DrawContext ctx, float x1, float y1, float x2, float y2,
                                 float width, int color) {
         float a = ((color >> 24) & 0xFF) / 255f;
@@ -585,10 +546,6 @@ public class RenderUtil {
         drawCircle(ctx, x1, y1, width / 2f, color);
         drawCircle(ctx, x2, y2, width / 2f, color);
     }
-
-    
-    
-    
 
     public static void drawShadow(DrawContext ctx, float x, float y, float width, float height,
                                   float radius, float shadowSize, int shadowColor) {
@@ -667,11 +624,6 @@ public class RenderUtil {
         ShaderManager.stopProgram();
         endShaderDraw();
     }
-
-
-    
-    
-    
 
     public static void drawTexture(DrawContext ctx, Identifier texture, float x, float y,
                                    float width, float height) {
@@ -753,10 +705,6 @@ public class RenderUtil {
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         RenderSystem.disableBlend();
     }
-
-    
-    
-    
 
     public static void enableScissor(float x, float y, float width, float height) {
         StencilUtil.enableScissor(x, y, width, height);
@@ -852,10 +800,6 @@ public class RenderUtil {
         }
     }
 
-    
-    
-    
-
     public static int rgba(int r, int g, int b, int a) {
         return ((a & 0xFF) << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
     }
@@ -922,10 +866,6 @@ public class RenderUtil {
         int rgb = java.awt.Color.HSBtoRGB(hue, saturation, brightness);
         return ((alpha & 0xFF) << 24) | (rgb & 0x00FFFFFF);
     }
-
-    
-    
-    
 
     public static float lerp(float from, float to, float t) {
         return from + (to - from) * Math.max(0f, Math.min(1f, t));
@@ -1005,10 +945,6 @@ public class RenderUtil {
         else { t -= 2.625f / 2.75f; return 7.5625f * t * t + 0.984375f; }
     }
 
-    
-    
-    
-
     private static void beginShaderDraw() {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -1025,8 +961,6 @@ public class RenderUtil {
     private static float clampRadius(float r, float max) {
         return Math.max(0, Math.min(r, max));
     }
-
-
 
     private static boolean hasComplex2DTransform(Matrix4f m) {
         final float eps = 0.0001f;
@@ -1083,10 +1017,6 @@ public class RenderUtil {
                 Math.max(pxScale, 0.0001f)
         );
     }
-
-    
-    
-    
 
     private static void drawRoundedRectShader(DrawContext ctx, float x, float y, float w, float h,
                                               float tl, float tr, float br, float bl,
@@ -1305,10 +1235,6 @@ public class RenderUtil {
                 ((color >> 24) & 0xFF) / 255f);
     }
 
-    
-    
-    
-
     public static void drawRoundedRectCPU(Matrix4f matrix, float x, float y, float w, float h,
                                            float tl, float tr, float br, float bl,
                                            float r, float g, float b, float a) {
@@ -1335,7 +1261,6 @@ public class RenderUtil {
         BufferRenderer.drawWithGlobalProgram(buffer.end());
         RenderSystem.disableBlend();
     }
-
 
     private static void drawRoundedRectCPUTransformed(Matrix4f matrix, float x, float y, float w, float h,
                                                       float tl, float tr, float br, float bl,
@@ -1809,10 +1734,6 @@ public class RenderUtil {
                     r, g, b, layerAlpha);
         }
     }
-
-    
-    
-    
 
     private static void addCornerVertices(BufferBuilder buffer, Matrix4f matrix,
                                           float cx, float cy, float radius,

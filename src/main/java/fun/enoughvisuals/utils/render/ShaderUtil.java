@@ -35,7 +35,6 @@ public class ShaderUtil {
         if (attempted) return 0;
         attempted = true;
 
-        
         sodiumDetected = isSodiumPresent();
         if (sodiumDetected) {
             LOGGER.info("Sodium detected — MSDF shader DISABLED");
@@ -104,7 +103,6 @@ public class ShaderUtil {
 
             LOGGER.info("MSDF shader loaded (program={})", program);
             return program;
-
         } catch (Exception e) {
             LOGGER.error("Failed to load MSDF shader: {}", e.getMessage(), e);
             return 0;

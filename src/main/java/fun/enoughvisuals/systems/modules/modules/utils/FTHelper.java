@@ -59,8 +59,6 @@ public class FTHelper extends Module {
             .visibleWhen(freezeEnabled::get);
     public final ColorSetting playerInsideColor = add(new ColorSetting("Игрок в радиусе", "player_inside_color", "Цвет, когда в зоне есть игрок", 0xFFFF3030));
 
-
-
     public FTHelper() {
         INSTANCE = this;
     }
@@ -81,9 +79,6 @@ public class FTHelper extends Module {
     @Override
     protected void onDisable() {
     }
-
-
-
 
     // === 2D РЕНДЕР ===
     private void onRender2D(DrawContext ctx, net.minecraft.client.render.RenderTickCounter tickCounter) {
@@ -114,8 +109,6 @@ public class FTHelper extends Module {
 
         stack.push();
         stack.translate(-camPos.x, -camPos.y, -camPos.z);
-
-
 
         // 2. Превью Пласта
         if (plastEnabled.get() && heldItem == Items.DRIED_KELP) {
@@ -513,6 +506,4 @@ public class FTHelper extends Module {
 
         return new Vec3d(screenX, screenY, 0);
     }
-
-
 }

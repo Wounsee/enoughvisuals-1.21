@@ -11,7 +11,6 @@ public class NoRender extends Module {
 
     public static NoRender INSTANCE;
 
-                   
     public final BooleanSetting hurtCam = add(new BooleanSetting("Тряска при уроне", "hurt_cam", "Отключает тряску камеры при получении урона", true));
     public final BooleanSetting scoreboard = add(new BooleanSetting("Скорборд", "scoreboard", "Скрывает скорборд (таблицу справа)", false));
     public final BooleanSetting portal = add(new BooleanSetting("Эффект портала", "portal", "Убирает фиолетовый экран в портале", true));

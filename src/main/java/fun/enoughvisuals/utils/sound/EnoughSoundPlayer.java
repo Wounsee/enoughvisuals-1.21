@@ -59,7 +59,7 @@ public final class EnoughSoundPlayer {
         SoundEvent event = SoundEvent.of(id);
         float v = Math.max(0.0f, Math.min(1.0f, volume));
         float p = Math.max(0.5f, Math.min(2.0f, pitch));
-                                                  
+
         client.getSoundManager().play(PositionedSoundInstance.master(event, p, v));
     }
 }

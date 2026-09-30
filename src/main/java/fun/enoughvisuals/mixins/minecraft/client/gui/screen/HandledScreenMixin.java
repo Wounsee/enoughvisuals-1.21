@@ -131,5 +131,4 @@ public abstract class HandledScreenMixin {
             context.drawTextWithShadow(mc.textRenderer, text, 515, 220, 0xFFFFFFFF);
         }
     }
-
 }

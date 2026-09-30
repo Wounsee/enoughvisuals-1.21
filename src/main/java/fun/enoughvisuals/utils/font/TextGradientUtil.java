@@ -6,9 +6,6 @@ import net.minecraft.text.Text;
 
 public class TextGradientUtil {
 
-       
-                                                              
-       
     public static MutableText gradient(String text, int hexStart, int hexEnd) {
         MutableText result = Text.empty();
         int len = text.length();
@@ -22,17 +19,15 @@ public class TextGradientUtil {
         int b2 = hexEnd & 0xFF;
 
         for (int i = 0; i < len; i++) {
-                                                         
+
             float ratio = len > 1 ? (float) i / (len - 1) : 0;
 
-                                  
             int r = (int) (r1 + (r2 - r1) * ratio);
             int g = (int) (g1 + (g2 - g1) * ratio);
             int b = (int) (b1 + (b2 - b1) * ratio);
 
             int stepColor = (r << 16) | (g << 8) | b;
 
-                                              
             result.append(Text.literal(String.valueOf(text.charAt(i)))
                     .setStyle(Style.EMPTY.withColor(stepColor)));
         }

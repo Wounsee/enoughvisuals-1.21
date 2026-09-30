@@ -1,32 +1,20 @@
 package fun.enoughvisuals;
 
-
-
 import fun.enoughvisuals.systems.config.ConfigSystem;
 import fun.enoughvisuals.systems.cosmetic.CosmeticCatalog;
-
 import fun.enoughvisuals.systems.hud.DragAndDrop;
-
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
-
 import fun.enoughvisuals.systems.modules.modules.client.*;
-
 import fun.enoughvisuals.systems.modules.modules.utils.*;
-
 import fun.enoughvisuals.systems.modules.modules.visual.*;
-
 import fun.enoughvisuals.systems.network.RemoteConfig;
 import fun.enoughvisuals.systems.network.DiscordPresenceService;
 import fun.enoughvisuals.systems.events.EventFeedService;
 import fun.enoughvisuals.systems.network.HolyWorldFeatureControl;
-
 import fun.enoughvisuals.ui.gate.GateScreen;
 import fun.enoughvisuals.ui.mainmenu.WindowTitleAnimator;
-
 import fun.enoughvisuals.ui.hud.BindsHud;
-
 import fun.enoughvisuals.ui.hud.CooldownsHud;
-
 import fun.enoughvisuals.ui.hud.EffectsHud;
 import fun.enoughvisuals.ui.hud.TargetHud;
 import fun.enoughvisuals.ui.hud.WatermarkHud;
@@ -35,74 +23,46 @@ import fun.enoughvisuals.ui.hud.NotificationHud;
 import fun.enoughvisuals.ui.hud.ArmorHud;
 import fun.enoughvisuals.ui.hud.InventoryHud;
 import fun.enoughvisuals.ui.hud.HotbarHud;
-
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
-
 import fun.enoughvisuals.utils.render.ShaderEspRenderer;
-
 import fun.enoughvisuals.utils.sound.CombatSoundService;
-
 import fun.enoughvisuals.utils.system.FuntimeEventSystem;
-
 import fun.enoughvisuals.utils.system.NowPlayingService;
 import fun.enoughvisuals.utils.system.TitleBarHelper;
 import fun.enoughvisuals.ui.clickgui.components.IntegratedToolPage;
-
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
-
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import fun.enoughvisuals.systems.emotions.EmotionWheelManager;
 import fun.enoughvisuals.systems.graffiti.GraffitiManager;
 import fun.enoughvisuals.ui.screen.EmotionWheelScreen;
 import fun.enoughvisuals.ui.screen.GraffitiWheelScreen;
-
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
-
 import net.minecraft.client.MinecraftClient;
-
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.resource.ResourceManager;
 import net.minecraft.resource.ResourceType;
 import net.minecraft.util.Identifier;
-
 import org.lwjgl.glfw.GLFW;
-
 import org.lwjgl.glfw.GLFWImage;
-
 import org.lwjgl.system.MemoryUtil;
 
-
-
 import java.io.InputStream;
-
 import java.lang.reflect.Method;
-
 import java.nio.ByteBuffer;
-
 import java.nio.file.Files;
-
 import java.nio.file.Path;
-
-
 
 public final class EnoughCore {
 
     private static boolean windowIconApplied;
 
-
-
     private EnoughCore() {
-
     }
-
-
 
     public static void initializeClient() {
 
@@ -226,8 +186,6 @@ public final class EnoughCore {
                 new TotemTracker()
         );
 
-
-
         manager.init();
         HolyWorldFeatureControl.getInstance().initialize();
 
@@ -269,9 +227,7 @@ public final class EnoughCore {
                 windowIconApplied = true;
 
                 client.updateWindowTitle();
-
             }
-
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(EnoughCore::tickGate);
@@ -288,21 +244,17 @@ public final class EnoughCore {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> NowPlayingService.getNowPlaying());
 
-
-
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
 
             if (!overlay) {
 
                 Animations.markChatMessage();
-
             }
 
             String line = message.getString();
 
             FuntimeEventSystem.getInstance().onChatLine(line);
             EventFeedService.getInstance().onChatLine(line);
-
         });
 
         ClientReceiveMessageEvents.CHAT.register((message, signedMessage, sender, params, timestamp) -> {
@@ -313,10 +265,7 @@ public final class EnoughCore {
 
             FuntimeEventSystem.getInstance().onChatLine(line);
             EventFeedService.getInstance().onChatLine(line);
-
         });
-
-
 
         DragAndDrop dad = DragAndDrop.getInstance();
 
@@ -335,8 +284,6 @@ public final class EnoughCore {
         dad.register("inventory", "Инвентарь", null, InventoryHud::new);
         dad.register("custom_hotbar", "Кастомный хотбар", null, HotbarHud::new);
 
-
-
         ConfigSystem configSystem = ConfigSystem.getInstance();
 
         configSystem.initialize();
@@ -350,21 +297,16 @@ public final class EnoughCore {
             configSystem.save("default");
 
             configSystem.setLastConfigName("default");
-
         } else if (dad.getActiveElements().isEmpty()) {
 
             dad.addElement("watermark", 0f, 0f);
-
         }
-
-
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
             IntegratedToolPage.invalidateCosmeticPreviewCache();
             DiscordPresenceService.getInstance().stop();
             ConfigSystem.getInstance().autosaveOnExit();
         });
-
     }
 
     private static void applyFirstLaunchDisplayDefaults() {
@@ -395,13 +337,9 @@ public final class EnoughCore {
         }
     }
 
-
-
     public static void setIcon() {
 
         if (MinecraftClient.getInstance().getWindow() == null) return;
-
-
 
         Path iconPath = net.fabricmc.loader.api.FabricLoader.getInstance()
 
@@ -411,27 +349,17 @@ public final class EnoughCore {
 
                 .orElse(null);
 
-
-
         if (iconPath == null) return;
-
-
 
         ByteBuffer byteBuffer = null;
 
         GLFWImage.Buffer imageBuffer = null;
 
-
-
         try (InputStream in = Files.newInputStream(iconPath);
 
              NativeImage image = NativeImage.read(in)) {
 
-
-
             byteBuffer = MemoryUtil.memAlloc(image.getWidth() * image.getHeight() * 4);
-
-
 
             for (int y = 0; y < image.getHeight(); y++) {
 
@@ -446,9 +374,7 @@ public final class EnoughCore {
                     byteBuffer.put((byte) (argb & 0xFF));
 
                     byteBuffer.put((byte) ((argb >> 24) & 0xFF));
-
                 }
-
             }
 
             byteBuffer.flip();
@@ -466,31 +392,22 @@ public final class EnoughCore {
             long windowHandle = MinecraftClient.getInstance().getWindow().getHandle();
 
             GLFW.glfwSetWindowIcon(windowHandle, imageBuffer);
-
-
-
         } catch (Exception e) {
 
             e.printStackTrace();
-
         } finally {
 
             if (byteBuffer != null) MemoryUtil.memFree(byteBuffer);
 
             if (imageBuffer != null) imageBuffer.free();
-
         }
-
     }
-
-
 
     private static void tickGate(MinecraftClient client) {
 
         if (client == null) {
 
             return;
-
         }
 
         boolean gated = RemoteConfig.getInstance().isGated();
@@ -500,11 +417,9 @@ public final class EnoughCore {
             if (!gated) {
 
                 client.setScreen(new net.minecraft.client.gui.screen.TitleScreen());
-
             }
 
             return;
-
         }
 
         // Gate only while in menus so we never interrupt an active world session,
@@ -514,12 +429,8 @@ public final class EnoughCore {
         if (gated && client.world == null && client.currentScreen != null) {
 
             client.setScreen(new GateScreen());
-
         }
-
     }
-
-
 
     private static void initCustomFontRendererCompat() {
 
@@ -528,14 +439,11 @@ public final class EnoughCore {
             CustomFontRenderer.init();
 
             return;
-
         } catch (NoSuchMethodError ignored) {
 
             // fallback below
 
         }
-
-
 
         try {
 
@@ -544,15 +452,9 @@ public final class EnoughCore {
             fallback.setAccessible(true);
 
             fallback.invoke(null, 0);
-
         } catch (Throwable throwable) {
 
             throw new RuntimeException("font init error", throwable);
-
         }
-
     }
-
-
-
 }

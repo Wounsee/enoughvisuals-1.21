@@ -15,10 +15,8 @@ public abstract class Setting<T> {
     private final T defaultValue;
     private String ownerModuleId = "";
 
-    
     private BooleanSupplier visibility = () -> true;
 
-    
     private final List<SettingChangeListener<T>> listeners = new ArrayList<>();
 
     public Setting(String name, String id, String description, T defaultValue) {
@@ -28,10 +26,6 @@ public abstract class Setting<T> {
         this.value = defaultValue;
         this.defaultValue = defaultValue;
     }
-
-    
-    
-    
 
     public T get() {
         return value;
@@ -47,7 +41,6 @@ public abstract class Setting<T> {
         }
     }
 
-    
     protected T validate(T value) {
         return value;
     }
@@ -55,10 +48,6 @@ public abstract class Setting<T> {
     public void reset() {
         set(defaultValue);
     }
-
-    
-    
-    
 
     public String getName() { return ClientLanguage.settingName(ownerModuleId, id, name); }
     public String getRawName() { return name; }
@@ -69,10 +58,6 @@ public abstract class Setting<T> {
     public void setOwnerModuleId(String ownerModuleId) { this.ownerModuleId = ownerModuleId == null ? "" : ownerModuleId; }
     public T getDefaultValue() { return defaultValue; }
 
-    
-    
-    
-
     public boolean isVisible() {
         return visibility.getAsBoolean();
     }
@@ -81,10 +66,6 @@ public abstract class Setting<T> {
         this.visibility = condition;
         return this;
     }
-
-    
-    
-    
 
     public Setting<T> onChange(SettingChangeListener<T> listener) {
         listeners.add(listener);
@@ -95,10 +76,6 @@ public abstract class Setting<T> {
     public interface SettingChangeListener<T> {
         void onChange(T oldValue, T newValue);
     }
-
-    
-    
-    
 
     public abstract Object serialize();
     public abstract void deserialize(Object data);

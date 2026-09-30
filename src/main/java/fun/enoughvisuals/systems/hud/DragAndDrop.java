@@ -179,7 +179,6 @@ public class DragAndDrop {
             renderElement(ctx, delta, element);
         }
 
-                                                                             
         renderElement(ctx, delta, targetHud);
     }
 
@@ -323,7 +322,6 @@ public class DragAndDrop {
             return;
         }
 
-                                                                               
         dragging.clearDragVelocity();
         dragging.clearDragGrip();
         dragging = null;

@@ -40,7 +40,6 @@ public class ShaderManager {
     private static final FloatBuffer QUAD_UPLOAD = BufferUtils.createFloatBuffer(6 * 2);
     private static final FloatBuffer TEX_QUAD_UPLOAD = BufferUtils.createFloatBuffer(6 * 6);
 
-    
     private static boolean programActive = false;
 
     public static final String ROUNDED_RECT = "rounded_rect";
@@ -53,11 +52,6 @@ public class ShaderManager {
     public static final String ROUNDED_CHECKERBOARD = "rounded_checkerboard";
     public static final String ROUNDED_TEXTURE = "rounded_texture";
     public static final String MENU_PREVIEW = "menu_preview";
-
-
-
-
-
 
     public static void init() {
         if (initialized || failed) return;
@@ -241,7 +235,6 @@ public class ShaderManager {
         quadVAO = GL30.glGenVertexArrays();
         quadVBO = GL20.glGenBuffers();
 
-        
         int prevVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
 
         GL30.glBindVertexArray(quadVAO);
@@ -250,14 +243,9 @@ public class ShaderManager {
         GL20.glEnableVertexAttribArray(0);
         GL20.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 2 * 4, 0);
 
-        
         GL30.glBindVertexArray(prevVAO);
         GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);
     }
-
-    
-    
-    
 
     public static void useProgram(String name) {
         Integer program = programs.get(name);
@@ -265,7 +253,6 @@ public class ShaderManager {
 
         RenderSystem.assertOnRenderThread();
 
-        
         previousProgram = GL20.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         GL20.glUseProgram(program);
         programActive = true;
@@ -323,7 +310,6 @@ public class ShaderManager {
                 screenSizeCache.put(shaderName, packedScreenSize);
             }
 
-            
             int prevVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
 
             GL30.glBindVertexArray(quadVAO);
@@ -344,20 +330,15 @@ public class ShaderManager {
 
             GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);
             GL30.glBindVertexArray(prevVAO);
-
         } catch (Exception e) {
             LOGGER.error("drawQuad failed for '{}': {}", shaderName, e.getMessage());
-            
+
             try {
                 GL20.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);
                 GL30.glBindVertexArray(0);
             } catch (Exception ignored) {}
         }
     }
-
-    
-    
-    
 
     public static void setUniform1f(String shaderName, String uniformName, float value) {
         int program = programs.getOrDefault(shaderName, 0);
@@ -385,10 +366,6 @@ public class ShaderManager {
         return cache.computeIfAbsent(uniformName, name -> GL20.glGetUniformLocation(program, name));
     }
 
-    
-    
-    
-
     public static boolean isAvailable() {
         if (!initialized && !failed) {
             if (RenderSystem.isOnRenderThread()) {
@@ -414,7 +391,7 @@ public class ShaderManager {
     }
 
     private static void cleanupInternal() {
-        
+
         if (programActive) {
             stopProgram();
         }

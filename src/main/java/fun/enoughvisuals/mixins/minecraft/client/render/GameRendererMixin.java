@@ -21,7 +21,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(GameRenderer.class)
 public abstract class GameRendererMixin {
 
-                                                   
     @Shadow
     public abstract float getFarPlaneDistance();
 
@@ -69,14 +68,11 @@ public abstract class GameRendererMixin {
 
             float customRatio = module.getRatio();
 
-                                                                                   
             float fovRadians = fovDegrees * ((float)Math.PI / 180F);
 
-                                           
             matrix4f.perspective(fovRadians, customRatio, 0.05F, this.getFarPlaneDistance());
 
             cir.setReturnValue(matrix4f);
         }
     }
-
 }

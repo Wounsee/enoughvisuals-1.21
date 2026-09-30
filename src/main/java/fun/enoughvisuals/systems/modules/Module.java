@@ -26,7 +26,6 @@ public abstract class Module {
     private int keyBind = -1;
     private float enableAnimation = 0f;
 
-    
     private final List<Setting<?>> settings = new ArrayList<>();
 
     public Module() {
@@ -52,7 +51,6 @@ public abstract class Module {
         return Collections.unmodifiableList(settings);
     }
 
-    
     public List<Setting<?>> getVisibleSettings() {
         List<Setting<?>> visible = new ArrayList<>();
         for (Setting<?> s : settings) {
@@ -67,7 +65,6 @@ public abstract class Module {
         }
         return null;
     }
-
 
     public void toggle() {
         if (ModuleManager.getInstance().isBlocked(this)) return;
@@ -112,20 +109,12 @@ public abstract class Module {
         onDisable();
     }
 
-    
-    
-    
-
     protected void onEnable() {}
     protected void onDisable() {}
     protected boolean canEnable() { return true; }
     public void onTick() {}
     public void onRender(float tickDelta) {}
     public void onKeyPress(int key) {}
-
-    
-    
-    
 
     public String getName() { return ClientLanguage.moduleName(id, name); }
     public String getRawName() { return name; }

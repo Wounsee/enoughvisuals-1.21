@@ -31,7 +31,6 @@ import org.lwjgl.opengl.GL14;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.ByteBuffer;
-
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -659,5 +658,4 @@ final class CosmeticsToolPage {
             this.entity = entity;
         }
     }
-
 }

@@ -71,7 +71,6 @@ public class GlassUtil {
 
             if (panel == null) {
                 LOGGER.warn("shader panel not found");
-                                   
             }
 
             initialized = true;
@@ -166,7 +165,6 @@ public class GlassUtil {
             frameReady = true;
 
             restoreState(mainFbo, wasDepthTest, wasBlend);
-
         } catch (Exception e) {
             LOGGER.error("beginFrame() failed", e);
             frameReady = false;
@@ -545,7 +543,6 @@ public class GlassUtil {
         if (uniform != null) uniform.set(x, y, z, w);
     }
 
-
     private static void ensureFBOs(int w, int h) {
         if (lastWidth == w && lastHeight == h
                 && lastChainLength == CHAIN_LENGTH && fboChain != null) return;
@@ -562,8 +559,6 @@ public class GlassUtil {
             fboChain[i] = new SimpleFramebuffer(fbW, fbH, false);
             fboChain[i].setTexFilter(GL11.GL_LINEAR);
         }
-
-    
     }
 
     public static void cleanup() {

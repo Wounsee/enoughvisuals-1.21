@@ -10,5 +10,4 @@ public interface CreativeSlotAccessor {
 
     @Accessor("slot")
     Slot getRealSlot();
-
 }

@@ -25,13 +25,11 @@ public class ModeSetting extends Setting<String> {
         return modes.contains(value) ? value : getDefaultValue();
     }
 
-    
     public void cycle() {
         int idx = modes.indexOf(get());
         set(modes.get((idx + 1) % modes.size()));
     }
 
-    
     public void cycleBack() {
         int idx = modes.indexOf(get());
         set(modes.get((idx - 1 + modes.size()) % modes.size()));

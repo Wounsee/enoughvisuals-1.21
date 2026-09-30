@@ -148,7 +148,6 @@ public class ItemLight extends Module {
         float countWidth = CustomFontRenderer.getTextWidth(count, countSize, FontWeight.SEMIBOLD);
         float totalWidth = iconSize + gap + nameWidth + gap + countWidth;
 
-                                                                                         
         float scaledWidth = totalWidth * scale;
         float scaledHeight = height * scale;
         float scaledPaddingX = paddingX * scale;
@@ -157,10 +156,8 @@ public class ItemLight extends Module {
         float absStartX = x - (scaledWidth / 2f);
         float absStartY = y - (scaledHeight / 2f);
 
-                                                                        
         GlassUtil.drawGlassPanel(ctx, absStartX - scaledPaddingX, absStartY, scaledWidth + (scaledPaddingX * 2), scaledHeight, scaledRadius, CustomTheme.itemPanelTint(), CustomTheme.itemPanelTintAlpha(), 1.0f);
 
-                                                                                    
         float startX = -(totalWidth / 2f);
         float startY = -(height / 2f);
 
@@ -170,7 +167,6 @@ public class ItemLight extends Module {
 
         float textOffsetY = -0.5f;
 
-                 
         float iconY = startY + (height - iconSize) / 2f - 0.5f;
         ctx.getMatrices().push();
         ctx.getMatrices().translate(startX, iconY, 0);
@@ -178,12 +174,10 @@ public class ItemLight extends Module {
         ctx.drawItem(stack, 0, 0);
         ctx.getMatrices().pop();
 
-                   
         float textY = startY + (height - nameSize) / 2f + textOffsetY;
         float textX = startX + iconSize + gap;
         CustomFontRenderer.drawText(ctx, name, textX, textY, nameSize, 0xFFFFFFFF, FontWeight.SEMIBOLD);
 
-                     
         float countY = startY + (height - countSize) / 2f + textOffsetY;
         float countX = textX + nameWidth + gap;
         CustomFontRenderer.drawText(ctx, count, countX, countY, countSize, 0xFFAAAAAA, FontWeight.SEMIBOLD);

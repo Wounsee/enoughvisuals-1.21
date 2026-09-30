@@ -383,11 +383,9 @@ public abstract class HudElement {
     }
 
     public void setDragGrip(float gripX, float gripY) {
-                                                                                           
     }
 
     public void clearDragGrip() {
-                                                                     
     }
 
     public float getX() {

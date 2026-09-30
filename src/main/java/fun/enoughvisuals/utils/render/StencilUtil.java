@@ -121,8 +121,6 @@ public class StencilUtil {
         RenderSystem.disableDepthTest();
     }
 
-    
-
     public static void beginStencil() {
         GL11.glEnable(GL11.GL_STENCIL_TEST);
         GL11.glClear(GL11.GL_STENCIL_BUFFER_BIT);

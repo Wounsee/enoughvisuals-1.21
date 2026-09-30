@@ -263,5 +263,4 @@ public abstract class ChatScreenMixin extends Screen {
     private boolean enough$isOverChatInput(float mouseY) {
         return mouseY >= this.height - 18;
     }
-
 }

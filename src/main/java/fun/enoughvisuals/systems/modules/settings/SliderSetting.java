@@ -27,28 +27,25 @@ public class SliderSetting extends Setting<Double> {
 
     @Override
     protected Double validate(Double value) {
-        
+
         value = Math.max(min, Math.min(max, value));
-        
+
         if (step > 0) {
             value = Math.round(value / step) * step;
         }
         return value;
     }
 
-    
     public float getProgress() {
         if (max == min) return 0;
         return (float) ((get() - min) / (max - min));
     }
 
-    
     public void setFromProgress(float progress) {
         progress = Math.max(0, Math.min(1, progress));
         set(min + (max - min) * progress);
     }
 
-    
     public String getDisplayValue() {
         if (step >= 1.0) {
             return String.valueOf((int) get().doubleValue()) + suffix;

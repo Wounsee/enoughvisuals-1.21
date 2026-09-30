@@ -31,7 +31,6 @@ public class NametagLogoMixin {
     private static final float LOGO_SIZE = 16.0f;
     private static final float OFFSET_Y = -1.8f;
 
-
     @ModifyVariable(
             method = "renderLabelIfPresent",
             at = @At("HEAD"),

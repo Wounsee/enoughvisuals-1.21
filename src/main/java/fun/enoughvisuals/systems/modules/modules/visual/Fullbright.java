@@ -12,14 +12,14 @@ public class Fullbright extends Module {
     @Override
     public void onTick() {
         if (!isInGame()) return;
-                                       
+
         mc.player.addStatusEffect(new StatusEffectInstance(StatusEffects.NIGHT_VISION, 67676767, 0, false, false, false));
     }
 
     @Override
     public void onDisable() {
         if (!isInGame()) return;
-                                        
+
         mc.player.removeStatusEffect(StatusEffects.NIGHT_VISION);
     }
 }

@@ -16,13 +16,11 @@ import fun.enoughvisuals.systems.modules.settings.SliderSetting;
 )
 public class Crosshair extends Module {
 
-                                
     public final ModeSetting type = add(new ModeSetting(
             "Тип", "type", "Тип прицела",
             "Круг", new String[]{"Круг", "Орбиз", "Крест"}
     ));
 
-                                                                         
     public final ColorSetting color = add(new ColorSetting(
             "Цвет", "color", "Цвет",
             0xFFFFFFFF, true

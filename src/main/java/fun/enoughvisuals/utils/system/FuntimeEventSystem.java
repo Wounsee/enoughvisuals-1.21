@@ -173,7 +173,6 @@ public final class FuntimeEventSystem {
                 String eventName = (state.pendingEventName == null || state.pendingEventName.isBlank())
                         ? "Ивент" : capitalize(state.pendingEventName);
 
-                                                            
                 GpsSystem.getInstance().addWaypoint("Ивент: " + eventName, x, y, z, true);
             } catch (Exception ignored) {}
         }

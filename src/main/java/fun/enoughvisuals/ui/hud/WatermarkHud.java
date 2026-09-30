@@ -309,5 +309,4 @@ public final class WatermarkHud extends HudElement {
     public boolean isRemovable() {
         return false;
     }
-
 }

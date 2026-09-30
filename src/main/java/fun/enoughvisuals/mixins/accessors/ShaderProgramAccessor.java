@@ -10,6 +10,4 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface ShaderProgramAccessor {
     @Accessor
     public Map<String, GlUniform> getUniformsByName();
-
 }
-

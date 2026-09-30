@@ -26,10 +26,6 @@ public class ColorSetting extends Setting<Integer> {
         return value;
     }
 
-    
-    
-    
-
     public int getRed() { return (get() >> 16) & 0xFF; }
     public int getGreen() { return (get() >> 8) & 0xFF; }
     public int getBlue() { return get() & 0xFF; }

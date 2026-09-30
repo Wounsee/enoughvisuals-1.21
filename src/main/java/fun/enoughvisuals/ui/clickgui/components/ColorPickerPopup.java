@@ -258,7 +258,6 @@ public final class ColorPickerPopup {
                     RenderUtil.withAlpha(cBottom, alpha), RenderUtil.withAlpha(cBottom, alpha));
         }
 
-
         float markerY = hueY + hue * hueH;
         RenderUtil.drawRoundedRect(ctx, hueX - 2.1f * scale, markerY - 1.8f * scale,
                 hueW + 4.2f * scale, 3.6f * scale, 1.8f * scale,

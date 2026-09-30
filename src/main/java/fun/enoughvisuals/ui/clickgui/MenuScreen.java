@@ -519,7 +519,6 @@ public class MenuScreen extends Screen {
             renderSidebarAction(context, mx, my, i + 3, toolsY + i * toolRowH, visibleTool.icon(),
                     visibleTool.title(), visibleTool.iconWeight(), activeTool == visibleTool, alpha);
         }
-
     }
 
     private void renderSidebarAction(DrawContext context, int mx, int my, int hoverIndex, float y,

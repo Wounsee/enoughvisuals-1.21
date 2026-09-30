@@ -29,18 +29,16 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public final class GpsSystem {
-                                         
+
     private static final MinecraftClient mc = MinecraftClient.getInstance();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-                                                                                 
     private static final GpsSystem INSTANCE = new GpsSystem();
 
-                                                     
     private static class Waypoint {
         String name;
         double x, y, z;
-        String scope;                                           
+        String scope;
         boolean isEvent;
         long createdAt;
 
@@ -69,7 +67,6 @@ public final class GpsSystem {
         return false;
     }
 
-                            
     private Path getSaveFile() {
         return mc.runDirectory.toPath().resolve("enoughvisuals").resolve("gps.json");
     }
@@ -96,7 +93,6 @@ public final class GpsSystem {
         } catch (Exception e) { e.printStackTrace(); }
     }
 
-                                        
     private String getCurrentScope() {
         if (mc.isInSingleplayer()) return "singleplayer";
         if (mc.getCurrentServerEntry() == null) return "unknown";
@@ -182,7 +178,6 @@ public final class GpsSystem {
         String cmd = args[0].toLowerCase();
         String scope = getCurrentScope();
 
-                                                                       
         List<Waypoint> activeWaypoints = waypoints.stream().filter(w -> w.scope.equals(scope)).collect(Collectors.toList());
 
         switch (cmd) {
@@ -261,7 +256,7 @@ public final class GpsSystem {
         if (mc.player == null || mc.world == null || waypoints.isEmpty()) return;
 
         long now = System.currentTimeMillis();
-                                                      
+
         boolean removedOld = waypoints.removeIf(w -> w.isEvent && (now - w.createdAt > 900_000L));
         if (removedOld) save();
 

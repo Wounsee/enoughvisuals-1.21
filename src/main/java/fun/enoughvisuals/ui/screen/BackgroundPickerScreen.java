@@ -186,7 +186,6 @@ public final class BackgroundPickerScreen extends Screen {
             CustomFontRenderer.drawText(ctx, ClientLanguage.text("ui.background.choose", "Нажмите, чтобы выбрать"), x + 9f, y + h - 10.5f, 6.8f,
                     RenderUtil.withAlpha(0xFFD3CDD8, alpha * hoverValue), FontWeight.SEMIBOLD);
         }
-
     }
 
     private void drawCover(DrawContext ctx, Identifier texture, float x, float y, float w, float h,

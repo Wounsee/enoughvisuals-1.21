@@ -59,7 +59,6 @@ public class ContextMenu {
     private static SliderSetting draggingSlider;
     private static ModeSetting expandedMode;
 
-                                
     private static Setting<?> draggingSetting = null;
     private static float dragOffsetY = 0f;
 

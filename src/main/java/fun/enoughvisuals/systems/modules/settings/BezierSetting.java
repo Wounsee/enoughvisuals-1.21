@@ -11,7 +11,6 @@ public class BezierSetting extends Setting<BezierSetting.BezierCurve> {
         this(name, id, "", x1, y1, x2, y2);
     }
 
-    
     public static BezierSetting easeInOut(String name, String id) {
         return new BezierSetting(name, id, 0.42f, 0f, 0.58f, 1f);
     }
@@ -28,7 +27,6 @@ public class BezierSetting extends Setting<BezierSetting.BezierCurve> {
         return new BezierSetting(name, id, 0f, 0f, 1f, 1f);
     }
 
-    
     public float evaluate(float t) {
         return get().evaluate(t);
     }
@@ -56,10 +54,6 @@ public class BezierSetting extends Setting<BezierSetting.BezierCurve> {
         }
     }
 
-    
-    
-    
-
     public static class BezierCurve {
         public final float x1, y1, x2, y2;
 
@@ -70,13 +64,11 @@ public class BezierSetting extends Setting<BezierSetting.BezierCurve> {
             this.y2 = y2;
         }
 
-        
         public float evaluate(float t) {
             t = clamp01(t);
             if (t <= 0) return 0;
             if (t >= 1) return 1;
 
-            
             float lo = 0, hi = 1;
             for (int i = 0; i < 20; i++) {
                 float mid = (lo + hi) / 2f;

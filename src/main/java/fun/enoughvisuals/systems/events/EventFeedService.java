@@ -147,7 +147,6 @@ public final class EventFeedService {
         return "—";
     }
 
-
     /**
      * Chat fallback used when the FunTime relay/API does not deliver snapshots.
      * The server itself prints a stable countdown, so the Events page remains

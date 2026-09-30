@@ -43,7 +43,6 @@ public final class CrystalRenderer {
         int   tiers        = 3;
         int   perTier      = Math.max(1, shardCount);
 
-                                                  
         float radiusBoost  = 0.40f;
         float crystalScale = 0.22f;
 
@@ -55,14 +54,11 @@ public final class CrystalRenderer {
         RenderSystem.depthMask(false);
         if (throughWalls) RenderSystem.disableDepthTest(); else RenderSystem.enableDepthTest();
 
-                                                                     
-                                                                  
-                                                                     
         RenderSystem.blendFunc(
                 GlStateManager.SrcFactor.SRC_ALPHA,
                 GlStateManager.DstFactor.ONE
         );
-                                                                                         
+
         RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
 
         for (int tier = 0; tier < tiers; tier++) {
@@ -88,9 +84,6 @@ public final class CrystalRenderer {
             }
         }
 
-                                                                     
-                           
-                                                                     
         RenderSystem.blendFunc(
                 GlStateManager.SrcFactor.SRC_ALPHA,
                 GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA
@@ -210,7 +203,6 @@ public final class CrystalRenderer {
         RenderSystem.disableBlend();
     }
 
-                                                                                                          
     private static void drawProceduralGlow(
             MatrixStack matrices,
             net.minecraft.client.render.Camera camera,
@@ -221,7 +213,7 @@ public final class CrystalRenderer {
         if (a <= 0) return;
 
         int centerColor = (a << 24) | (color & 0x00FFFFFF);
-        int outerColor  = (0 << 24) | (color & 0x00FFFFFF);                              
+        int outerColor  = (0 << 24) | (color & 0x00FFFFFF);
         float r = size * 0.5f;
 
         matrices.push();
@@ -233,7 +225,7 @@ public final class CrystalRenderer {
                 .begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         var m = matrices.peek().getPositionMatrix();
-        int segments = 12;                                    
+        int segments = 12;
 
         for (int i = 0; i < segments; i++) {
             float angle1 = (float) (i * Math.PI * 2.0 / segments);
@@ -244,9 +236,8 @@ public final class CrystalRenderer {
             float x2 = MathHelper.cos(angle2) * r;
             float y2 = MathHelper.sin(angle2) * r;
 
-                                        
             bb.vertex(m, 0, 0, 0).color(centerColor);
-                                         
+
             bb.vertex(m, x1, y1, 0).color(outerColor);
             bb.vertex(m, x2, y2, 0).color(outerColor);
         }

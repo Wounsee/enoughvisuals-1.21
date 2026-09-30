@@ -16,10 +16,10 @@ import java.util.Map;
 public final class CombatSoundService {
     private CombatSoundService() {}
 
-    private static final long CANDIDATE_TIMEOUT_MS = 2_000L;                                          
+    private static final long CANDIDATE_TIMEOUT_MS = 2_000L;
 
     private static boolean lastAttackPressed = false;
-                                                          
+
     private static final Map<Integer, Long> deathCandidates = new HashMap<>();
     private static final Map<Integer, Long> killPlayedAt = new HashMap<>();
 
@@ -57,7 +57,6 @@ public final class CombatSoundService {
 
         long now = System.currentTimeMillis();
 
-                                                                                   
         boolean attackPressed = client.options.attackKey.isPressed();
         if (attackPressed && !lastAttackPressed && client.currentScreen == null) {
             if (client.mouse != null && GLFW.glfwGetInputMode(client.getWindow().getHandle(), GLFW.GLFW_CURSOR) == GLFW.GLFW_CURSOR_DISABLED) {
@@ -71,7 +70,6 @@ public final class CombatSoundService {
         }
         lastAttackPressed = attackPressed;
 
-                                                       
         Iterator<Map.Entry<Integer, Long>> it = deathCandidates.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<Integer, Long> entry = it.next();
@@ -85,19 +83,18 @@ public final class CombatSoundService {
 
             Entity e = client.world.getEntityById(entityId);
 
-                                                     
             if (e instanceof LivingEntity living && (living.isDead() || living.getHealth() <= 0.0f)) {
                 if (effectEnabled) {
                     KillEffect.onKill(e, entityId);
                 }
                 if (killEnabled && !wasRecentlyPlayed(killPlayedAt, entityId, now, 1000L)) {
-                                                                             
+
                     EnoughSoundPlayer.playKill(killModule.getVolume());
                     killPlayedAt.put(entityId, now);
                 }
                 it.remove();
             } else if (e == null || e.isRemoved()) {
-                                                                                    
+
                 if (effectEnabled) {
                     KillEffect.onKill(e, entityId);
                 }
