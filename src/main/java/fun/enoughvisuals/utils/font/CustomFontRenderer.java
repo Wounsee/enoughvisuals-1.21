@@ -25,10 +25,13 @@ import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 import org.lwjgl.opengl.GL13;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
@@ -46,7 +49,6 @@ public class CustomFontRenderer {
         LOGO("logo"),
         MENU("menu"),
         CLICK_GUI("click_gui");
-
 
         final String atlasName;
 
@@ -102,8 +104,8 @@ public class CustomFontRenderer {
         final boolean mtsdf;
         final float ascender;
         final float lineHeight;
-        final Map<Integer, Glyph> glyphs;
-        final Map<Long, Float> kerningPairs;
+        private final GlyphTable glyphs;
+        private final KerningTable kerning;
 
         private MsdfAtlas(Identifier textureId,
                           float distanceRange,
@@ -117,11 +119,91 @@ public class CustomFontRenderer {
             this.mtsdf = mtsdf;
             this.ascender = ascender;
             this.lineHeight = lineHeight;
-            this.glyphs = glyphs;
-            this.kerningPairs = kerningPairs;
+            this.glyphs = new GlyphTable(glyphs);
+            this.kerning = new KerningTable(kerningPairs);
+        }
+
+        Glyph glyph(int codePoint) {
+            return glyphs.get(codePoint);
+        }
+
+        /** Glyph for {@code codePoint}, or '?' for a missing visible character. */
+        Glyph glyphOrFallback(int codePoint) {
+            Glyph glyph = glyphs.get(codePoint);
+            if (glyph == null && !Character.isWhitespace(codePoint)) glyph = glyphs.get('?');
+            return glyph;
+        }
+
+        float kerning(int first, int second) {
+            return kerning.get(packPair(first, second));
         }
     }
 
+    /**
+     * Code point to glyph lookup used for every character of every frame.
+     * A sparse two-level page table avoids the Integer boxing of a HashMap.
+     */
+    private static final class GlyphTable {
+        private static final int PAGE_BITS = 8;
+        private static final int PAGE_MASK = (1 << PAGE_BITS) - 1;
+        private static final int PAGE_COUNT = (Character.MAX_CODE_POINT >> PAGE_BITS) + 1;
+
+        private final Glyph[][] pages = new Glyph[PAGE_COUNT][];
+
+        GlyphTable(Map<Integer, Glyph> glyphs) {
+            for (Map.Entry<Integer, Glyph> entry : glyphs.entrySet()) {
+                int codePoint = entry.getKey();
+                if (codePoint < 0 || codePoint > Character.MAX_CODE_POINT) continue;
+                Glyph[] page = pages[codePoint >>> PAGE_BITS];
+                if (page == null) page = pages[codePoint >>> PAGE_BITS] = new Glyph[1 << PAGE_BITS];
+                page[codePoint & PAGE_MASK] = entry.getValue();
+            }
+        }
+
+        Glyph get(int codePoint) {
+            if (codePoint < 0 || codePoint > Character.MAX_CODE_POINT) return null;
+            Glyph[] page = pages[codePoint >>> PAGE_BITS];
+            return page == null ? null : page[codePoint & PAGE_MASK];
+        }
+    }
+
+    /** Open-addressing long -> float map for kerning pairs; 0 means no kerning. */
+    private static final class KerningTable {
+        private static final long EMPTY = -1L;
+
+        private final long[] keys;
+        private final float[] values;
+        private final int mask;
+
+        KerningTable(Map<Long, Float> pairs) {
+            int capacity = Integer.highestOneBit(Math.max(4, pairs.size() * 2) - 1) << 1;
+            keys = new long[capacity];
+            values = new float[capacity];
+            mask = capacity - 1;
+            Arrays.fill(keys, EMPTY);
+            for (Map.Entry<Long, Float> entry : pairs.entrySet()) {
+                int slot = slot(entry.getKey());
+                while (keys[slot] != EMPTY) slot = (slot + 1) & mask;
+                keys[slot] = entry.getKey();
+                values[slot] = entry.getValue();
+            }
+        }
+
+        float get(long key) {
+            for (int slot = slot(key); ; slot = (slot + 1) & mask) {
+                long current = keys[slot];
+                if (current == key) return values[slot];
+                if (current == EMPTY) return 0f;
+            }
+        }
+
+        private int slot(long key) {
+            long h = key * 0x9E3779B97F4A7C15L;
+            return (int) (h ^ (h >>> 32)) & mask;
+        }
+    }
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("EnoughVisuals/Font");
     private static final Map<FontWeight, MsdfAtlas> ATLASES = new EnumMap<>(FontWeight.class);
     private static boolean initialized = false;
     private static boolean failedInit = false;
@@ -140,7 +222,7 @@ public class CustomFontRenderer {
             for (FontWeight weight : FontWeight.values()) {
                 MsdfAtlas atlas = loadAtlas(weight);
                 if (atlas == null) {
-                    System.err.println("[CustomFont] Failed to load MSDF atlas: " + weight.atlasName);
+                    LOGGER.error("Failed to load MSDF atlas: {}", weight.atlasName);
                     failedInit = true;
                     ATLASES.clear();
                     return;
@@ -149,10 +231,9 @@ public class CustomFontRenderer {
             }
 
             initialized = true;
-            System.out.println("[CustomFont] MSDF atlases loaded successfully");
+            LOGGER.info("MSDF atlases loaded");
         } catch (Exception e) {
-            System.err.println("[CustomFont] MSDF init failed:");
-            e.printStackTrace();
+            LOGGER.error("MSDF init failed", e);
             failedInit = true;
             ATLASES.clear();
         }
@@ -252,7 +333,7 @@ public class CustomFontRenderer {
             Identifier textureId = Identifier.of("enough", "fonts/msdf/" + weight.atlasName + ".png");
             return new MsdfAtlas(textureId, distanceRange, mtsdf, ascender, lineHeight, glyphs, kerningPairs);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to parse MSDF atlas {}", weight.atlasName, e);
             return null;
         }
     }
@@ -380,7 +461,7 @@ public class CustomFontRenderer {
         float lineTop = (float) centerV + atlas.lineHeight * worldSize * 0.5f;
         float baselineV = lineTop - atlas.ascender * worldSize;
         if (centerSingleGlyphByBounds && text.codePointCount(0, text.length()) == 1) {
-            Glyph glyph = atlas.glyphs.get(text.codePointAt(0));
+            Glyph glyph = atlas.glyph(text.codePointAt(0));
             if (glyph != null && glyph.hasPlaneBounds) {
                 penU = (float) (anchorU - (glyph.left + glyph.right) * worldSize * 0.5f);
                 baselineV = (float) (centerV - (glyph.bottom + glyph.top) * worldSize * 0.5f);
@@ -398,16 +479,14 @@ public class CustomFontRenderer {
         for (int i = 0; i < text.length(); ) {
             int codePoint = text.codePointAt(i);
             i += Character.charCount(codePoint);
-            Glyph glyph = atlas.glyphs.get(codePoint);
-            if (glyph == null && !Character.isWhitespace(codePoint)) glyph = atlas.glyphs.get((int) '?');
+            Glyph glyph = atlas.glyphOrFallback(codePoint);
             if (glyph == null) {
                 penU += missingGlyphAdvance(atlas, codePoint) * worldSize;
                 previousCodePoint = -1;
                 continue;
             }
             if (previousCodePoint >= 0) {
-                Float kern = atlas.kerningPairs.get(packPair(previousCodePoint, codePoint));
-                if (kern != null) penU += kern * worldSize;
+                penU += atlas.kerning(previousCodePoint, codePoint) * worldSize;
             }
             if (glyph.hasPlaneBounds && glyph.hasAtlasBounds) {
                 double u0 = penU + glyph.left * worldSize;
@@ -545,10 +624,7 @@ public class CustomFontRenderer {
                 continue;
             }
 
-            Glyph glyph = atlas.glyphs.get(codePoint);
-            if (glyph == null && !Character.isWhitespace(codePoint)) {
-                glyph = atlas.glyphs.get((int) '?');
-            }
+            Glyph glyph = atlas.glyphOrFallback(codePoint);
             if (glyph == null) {
                 penX += missingGlyphAdvance(atlas, codePoint) * size;
                 previousCodePoint = -1;
@@ -556,8 +632,7 @@ public class CustomFontRenderer {
             }
 
             if (previousCodePoint >= 0) {
-                Float kern = atlas.kerningPairs.get(packPair(previousCodePoint, codePoint));
-                if (kern != null) penX += kern * size;
+                penX += atlas.kerning(previousCodePoint, codePoint) * size;
             }
 
             if (glyph.hasPlaneBounds && glyph.hasAtlasBounds) {
@@ -663,10 +738,7 @@ public class CustomFontRenderer {
                 continue;
             }
 
-            Glyph glyph = atlas.glyphs.get(codePoint);
-            if (glyph == null && !Character.isWhitespace(codePoint)) {
-                glyph = atlas.glyphs.get((int) '?');
-            }
+            Glyph glyph = atlas.glyphOrFallback(codePoint);
             if (glyph == null) {
                 lineWidth += missingGlyphAdvance(atlas, codePoint) * size;
                 previousCodePoint = -1;
@@ -674,8 +746,7 @@ public class CustomFontRenderer {
             }
 
             if (previousCodePoint >= 0) {
-                Float kern = atlas.kerningPairs.get(packPair(previousCodePoint, codePoint));
-                if (kern != null) lineWidth += kern * size;
+                lineWidth += atlas.kerning(previousCodePoint, codePoint) * size;
             }
 
             lineWidth += glyph.advance * size;
@@ -747,10 +818,10 @@ public class CustomFontRenderer {
 
     private static float missingGlyphAdvance(MsdfAtlas atlas, int codePoint) {
         int fallbackCodePoint = Character.isWhitespace(codePoint) ? ' ' : '?';
-        Glyph fallback = atlas.glyphs.get(fallbackCodePoint);
+        Glyph fallback = atlas.glyph(fallbackCodePoint);
         if (fallback == null) {
             MsdfAtlas regular = ATLASES.get(FontWeight.REGULAR);
-            if (regular != null) fallback = regular.glyphs.get(fallbackCodePoint);
+            if (regular != null) fallback = regular.glyph(fallbackCodePoint);
         }
 
         float advance = fallback != null && fallback.advance > 0f

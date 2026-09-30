@@ -5,7 +5,9 @@ import net.minecraft.client.network.ServerInfo;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.Arrays;
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public class ServerUtil {
@@ -17,51 +19,65 @@ public class ServerUtil {
             "^(?:(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)*)holyworld\\.[a-z]{2,63}$",
             Pattern.CASE_INSENSITIVE);
 
+    private record HostInfo(String source, boolean portStripped, String host, Set<String> segments) {
+        static final HostInfo NONE = new HostInfo(null, false, "", Set.of());
+    }
+
+    /**
+     * Host checks run from render and tick code for every module, so the
+     * normalized host and its dot-separated segments are cached per address.
+     */
+    private static volatile HostInfo cachedHost = HostInfo.NONE;
+
     public static String getCurrentServerHost() {
+        return currentHost().host();
+    }
+
+    private static HostInfo currentHost() {
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null) return "";
-        if (mc.isInSingleplayer()) return "";
+        if (mc == null || mc.isInSingleplayer()) return HostInfo.NONE;
 
         ServerInfo entry = mc.getCurrentServerEntry();
         if (entry != null && entry.address != null) {
-            return stripPort(entry.address);
+            return hostInfo(entry.address, true);
         }
 
         var handler = mc.getNetworkHandler();
-        if (handler == null) return "";
+        if (handler == null) return HostInfo.NONE;
 
         ServerInfo handlerInfo = handler.getServerInfo();
         if (handlerInfo != null && handlerInfo.address != null) {
-            return stripPort(handlerInfo.address);
+            return hostInfo(handlerInfo.address, true);
         }
 
         SocketAddress peer = handler.getConnection().getAddress();
         if (peer instanceof InetSocketAddress isa && isa.getHostString() != null) {
-            return isa.getHostString().toLowerCase().trim();
+            return hostInfo(isa.getHostString(), false);
         }
-        return "";
+        return HostInfo.NONE;
     }
 
-    private static String stripPort(String addr) {
-        String s = addr.toLowerCase().trim();
-        int sep = s.indexOf(':');
-        return sep >= 0 ? s.substring(0, sep) : s;
+    private static HostInfo hostInfo(String source, boolean stripPort) {
+        HostInfo cached = cachedHost;
+        if (cached.portStripped() == stripPort && source.equals(cached.source())) {
+            return cached;
+        }
+
+        String host = source.toLowerCase(Locale.ROOT).trim();
+        if (stripPort) {
+            int sep = host.indexOf(':');
+            if (sep >= 0) host = host.substring(0, sep);
+        }
+        Set<String> segments = host.isEmpty()
+                ? Set.of()
+                : Set.copyOf(Arrays.asList(host.split("\\.")));
+        HostInfo info = new HostInfo(source, stripPort, host, segments);
+        cachedHost = info;
+        return info;
     }
 
     private static boolean hasServerSegment(String expectedSegment) {
-        String host = getCurrentServerHost();
-        if (host.isEmpty()) {
-            return false;
-        }
-
-        String[] parts = host.split("\\.");
-        for (String part : parts) {
-            if (part.equals(expectedSegment)) {
-                return true;
-            }
-        }
-
-        return false;
+        return currentHost().segments().contains(expectedSegment);
     }
 
     public static boolean isFunTimeServer() {

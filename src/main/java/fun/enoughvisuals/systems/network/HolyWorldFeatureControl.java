@@ -104,7 +104,8 @@ public final class HolyWorldFeatureControl {
     }
 
     public boolean isCategoryBlocked(Category category) {
-        if (category == null) return false;
+        // Queried per module every frame; skip the string building off HolyWorld.
+        if (category == null || serverBlocklist.isEmpty()) return false;
         String id = category.name().toLowerCase(Locale.ROOT);
         return isBlocked("category:" + id);
     }
@@ -115,7 +116,7 @@ public final class HolyWorldFeatureControl {
     }
 
     public boolean isBlocked(String featureId) {
-        if (featureId == null || featureId.isBlank()) return false;
+        if (featureId == null || serverBlocklist.isEmpty() || featureId.isBlank()) return false;
         return serverBlocklist.contains(featureId.toLowerCase(Locale.ROOT));
     }
 

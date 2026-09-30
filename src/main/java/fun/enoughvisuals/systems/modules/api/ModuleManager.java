@@ -2,6 +2,7 @@ package fun.enoughvisuals.systems.modules.api;
 
 import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.network.HolyWorldFeatureControl;
+import fun.enoughvisuals.systems.network.RemoteConfig;
 import fun.enoughvisuals.utils.player.ServerScopeUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,34 +30,13 @@ public class ModuleManager {
         return INSTANCE;
     }
 
-    
-    
-    
-
-    
     public void init() {
         if (initialized) return;
         initialized = true;
 
-        
-        
-
         LOGGER.info("{} модулей загружено", modules.size());
-        for (Category cat : Category.values()) {
-            long count = modules.stream()
-                    .filter(m -> m.getCategory() == cat)
-                    .count();
-            if (count > 0) {
-
-            }
-        }
     }
 
-    
-    
-    
-
-    
     public void register(Module module) {
         Register reg = module.getClass().getAnnotation(Register.class);
         if (reg == null) {
@@ -79,18 +59,12 @@ public class ModuleManager {
         LOGGER.debug("Registered module: {} ({})", reg.name(), id);
     }
 
-    
     public void register(Module... mods) {
         for (Module mod : mods) {
             register(mod);
         }
     }
 
-    
-    
-    
-
-    
     public List<Module> getModules() {
         return modules.stream()
                 .filter(m -> !isHidden(m))
@@ -102,7 +76,6 @@ public class ModuleManager {
         return List.copyOf(modules);
     }
 
-    
     public List<Module> getModulesByCategory(Category category) {
         return modules.stream()
                 .filter(m -> m.getCategory() == category)
@@ -111,28 +84,20 @@ public class ModuleManager {
                 .collect(Collectors.toList());
     }
 
-    
     public Module getById(String id) {
         return byId.get(id);
     }
 
-    
     @SuppressWarnings("unchecked")
     public <T extends Module> T get(Class<T> clazz) {
         return (T) byClass.get(clazz);
     }
 
-    
     public boolean isEnabled(Class<? extends Module> clazz) {
         Module mod = byClass.get(clazz);
         return mod != null && mod.isEnabled();
     }
 
-    
-    
-    
-
-    
     public void onTick() {
         updateHiddenModules();
         for (Module mod : modules) {
@@ -156,7 +121,6 @@ public class ModuleManager {
         }
     }
 
-    
     public void onRender(float tickDelta) {
         for (Module mod : modules) {
             if (isHidden(mod)) continue;
@@ -170,7 +134,6 @@ public class ModuleManager {
         }
     }
 
-    
     public void onKeyPress(int keyCode) {
         if (keyCode < 0) return;
         for (Module mod : modules) {
@@ -189,16 +152,10 @@ public class ModuleManager {
         }
     }
 
-    
-    
-    
-
-    
     public int size() {
         return modules.size();
     }
 
-    
     public int enabledCount() {
         return (int) modules.stream()
                 .filter(m -> !isHidden(m))
@@ -236,7 +193,7 @@ public class ModuleManager {
     public boolean isBlocked(Module module) {
         if (module == null) return false;
         try {
-            return fun.enoughvisuals.systems.network.RemoteConfig.getInstance().isModuleBlocked(module.getId())
+            return RemoteConfig.getInstance().isModuleBlocked(module.getId())
                     || HolyWorldFeatureControl.getInstance().isModuleBlocked(module);
         } catch (Throwable t) {
             return false;
