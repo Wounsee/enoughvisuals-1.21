@@ -469,21 +469,22 @@ public final class ModuleCard {
         float trackX = x - pulse * 0.22f * scale;
         float trackW = width + pulse * 0.44f * scale;
         int track = RenderUtil.lerpColor(
-                RenderUtil.withAlpha(MenuScreen.TOGGLE_OFF, 0.90f * alpha),
-                RenderUtil.withAlpha(MenuScreen.TOGGLE_ON, 0.92f * alpha), progress);
+                RenderUtil.withAlpha(MenuScreen.TOGGLE_OFF, alpha),
+                RenderUtil.withAlpha(MenuScreen.TOGGLE_ON, alpha), progress);
         drawCapsule(context, trackX, y, trackW, height, track);
-        drawCapsuleOutline(context, trackX, y, trackW, height, 0.45f * scale,
-                RenderUtil.withAlpha(0xFFFFFF, 0.065f * alpha));
 
-        float knobW = (7.25f + motion * 1.05f + pulse * 0.35f) * scale;
-        float knobH = (5.25f - motion * 0.24f + pulse * 0.10f) * scale;
-        float inset = 1.25f * scale;
+        // iOS-style switch: a near full-height white capsule with a compact inset.
+        float inset = height * 0.085f;
+        float knobH = height - inset * 2f;
+        float knobW = Math.min(trackW - inset * 2f, knobH * (1.36f + motion * 0.10f));
         float left = trackX + inset;
         float right = trackX + trackW - inset - knobW;
         float knobX = left + (right - left) * progress;
-        float knobY = y + (height - knobH) * 0.5f;
+        float knobY = y + inset;
+        drawCapsule(context, knobX, knobY + 0.35f * scale, knobW, knobH,
+                RenderUtil.withAlpha(0x000000, 0.13f * alpha));
         drawCapsule(context, knobX, knobY, knobW, knobH,
-                RenderUtil.withAlpha(MenuScreen.TOGGLE_KNOB, alpha * (0.78f + progress * 0.20f)));
+                RenderUtil.withAlpha(0xFFFFFF, alpha));
     }
 
     private void renderSlider(DrawContext context, SliderSetting setting, float x, float y, float w, float s,

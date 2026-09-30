@@ -1500,6 +1500,38 @@ public class RenderUtil {
         RenderSystem.disableBlend();
     }
 
+    /** Rounded textured quad with exact UV bounds, intended for atlas regions. */
+    public static void drawRoundedTextureShaderExact(DrawContext ctx, Identifier texture,
+                                                     float x, float y, float w, float h,
+                                                     float radius, float alpha,
+                                                     float u, float v, float uW, float vH,
+                                                     float texWidth, float texHeight) {
+        if (alpha <= 0.003f) return;
+        if (!ShaderManager.isAvailable()) {
+            drawRoundedTextureUVCPU(ctx.getMatrices().peek().getPositionMatrix(), texture,
+                    x, y, w, h, radius, radius, radius, radius,
+                    u, v, uW, vH, Math.round(texWidth), Math.round(texHeight), alpha);
+            return;
+        }
+
+        bindTextureUnitZero(texture);
+        String shader = ShaderManager.ROUNDED_TEXTURE;
+        ShaderManager.useProgram(shader);
+        applySquircleShape(shader);
+        ShaderManager.setUniform2f(shader, "uSize", w, h);
+        ShaderManager.setUniform4f(shader, "uRadii", radius, radius, radius, radius);
+        ShaderManager.setUniform1f(shader, "uSmoothing", 0.62f);
+        ShaderManager.setUniform1f(shader, "uAlpha", Math.max(0f, Math.min(1f, alpha)));
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        ShaderManager.drawTexturedQuad(shader, ctx, x, y, w, h, 0f,
+                u, v, uW, vH, texWidth, texHeight);
+        ShaderManager.stopProgram();
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        RenderSystem.disableBlend();
+    }
+
     public static void drawMenuPreviewShader(DrawContext ctx, Identifier texture,
                                              float x, float y, float w, float h,
                                              float radius, float alpha, float shadeStrength,

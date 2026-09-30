@@ -5,6 +5,8 @@ import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import net.minecraft.client.gui.DrawContext;
 
+import java.util.function.ToDoubleFunction;
+
 /** Per-glyph rolling text used by compact HUD counters and timers. */
 public final class HudRollingText {
     private static final long DURATION_MS = 420L;
@@ -58,30 +60,19 @@ public final class HudRollingText {
         }
 
         float line = size + 3f;
-        float animatedWidth = layoutWidth(size, weight);
+        Layout layout = layout(previous, current, easeOutCubic(p),
+                text -> CustomFontRenderer.getTextWidth(text, size, weight));
+        float animatedWidth = layout.width();
         RenderUtil.enableScissor(x - 0.5f, y - 1f, clipWidth + 1f, line);
         try {
             int length = Math.max(previous.length(), current.length());
             String oldValue = leftPad(previous, length);
             String newValue = leftPad(current, length);
-            float[] cells = new float[length];
-            float cellsWidth = 0f;
-            for (int index = 0; index < length; index++) {
-                cells[index] = Math.max(
-                        glyphWidth(String.valueOf(oldValue.charAt(index)), size, weight),
-                        glyphWidth(String.valueOf(newValue.charAt(index)), size, weight));
-                cellsWidth += cells[index];
-            }
-
-            // Numbers are right-aligned while their amount of digits changes.
-            // The caller receives the same animated width, so suffixes such as
-            // FPS/MS/BPS move with the roll instead of being drawn over it.
-            float cursor = x + animatedWidth - cellsWidth;
             float eased = easeOutBack(p);
             for (int index = 0; index < length; index++) {
                 String oldGlyph = String.valueOf(oldValue.charAt(index));
                 String newGlyph = String.valueOf(newValue.charAt(index));
-                float cellWidth = cells[index];
+                float cursor = x + layout.positions()[index];
                 if (oldGlyph.equals(newGlyph)) {
                     if (!" ".equals(newGlyph)) {
                         drawGlyph(ctx, newGlyph, cursor, y, size, color, alpha, weight);
@@ -96,7 +87,6 @@ public final class HudRollingText {
                                 size, color, alpha * Math.min(1f, p * 2.5f), weight);
                     }
                 }
-                cursor += cellWidth;
             }
         } finally {
             RenderUtil.disableScissor();
@@ -117,10 +107,28 @@ public final class HudRollingText {
                 RenderUtil.withAlpha(color, alpha), weight);
     }
 
-    private static float glyphWidth(String glyph, float size, FontWeight weight) {
-        return " ".equals(glyph)
-                ? CustomFontRenderer.getTextWidth("0", size, weight)
-                : CustomFontRenderer.getTextWidth(glyph, size, weight);
+    record Layout(float width, float[] positions) { }
+
+    static Layout layout(String previous, String current, float progress,
+                         ToDoubleFunction<String> measure) {
+        int length = Math.max(previous.length(), current.length());
+        float[] positions = new float[length];
+        for (int index = 0; index < length; index++) {
+            int oldIndex = index - (length - previous.length());
+            int newIndex = index - (length - current.length());
+            // Missing leading digits occupy no width. Real glyph positions,
+            // including kerning, move with the same easing as the suffix.
+            positions[index] = lerp(glyphPosition(previous, oldIndex, measure),
+                    glyphPosition(current, newIndex, measure), progress);
+        }
+        return new Layout(lerp((float) measure.applyAsDouble(previous),
+                (float) measure.applyAsDouble(current), progress), positions);
+    }
+
+    private static float glyphPosition(String text, int index, ToDoubleFunction<String> measure) {
+        if (index < 0) return 0f;
+        return (float) (measure.applyAsDouble(text.substring(0, index + 1))
+                - measure.applyAsDouble(text.substring(index, index + 1)));
     }
 
     private static String leftPad(String value, int length) {

@@ -33,9 +33,7 @@ public final class VanillaScreenStyle {
 
     public static boolean shouldStyle() {
         Screen screen = MinecraftClient.getInstance().currentScreen;
-        return screen instanceof GameMenuScreen
-                || screen instanceof OptionsScreen
-                || screen instanceof GameOptionsScreen;
+        return screen instanceof GameMenuScreen;
     }
 
     public static boolean shouldStyleButton(ClickableWidget widget) {

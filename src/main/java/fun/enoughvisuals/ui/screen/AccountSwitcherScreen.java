@@ -1,6 +1,6 @@
 package fun.enoughvisuals.ui.screen;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.authlib.GameProfile;
 import fun.enoughvisuals.systems.accounts.AccountProfile;
 import fun.enoughvisuals.systems.accounts.AccountRepository;
 import fun.enoughvisuals.systems.accounts.AccountSessionManager;
@@ -8,89 +8,115 @@ import fun.enoughvisuals.systems.animations.AnimatedFloat;
 import fun.enoughvisuals.systems.animations.Easing;
 import fun.enoughvisuals.systems.animations.TimeAnimation;
 import fun.enoughvisuals.ui.mainmenu.MenuBackgroundManager;
+import fun.enoughvisuals.ui.mainmenu.MenuCredits;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.font.SolarIcons;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.render.ScreenScaleUtil;
-import fun.enoughvisuals.utils.sound.EnoughSoundPlayer;
+import fun.enoughvisuals.utils.render.blur.GlassUtil;
+import fun.enoughvisuals.utils.render.images.Draw;
 import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.texture.AbstractTexture;
+import net.minecraft.client.util.DefaultSkinHelper;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.RotationAxis;
 import org.lwjgl.glfw.GLFW;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class AccountSwitcherScreen extends Screen {
-    private static final int ACCENT = 0xFF7F94DD;
-    private static final int NORMAL = 0xE8151515;
-    private static final int HOVER = 0xF01F1F1F;
-    private static final int FIELD = 0xE3121218;
     private static final int TEXT = 0xFFFFFFFF;
-    private static final int MUTED = 0xFFB7AFCA;
-    private static final int SELECTED = 0xFFC49AFF;
-    private static final int DELETE = 0xFFFF6E67;
-    private static final int VISIBLE_ROWS = 5;
-
+    private static final int MUTED = 0xFFFFFFFF;
+    private static final int CARD = 0xFF000000;
+    private static final int CARD_HOVER = 0xFF181818;
+    private static final int DELETE = 0xFFFFFFFF;
+    private static final int COLUMNS = 3;
+    private static final int VISIBLE_ROWS = 3;
+    private static final long OPEN_MS = 500L;
+    private static final long CLOSE_MS = 300L;
+    private static final long FAVORITE_TRANSFER_MS = 560L;
+    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd.MM.yy");
 
     private final Screen parent;
-    private final TimeAnimation openAnimation = new TimeAnimation(420L, Easing.OUT_CUBIC);
-    private final AnimatedFloat addHover = new AnimatedFloat(0f, 160L, Easing.OUT_CUBIC);
-    private final AnimatedFloat scrollAnimation = new AnimatedFloat(0f, 320L, Easing.OUT_CUBIC);
+    private final TimeAnimation openAnimation = new TimeAnimation(OPEN_MS, Easing.OUT_CUBIC);
+    private final AnimatedFloat addHover = new AnimatedFloat(0f, 150L, Easing.OUT_CUBIC);
+    private final AnimatedFloat scrollAnimation = new AnimatedFloat(0f, 280L, Easing.OUT_CUBIC);
+    private final AnimatedFloat likedSection = new AnimatedFloat(0f, 420L, Easing.OUT_CUBIC);
+    private final AnimatedFloat likedExtraRows = new AnimatedFloat(0f, 420L, Easing.OUT_CUBIC);
     private final List<AccountProfile> accounts = new ArrayList<>();
     private final List<RowAnim> rowAnimations = new ArrayList<>();
+    private final Set<String> likedNames = new HashSet<>();
+    private final Map<UUID, Identifier> skins = new HashMap<>();
 
-    private Identifier filteredBackground;
     private float screenScale = 1f;
     private float virtualWidth;
     private float virtualHeight;
     private float panelX;
     private float panelY;
     private float panelW;
+    private float panelH;
+    private float cardW;
+    private float cardH;
+    private float columnGap;
+    private float rowGap;
+    private float likedX;
+    private float likedY;
+    private float allX;
+    private float allLabelY;
+    private float allY;
+    private float allClipH;
+    private float contentTop;
+    private float contentBottom;
+    private float scrollContentH;
     private float inputX;
     private float inputY;
     private float inputW;
     private float inputH;
     private float addX;
     private float addW;
-    private float rowX;
-    private float rowY;
-    private float rowW;
-    private float rowH;
-    private float rowClipH;
-    private float gap;
     private float scrollOffset;
     private float scrollTarget;
     private float maxScroll;
     private boolean inputActive;
     private String input = "";
-    private String status = "";
     private int typedCharIndex = -1;
     private long typedCharStartMs;
     private String removedChar = "";
     private long removedCharStartMs;
+    private boolean closing;
 
     public AccountSwitcherScreen(Screen parent) {
-        super(Text.literal(ClientLanguage.text("ui.account.title", "Менеджер аккаунтов")));
+        super(Text.literal(ClientLanguage.text("ui.account.title", "Аккаунты")));
         this.parent = parent;
     }
 
     @Override
     protected void init() {
-        openAnimation.play(0f, 1f);
+        closing = false;
+        openAnimation.duration(OPEN_MS).easing(Easing.OUT_CUBIC).play(0f, 1f);
         accounts.clear();
         accounts.addAll(AccountRepository.load());
         ensureCurrentAccount();
+        likedNames.clear();
+        likedNames.addAll(AccountRepository.loadLikedNames());
+        likedSection.snap(likedNames.isEmpty() ? 0f : 1f);
         rebuildRows();
-        status = ClientLanguage.text("ui.account.selected", "Выбран: %s").formatted(currentName());
+        likedExtraRows.snap(Math.max(0, likedRowCount() - 1));
+        primeSkins();
         updateVirtualScreen();
         layout();
     }
@@ -103,263 +129,488 @@ public final class AccountSwitcherScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         RenderUtil.beginFrame();
         updateVirtualScreen();
         layout();
         updateScroll();
-        drawBackground(ctx);
-        drawDim(ctx);
+        layout();
+        updateRowPositions();
+        MenuBackgroundManager.drawSelectedBackground(context, width, height, mouseX, mouseY);
+        GlassUtil.BLUR_OFFSET = 1.35f;
+        GlassUtil.beginFrame();
+
+        if (closing && openAnimation.finished() && openAnimation.value() <= 0.01f) {
+            returnToParent();
+            return;
+        }
 
         float mx = ScreenScaleUtil.screenToVirtual(mouseX);
         float my = ScreenScaleUtil.screenToVirtual(mouseY);
-        addHover.setTarget(inside(mx, my, addX, inputY, addW, inputH) ? 1f : 0f);
-
-        String current = currentName();
-        for (RowAnim row : rowAnimations) {
-            float slot = visibleSlot(row);
-            float y = rowY + slot * (rowH + gap);
-            boolean visible = rowIntersectsList(y) && edgeAlpha(y) > 0.55f;
-            row.hover.setTarget(!row.removing && visible && inside(mx, my, rowX, y, rowW, rowH) ? 1f : 0f);
-            boolean selected = !row.removing && row.account.name().equalsIgnoreCase(current);
-            row.selected.setTarget(selected ? 1f : 0f);
-        }
+        addHover.setTarget(!closing && inside(mx, my, addX, inputY, addW, inputH) ? 1f : 0f);
+        updateCardAnimations(mx, my);
 
         float open = openAnimation.value();
         float alpha = Easing.clamp(open);
-        ctx.getMatrices().push();
-        ctx.getMatrices().scale(screenScale, screenScale, 1f);
-        renderPanel(ctx, alpha, open);
-        ctx.getMatrices().pop();
+        context.getMatrices().push();
+        context.getMatrices().scale(screenScale, screenScale, 1f);
+        context.getMatrices().push();
+        float contentScale = 0.985f + open * 0.015f;
+        context.getMatrices().translate(virtualWidth * 0.5f, virtualHeight * 0.5f, 0f);
+        context.getMatrices().scale(contentScale, contentScale, 1f);
+        context.getMatrices().translate(-virtualWidth * 0.5f, -virtualHeight * 0.5f, 0f);
+        renderPanel(context, alpha, open);
+        context.getMatrices().pop();
+        MenuCredits.render(context, virtualWidth, virtualHeight, layoutScale(), 1f, mx, my);
+        context.getMatrices().pop();
         rowAnimations.removeIf(RowAnim::isGone);
     }
 
-    private void renderPanel(DrawContext ctx, float alpha, float open) {
+    private void renderPanel(DrawContext context, float alpha, float open) {
         float scale = layoutScale();
-        renderScaled(ctx, panelX, panelY - 4f * scale, panelW, 20f * scale,
-                1.3f - 0.3f * open, () -> {
-                    CustomFontRenderer.drawCenteredText(ctx, ClientLanguage.text("ui.account.title", "Менеджер аккаунтов"), panelX + panelW * 0.5f, panelY, 12.0f * scale,
-                            RenderUtil.withAlpha(TEXT, alpha), FontWeight.BOLD);
-                });
+        GlassUtil.drawGlassPanel(context, panelX, panelY, panelW, panelH, 6.5f * scale,
+                0x000000, 0.64f * alpha, alpha);
 
-        float inputAppear = itemProgress(0);
-        renderScaled(ctx, inputX, inputY, inputW, inputH, 1.3f - 0.3f * inputAppear, () -> {
-            RenderUtil.drawRoundedRect(ctx, inputX, inputY, inputW, inputH, 5.5f * scale,
-                    RenderUtil.withAlpha(FIELD, alpha * inputAppear * 0.94f));
+        float titleY = panelY - 19.5f * scale + (1f - open) * 3f * scale;
+        CustomFontRenderer.drawCenteredText(context,
+                ClientLanguage.text("ui.account.title", "Аккаунты"),
+                virtualWidth * 0.5f, titleY, 9.5f * scale,
+                RenderUtil.withAlpha(TEXT, alpha * 0.75f), FontWeight.SEMIBOLD);
 
-            renderInputText(ctx, alpha * inputAppear, scale);
-            if (inputActive && ((System.currentTimeMillis() / 460L) % 2L == 0L)) {
-                float textSize = 6.0f * scale;
-                float cursorX = inputX + 8f * scale + CustomFontRenderer.getTextWidth(input, textSize, FontWeight.SEMIBOLD) + 1.0f * scale;
-                cursorX = Math.min(cursorX, inputX + inputW - 6f * scale);
-                RenderUtil.drawRect(ctx, cursorX, inputY + 4.7f * scale, 0.65f * scale, inputH - 9.4f * scale,
-                        RenderUtil.withAlpha(TEXT, alpha * inputAppear * 0.85f));
-            }
-        });
+        float contentAlpha = alpha * itemProgress(0);
+        enableContentScissor();
+        float likedReveal = likedSection.value();
+        if (likedReveal > 0.003f) {
+            float likedShift = (1f - likedReveal) * 3f * scale;
+            float dividerX = renderSectionLabel(context,
+                    ClientLanguage.text("ui.account.liked", "Избранные"),
+                    SolarIcons.HEART, panelY + 8f * scale + scrollOffset + likedShift,
+                    contentAlpha * likedReveal);
+            renderDivider(context, panelY + 11.5f * scale + scrollOffset + likedShift,
+                    dividerX, contentAlpha * likedReveal);
+            renderLikedCards(context, alpha * likedReveal, likedShift);
+        }
 
-        float addAppear = itemProgress(1);
-        renderScaled(ctx, addX, inputY, addW, inputH, 1.3f - 0.3f * addAppear,
-                () -> renderSmallButton(ctx, ClientLanguage.text("ui.account.add", "Добавить"), addX, inputY, addW, inputH, alpha * addAppear, addHover.value(), true));
-        enableRowsVerticalScissor();
-        renderRows(ctx, alpha, scale);
+        float visibleAllLabelY = allLabelY + scrollOffset;
+        float allDividerX = renderSectionLabel(context, ClientLanguage.text("ui.account.all", "Все"),
+                SolarIcons.USER, visibleAllLabelY, contentAlpha);
+        renderDivider(context, visibleAllLabelY + 3.5f * scale, allDividerX, contentAlpha);
+        renderAllCards(context, alpha);
+        renderTransfers(context, alpha);
         RenderUtil.disableScissor();
-        renderScrollbar(ctx, alpha, scale);
+        renderScrollbar(context, alpha);
 
-        if (!status.isBlank()) {
-            float statusY = rowY + rowClipH + 7f * scale;
-            CustomFontRenderer.drawCenteredText(ctx, status, panelX + panelW * 0.5f, statusY, 4.8f * scale,
-                    RenderUtil.withAlpha(MUTED, alpha * 0.82f), FontWeight.SEMIBOLD);
-        }
+        float settingsY = panelY + panelH - 33.5f * scale;
+        float settingsDividerX = renderSectionLabel(context,
+                ClientLanguage.text("ui.account.settings", "Настройки"),
+                SolarIcons.SETTINGS, settingsY, contentAlpha);
+        renderDivider(context, settingsY + 3.5f * scale, settingsDividerX, contentAlpha);
+        renderInput(context, alpha * itemProgress(1));
+        renderCreateButton(context, alpha * itemProgress(2));
     }
 
-    private void renderInputText(DrawContext ctx, float alpha, float scale) {
-        boolean placeholder = input.isBlank() && !inputActive;
-        String display = placeholder ? ClientLanguage.text("ui.account.placeholder", "Ник 3-16") : input;
-        if (display.isEmpty()) {
-            drawAnimatedRemovedChar(ctx, inputX + 8f * scale, inputY + 6.2f * scale, 6.0f * scale, alpha);
-            return;
-        }
-
-        float textSize = 6.0f * scale;
-        float leftPad = 8f * scale;
-        float textY = inputY + (inputH - CustomFontRenderer.getTextHeight(textSize, FontWeight.SEMIBOLD)) * 0.5f - 0.15f * scale;
-        float maxW = inputW - leftPad - 7f * scale;
-        String trimmed = CustomFontRenderer.trimToWidth(display, maxW, textSize, FontWeight.SEMIBOLD);
-        int color = placeholder ? MUTED : TEXT;
-        int safeTypedIndex = placeholder ? -1 : Math.min(typedCharIndex, trimmed.length() - 1);
-        RenderUtil.drawAnimatedInputText(ctx, trimmed, inputX + leftPad, textY, textSize,
-                RenderUtil.withAlpha(color, alpha * (placeholder ? 0.70f : 0.98f)), FontWeight.SEMIBOLD,
-                safeTypedIndex, typedCharStartMs);
-        drawAnimatedRemovedChar(ctx, inputX + leftPad, textY, textSize, alpha);
-
-        if (typedCharStartMs > 0L && (System.currentTimeMillis() - typedCharStartMs) >= 230L) {
-            typedCharIndex = -1;
-            typedCharStartMs = 0L;
-        }
-    }
-
-    private void renderSmallButton(DrawContext ctx, String label, float x, float y, float w, float h,
-                                   float alpha, float hover, boolean accent) {
+    private float renderSectionLabel(DrawContext context, String label, String icon,
+                                     float y, float alpha) {
         float scale = layoutScale();
-        int base = accent ? ACCENT : NORMAL;
-        int hoverColor = accent ? RenderUtil.lighten(ACCENT, 0.08f) : HOVER;
-        float grow = 1f + hover * 0.018f;
-
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x + w * 0.5f, y + h * 0.5f, 0f);
-        ctx.getMatrices().scale(grow, grow, 1f);
-        ctx.getMatrices().translate(-(x + w * 0.5f), -(y + h * 0.5f), 0f);
-        RenderUtil.drawRoundedRect(ctx, x, y, w, h, 5.5f * scale,
-                RenderUtil.withAlpha(RenderUtil.lerpColor(base, hoverColor, hover), alpha * 0.95f));
-        float textSize = 5.8f * scale;
-        float textY = y + (h - CustomFontRenderer.getTextHeight(textSize, FontWeight.SEMIBOLD)) * 0.5f - 0.15f * scale;
-        CustomFontRenderer.drawCenteredText(ctx, label, x + w * 0.5f, textY, textSize,
-                RenderUtil.withAlpha(TEXT, alpha), FontWeight.SEMIBOLD);
-        ctx.getMatrices().pop();
+        float x = panelX + 12f * scale;
+        float size = 5.2f * scale;
+        CustomFontRenderer.drawText(context, label, x, y, size,
+                RenderUtil.withAlpha(MUTED, alpha * 0.25f), FontWeight.SEMIBOLD);
+        float iconSize = 5.1f * scale;
+        float iconX = x + CustomFontRenderer.getTextWidth(label, size, FontWeight.SEMIBOLD) + 2f * scale;
+        float iconY = y + (CustomFontRenderer.getTextHeight(size, FontWeight.SEMIBOLD)
+                - CustomFontRenderer.getTextHeight(iconSize, FontWeight.SOLAR_ICONS)) * 0.5f;
+        CustomFontRenderer.drawText(context, icon, iconX, iconY, iconSize,
+                RenderUtil.withAlpha(MUTED, alpha * 0.25f), FontWeight.SOLAR_ICONS);
+        return iconX + CustomFontRenderer.getTextWidth(icon, iconSize, FontWeight.SOLAR_ICONS)
+                + 6f * scale;
     }
 
-    private void renderRows(DrawContext ctx, float alpha, float scale) {
-        String current = currentName();
-        for (RowAnim anim : rowAnimations) {
-            float slot = visibleSlot(anim);
-            float y = rowY + slot * (rowH + gap);
-            if (!rowIntersectsList(y)) continue;
+    private void renderDivider(DrawContext context, float y, float startX, float alpha) {
+        float scale = layoutScale();
+        float right = panelX + panelW - 16f * scale;
+        RenderUtil.drawRect(context, startX, y, Math.max(1f, right - startX), 0.5f * scale,
+                RenderUtil.withAlpha(TEXT, alpha * 0.05f));
+    }
 
-            // Stagger only the rows that are actually visible. Using the
-            // absolute account index left rows further down the list stuck in
-            // an enlarged entrance state after scrolling.
-            int staggerIndex = Math.max(0, Math.min(VISIBLE_ROWS - 1, Math.round(slot)));
-            float appear = itemProgress(staggerIndex + 2);
-            float life = anim.alpha.value();
-            float rowAlpha = alpha * appear * life * edgeAlpha(y);
-            if (rowAlpha <= 0.003f) continue;
-
-            float hover = anim.hover.value();
-            float selectedProgress = anim.selected.value();
-            AccountProfile account = anim.account;
-            boolean selected = account.name().equalsIgnoreCase(current);
-            int bg = selected
-                    ? RenderUtil.lerpColor(ACCENT, RenderUtil.lighten(ACCENT, 0.08f), hover * 0.35f)
-                    : RenderUtil.lerpColor(NORMAL, HOVER, hover);
-            float openScale = 1.3f - 0.3f * appear;
-            // openScale already owns the screen entrance animation. Applying
-            // the same 1.3 -> 1 scale through life a second time made newly
-            // visible/lower cards noticeably larger.
-            float lifeScale = anim.removing ? 0.96f + 0.04f * life : 1f;
-            float grow = openScale * lifeScale * (1f + hover * 0.010f);
-
-            ctx.getMatrices().push();
-            ctx.getMatrices().translate(rowX + rowW * 0.5f, y + rowH * 0.5f, 0f);
-            ctx.getMatrices().scale(grow, grow, 1f);
-            ctx.getMatrices().translate(-(rowX + rowW * 0.5f), -(y + rowH * 0.5f), 0f);
-            RenderUtil.drawRoundedRect(ctx, rowX, y, rowW, rowH, 5.8f * scale, RenderUtil.withAlpha(bg, rowAlpha * 0.96f));
-
-            float nameSize = 6.1f * scale;
-            float currentSize = 4.25f * scale;
-            float nameCenterY = y + rowH * 0.5f - CustomFontRenderer.getTextHeight(nameSize, FontWeight.SEMIBOLD) * 0.5f - 0.15f * scale;
-            float selectedNameY = y + 5.2f * scale;
-            float nameY = nameCenterY + (selectedNameY - nameCenterY) * selectedProgress;
-            CustomFontRenderer.drawText(ctx, account.name(), rowX + 8f * scale, nameY,
-                    nameSize, RenderUtil.withAlpha(TEXT, rowAlpha), FontWeight.SEMIBOLD);
-
-            float currentAlpha = rowAlpha * selectedProgress;
-            if (currentAlpha > 0.004f) {
-                CustomFontRenderer.drawText(ctx, ClientLanguage.text("ui.account.current", "текущий"), rowX + 8f * scale, y + 13.4f * scale,
-                        currentSize, RenderUtil.withAlpha(TEXT, currentAlpha * 0.78f), FontWeight.SEMIBOLD);
-            }
-
-            float deleteSize = 6.6f * scale;
-            float deleteY = y + (rowH - CustomFontRenderer.getTextHeight(deleteSize, FontWeight.SOLAR_ICONS)) * 0.5f - 0.2f * scale;
-            CustomFontRenderer.drawCenteredText(ctx, SolarIcons.CLOSE, rowX + rowW - 12.5f * scale, deleteY,
-                    deleteSize, RenderUtil.withAlpha(DELETE, rowAlpha * (0.82f + hover * 0.18f)), FontWeight.SOLAR_ICONS);
-            ctx.getMatrices().pop();
+    private void renderLikedCards(DrawContext context, float alpha, float shiftY) {
+        List<RowAnim> liked = likedRows();
+        int count = liked.size();
+        for (int i = 0; i < count; i++) {
+            RowAnim row = liked.get(i);
+            if (isTransferring(row)) continue;
+            float appear = itemProgress(i + 1);
+            renderCard(context, row, row.displayX, visibleY(row),
+                    alpha * appear * row.alpha.value(), appear);
         }
     }
 
-    private void renderScrollbar(DrawContext ctx, float alpha, float scale) {
+    private void renderAllCards(DrawContext context, float alpha) {
+        List<RowAnim> all = allRows();
+        for (int index = 0; index < all.size(); index++) {
+            RowAnim row = all.get(index);
+            if (isTransferring(row)) continue;
+            float x = row.displayX;
+            float y = visibleY(row);
+            float clipTop = contentTop;
+            float clipBottom = contentBottom;
+            if (y + cardH < clipTop || y > clipBottom) continue;
+            int visibleIndex = Math.max(0, Math.min(VISIBLE_ROWS * COLUMNS - 1, index));
+            float appear = itemProgress(visibleIndex + 3);
+            float edge = edgeAlpha(y);
+            renderCard(context, row, x, y, alpha * appear * row.alpha.value() * edge, appear);
+        }
+    }
+
+    private void renderTransfers(DrawContext context, float alpha) {
+        for (RowAnim row : rowAnimations) {
+            if (!isTransferring(row)) continue;
+            float wave = (float) Math.sin(Math.PI * row.transferProgress());
+            context.getMatrices().push();
+            float y = visibleY(row);
+            context.getMatrices().translate(row.displayX + cardW * 0.5f,
+                    y + cardH * 0.5f, 20f);
+            context.getMatrices().scale(1f + wave * 0.035f, 1f + wave * 0.035f, 1f);
+            context.getMatrices().translate(-(row.displayX + cardW * 0.5f),
+                    -(y + cardH * 0.5f), 0f);
+            renderCard(context, row, row.displayX, y, alpha * row.alpha.value(), 1f);
+            context.getMatrices().pop();
+        }
+    }
+
+    private boolean isTransferring(RowAnim row) {
+        return row != null && row.transferring;
+    }
+
+    private void renderCard(DrawContext context, RowAnim row, float x, float y,
+                            float alpha, float appear) {
+        if (alpha <= 0.003f) return;
+        float scale = layoutScale();
+        float hover = row.hover.value();
+        float selected = row.selected.value();
+        float creation = row.spawn.value();
+        float shiftedY = y + (1f - appear) * 3f * scale + (1f - creation) * 7f * scale;
+        float grow = (0.985f + appear * 0.015f)
+                * (0.94f + creation * 0.06f) * (1f + hover * 0.008f);
+        context.getMatrices().push();
+        context.getMatrices().translate(x + cardW * 0.5f, shiftedY + cardH * 0.5f, 0f);
+        context.getMatrices().scale(grow, grow, 1f);
+        context.getMatrices().translate(-(x + cardW * 0.5f), -(shiftedY + cardH * 0.5f), 0f);
+
+        int background = RenderUtil.lerpColor(CARD, CARD_HOVER, hover);
+        RenderUtil.drawRoundedRect(context, x, shiftedY, cardW, cardH, 7f * scale,
+                RenderUtil.withAlpha(background, alpha));
+
+        float avatar = 14f * scale;
+        Identifier skin = skins.getOrDefault(row.account.uuid(),
+                DefaultSkinHelper.getSkinTextures(row.account.uuid()).texture());
+        Draw.imagePlayerHeadRounded(context, skin, x + 4.5f * scale,
+                shiftedY + 5.25f * scale, avatar, 2.5f * scale, alpha);
+
+        if (selected > 0.02f) {
+            float badgeX = x + 17.1f * scale;
+            float badgeY = shiftedY + 17.9f * scale;
+            float badgeRadius = 3.1f * scale;
+            RenderUtil.drawCrispCircle(context, badgeX, badgeY, badgeRadius,
+                    RenderUtil.withAlpha(0xFF0A0A0A, alpha * selected * 0.96f));
+            drawCenteredIcon(context, SolarIcons.CHECK, badgeX, badgeY,
+                    3.7f * scale, RenderUtil.withAlpha(TEXT, alpha * selected * 0.92f));
+        }
+
+        float textX = x + 21.5f * scale;
+        float nameSize = 5.6f * scale;
+        String name = CustomFontRenderer.trimToWidth(row.account.name(), cardW - 42f * scale,
+                nameSize, FontWeight.SEMIBOLD);
+        CustomFontRenderer.drawText(context, name, textX, shiftedY + 4f * scale, nameSize,
+                RenderUtil.withAlpha(TEXT, alpha * 0.75f), FontWeight.SEMIBOLD);
+        CustomFontRenderer.drawText(context, formatDate(row.account.createdAt()), textX,
+                shiftedY + 12.5f * scale, 4.3f * scale,
+                RenderUtil.withAlpha(TEXT, alpha * 0.35f), FontWeight.SEMIBOLD);
+
+        boolean liked = likedNames.contains(normalize(row.account.name()));
+        float favoriteHover = row.favoriteHover.value();
+        float deleteHover = row.deleteHover.value();
+        float iconCenterY = shiftedY + cardH * 0.5f;
+        float starSize = 4.8f * scale * (1f + favoriteHover * 0.15f);
+        drawCenteredIcon(context, liked ? SolarIcons.FEEDBACK_STAR : SolarIcons.STAR,
+                x + cardW - 10.5f * scale, iconCenterY, starSize,
+                RenderUtil.withAlpha(TEXT, alpha * (liked ? 0.82f : 0.25f + favoriteHover * 0.52f)));
+        float closeSize = 4.5f * scale * (1f + deleteHover * 0.13f);
+        drawCenteredIcon(context, SolarIcons.CLOSE,
+                x + cardW - 4.4f * scale, iconCenterY, closeSize,
+                RenderUtil.withAlpha(DELETE, alpha * (0.25f + deleteHover * 0.50f)));
+        context.getMatrices().pop();
+    }
+
+    private void renderInput(DrawContext context, float alpha) {
+        float scale = layoutScale();
+        RenderUtil.drawRoundedRect(context, inputX, inputY, inputW, inputH, 4f * scale,
+                RenderUtil.withAlpha(CARD, alpha * 0.40f));
+        boolean placeholder = input.isBlank() && !inputActive;
+        String display = placeholder ? ClientLanguage.text("ui.account.placeholder", "Никнейм...") : input;
+        float size = 4.75f * scale;
+        float textY = inputY + (inputH - CustomFontRenderer.getTextHeight(size, FontWeight.SEMIBOLD)) * 0.5f;
+        String trimmed = CustomFontRenderer.trimToWidth(display, inputW - 10f * scale, size, FontWeight.SEMIBOLD);
+        int safeTypedIndex = placeholder ? -1 : Math.min(typedCharIndex, trimmed.length() - 1);
+        RenderUtil.drawAnimatedInputText(context, trimmed, inputX + 5f * scale, textY, size,
+                RenderUtil.withAlpha(TEXT, alpha * (placeholder ? 0.28f : 0.75f)), FontWeight.SEMIBOLD,
+                safeTypedIndex, typedCharStartMs);
+        drawAnimatedRemovedChar(context, inputX + 5f * scale, textY, size, alpha);
+        if (inputActive && ((System.currentTimeMillis() / 460L) % 2L == 0L)) {
+            float cursorX = inputX + 5f * scale
+                    + CustomFontRenderer.getTextWidth(input, size, FontWeight.SEMIBOLD) + 0.6f * scale;
+            cursorX = Math.min(cursorX, inputX + inputW - 4f * scale);
+            RenderUtil.drawRect(context, cursorX, inputY + 3.2f * scale, 0.5f * scale,
+                    inputH - 6.4f * scale, RenderUtil.withAlpha(TEXT, alpha * 0.62f));
+        }
+    }
+
+    private void renderCreateButton(DrawContext context, float alpha) {
+        float scale = layoutScale();
+        float hover = addHover.value();
+        float grow = 1f + hover * 0.012f;
+        context.getMatrices().push();
+        context.getMatrices().translate(addX + addW * 0.5f, inputY + inputH * 0.5f, 0f);
+        context.getMatrices().scale(grow, grow, 1f);
+        context.getMatrices().translate(-(addX + addW * 0.5f), -(inputY + inputH * 0.5f), 0f);
+        RenderUtil.drawRoundedRect(context, addX, inputY, addW, inputH, 4f * scale,
+                RenderUtil.withAlpha(RenderUtil.lerpColor(CARD, CARD_HOVER, hover), alpha * 0.40f));
+        String label = ClientLanguage.text("ui.account.add", "Создать");
+        float textSize = 4.75f * scale;
+        float textY = inputY + (inputH - CustomFontRenderer.getTextHeight(textSize, FontWeight.SEMIBOLD)) * 0.5f;
+        CustomFontRenderer.drawText(context, label, addX + 4.5f * scale, textY, textSize,
+                RenderUtil.withAlpha(TEXT, alpha * 0.75f), FontWeight.SEMIBOLD);
+        float iconSize = 5f * scale;
+        float iconY = inputY + (inputH - CustomFontRenderer.getTextHeight(iconSize, FontWeight.SOLAR_ICONS)) * 0.5f;
+        CustomFontRenderer.drawRightText(context, SolarIcons.USER, addX + addW - 4f * scale,
+                iconY, iconSize,
+                RenderUtil.withAlpha(TEXT, alpha * 0.75f), FontWeight.SOLAR_ICONS);
+        context.getMatrices().pop();
+    }
+
+    private void renderScrollbar(DrawContext context, float alpha) {
         if (maxScroll <= 0.5f) return;
-        float contentH = Math.max(rowClipH, accounts.size() * (rowH + gap) - gap);
-        float thumbH = Math.max(13f * scale, rowClipH * rowClipH / contentH);
-        float travel = Math.max(0f, rowClipH - thumbH);
+        float scale = layoutScale();
+        float thumbH = Math.max(19.5f * scale, allClipH * allClipH / scrollContentH);
+        float travel = Math.max(0f, allClipH - thumbH);
         float progress = clamp(-scrollOffset / maxScroll, 0f, 1f);
-        float barX = rowX + rowW - 2.2f * scale;
-        float barY = rowY + travel * progress;
-        RenderUtil.drawRoundedRect(ctx, barX, rowY, 1.1f * scale, rowClipH,
-                0.55f * scale, RenderUtil.withAlpha(MUTED, alpha * 0.10f));
-        RenderUtil.drawRoundedRect(ctx, barX, barY, 1.1f * scale, thumbH,
-                0.55f * scale, RenderUtil.withAlpha(ACCENT, alpha * 0.62f));
+        float x = panelX + panelW - 9.5f * scale;
+        float y = contentTop + travel * progress;
+        RenderUtil.drawRoundedRect(context, x, contentTop, 4f * scale, allClipH, 2f * scale,
+                RenderUtil.withAlpha(0xFF1F1E1E, alpha * 0.30f));
+        RenderUtil.drawRoundedRect(context, x + 1f * scale, y, 2f * scale, thumbH, 1f * scale,
+                RenderUtil.withAlpha(0xFF848585, alpha * 0.25f));
     }
 
-    private float itemProgress(int index) {
-        return Easing.OUT_CUBIC.apply((openAnimation.progress() - 0.08f - index * 0.045f) / 0.42f);
+    private void updateCardAnimations(float mouseX, float mouseY) {
+        String current = currentName();
+        List<RowAnim> liked = likedRows();
+        List<RowAnim> allRows = allRows();
+        for (RowAnim row : rowAnimations) {
+            boolean over = false;
+            boolean overFavorite = false;
+            boolean overDelete = false;
+            if (!row.removing && !isTransferring(row)) {
+                int likedIndex = liked.indexOf(row);
+                if (likedIndex >= 0) {
+                    float x = row.displayX;
+                    float y = visibleY(row);
+                    if (y + cardH >= contentTop && y <= contentBottom
+                            && inside(mouseX, mouseY, x, y, cardW, cardH)) {
+                        over = true;
+                        overFavorite = overFavorite(mouseX, mouseY, x, y);
+                        overDelete = overDelete(mouseX, mouseY, x, y);
+                    }
+                }
+                int allIndex = allRows.indexOf(row);
+                if (allIndex >= 0) {
+                    float x = row.displayX;
+                    float y = visibleY(row);
+                    if (y + cardH >= contentTop
+                            && y <= contentBottom
+                            && inside(mouseX, mouseY, x, y, cardW, cardH)) {
+                        over = true;
+                        overFavorite |= overFavorite(mouseX, mouseY, x, y);
+                        overDelete |= overDelete(mouseX, mouseY, x, y);
+                    }
+                }
+            }
+            row.hover.setTarget(over ? 1f : 0f);
+            row.favoriteHover.setTarget(overFavorite ? 1f : 0f);
+            row.deleteHover.setTarget(overDelete ? 1f : 0f);
+            row.selected.setTarget(!row.removing
+                    && row.account.name().equalsIgnoreCase(current) ? 1f : 0f);
+        }
     }
 
-    private float visibleSlot(RowAnim row) {
-        return row.index.value() + scrollOffset / Math.max(1f, rowH + gap);
+    private boolean overFavorite(float mouseX, float mouseY, float x, float y) {
+        float scale = layoutScale();
+        return inside(mouseX, mouseY, x + cardW - 14.8f * scale, y,
+                7.6f * scale, cardH);
     }
 
-    private boolean rowIntersectsList(float y) {
-        float[] clip = rowsClipBounds(layoutScale());
-        return y + rowH >= clip[0] && y <= clip[1];
+    private boolean overDelete(float mouseX, float mouseY, float x, float y) {
+        float scale = layoutScale();
+        return inside(mouseX, mouseY, x + cardW - 7.2f * scale, y,
+                7.2f * scale, cardH);
     }
 
-    private float edgeAlpha(float y) {
-        float[] clip = rowsClipBounds(layoutScale());
-        float top = (y + rowH - clip[0]) / Math.max(1f, rowH * 0.78f);
-        float bottom = (clip[1] - y) / Math.max(1f, rowH * 0.78f);
-        return Easing.OUT_CUBIC.apply(Math.min(top, bottom));
-    }
-
-    private void enableRowsVerticalScissor() {
-        float[] clip = rowsClipBounds(layoutScale());
-        // Clip only above/below the list. The full-screen horizontal span is
-        // intentional: row scale/hover animations must not be cut at the
-        // card's left and right edges.
-        RenderUtil.enableScissor(0f, clip[0] * screenScale,
-                virtualWidth * screenScale, (clip[1] - clip[0]) * screenScale);
-    }
-
-    private float[] rowsClipBounds(float scale) {
+    private float[] allPosition(int index) {
+        int column = Math.floorMod(index, COLUMNS);
+        int row = Math.max(0, index / COLUMNS);
         return new float[]{
-                rowY,
-                rowY + rowClipH,
-                rowX,
-                rowW
+                allX + column * (cardW + columnGap),
+                allY + row * (cardH + rowGap)
         };
     }
 
-    private void renderScaled(DrawContext ctx, float x, float y, float w, float h, float scale, Runnable render) {
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x + w * 0.5f, y + h * 0.5f, 0f);
-        ctx.getMatrices().scale(scale, scale, 1f);
-        ctx.getMatrices().translate(-(x + w * 0.5f), -(y + h * 0.5f), 0f);
-        render.run();
-        ctx.getMatrices().pop();
+    private float visibleY(RowAnim row) {
+        return row.displayY + scrollOffset;
     }
 
-    private void drawAnimatedRemovedChar(DrawContext ctx, float x, float y, float size, float alpha) {
-        if (removedChar.isEmpty() || removedCharStartMs <= 0L) return;
-        float progress = Math.max(0f, Math.min(1f, (System.currentTimeMillis() - removedCharStartMs) / 180f));
-        if (progress >= 0.999f) {
-            removedChar = "";
-            removedCharStartMs = 0L;
-            return;
+    private List<RowAnim> likedRows() {
+        List<RowAnim> result = new ArrayList<>();
+        for (RowAnim row : rowAnimations) {
+            if (!row.removing && likedNames.contains(normalize(row.account.name()))) result.add(row);
         }
+        return result;
+    }
 
-        float symbolW = CustomFontRenderer.getTextWidth(removedChar, size, FontWeight.SEMIBOLD);
-        float symbolX = x + CustomFontRenderer.getTextWidth(input, size, FontWeight.SEMIBOLD);
-        float scale = 1f - 0.72f * RenderUtil.easeInQuad(progress);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(symbolX + symbolW * 0.5f, y + size * 0.5f, 0f);
-        ctx.getMatrices().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-50f * progress));
-        ctx.getMatrices().scale(scale, scale, 1f);
-        CustomFontRenderer.drawText(ctx, removedChar, -symbolW * 0.5f, -size * 0.5f, size,
-                RenderUtil.withAlpha(TEXT, alpha * (1f - progress)), FontWeight.SEMIBOLD);
-        ctx.getMatrices().pop();
+    private int likedRowCount() {
+        int count = 0;
+        for (RowAnim row : rowAnimations) {
+            if (!row.removing && likedNames.contains(normalize(row.account.name()))) count++;
+        }
+        return (count + COLUMNS - 1) / COLUMNS;
+    }
+
+    private List<RowAnim> allRows() {
+        List<RowAnim> result = new ArrayList<>();
+        for (RowAnim row : rowAnimations) {
+            if (!row.removing && !likedNames.contains(normalize(row.account.name()))) result.add(row);
+        }
+        return result;
+    }
+
+    private void enableContentScissor() {
+        RenderUtil.enableScissor(0f, contentTop * screenScale,
+                virtualWidth * screenScale, (contentBottom - contentTop) * screenScale);
+    }
+
+    private float edgeAlpha(float y) {
+        float top = (y + cardH - contentTop) / Math.max(1f, cardH * 0.72f);
+        float bottom = (contentBottom - y) / Math.max(1f, cardH * 0.72f);
+        return Easing.OUT_CUBIC.apply(Math.min(top, bottom));
+    }
+
+    private void updateRowPositions() {
+        List<RowAnim> liked = likedRows();
+        List<RowAnim> all = allRows();
+        float frame = RenderUtil.getFrameDelta();
+        float scale = layoutScale();
+        for (RowAnim row : rowAnimations) {
+            if (row.removing) continue;
+            float targetX;
+            float targetY;
+            int likedIndex = liked.indexOf(row);
+            if (likedIndex >= 0) {
+                targetX = likedX + (likedIndex % COLUMNS) * (cardW + columnGap);
+                targetY = likedY + (likedIndex / COLUMNS) * (cardH + rowGap);
+            } else {
+                int allIndex = Math.max(0, all.indexOf(row));
+                float[] target = allPosition(allIndex);
+                targetX = target[0];
+                targetY = target[1];
+            }
+
+            if (!row.positionReady) {
+                row.displayX = targetX;
+                row.displayY = targetY;
+                row.positionReady = true;
+            } else if (row.transferring) {
+                float progress = row.transferProgress();
+                float eased = Easing.IN_OUT_CUBIC.apply(progress);
+                float wave = (float) Math.sin(Math.PI * eased);
+                row.displayX = row.transferFromX + (targetX - row.transferFromX) * eased;
+                row.displayY = row.transferFromY + (targetY - row.transferFromY) * eased
+                        - wave * 10f * scale;
+                if (progress >= 1f) {
+                    row.transferring = false;
+                    row.displayX = targetX;
+                    row.displayY = targetY;
+                }
+            } else {
+                row.displayX = RenderUtil.animate(row.displayX, targetX, 0.12f, frame);
+                row.displayY = RenderUtil.animate(row.displayY, targetY, 0.12f, frame);
+            }
+        }
+    }
+
+    private float itemProgress(int index) {
+        return Easing.OUT_CUBIC.apply((openAnimation.value() - 0.06f - index * 0.022f) / 0.48f);
+    }
+
+    private void layout() {
+        float scale = layoutScale();
+        panelW = Math.min(314.5f * scale, virtualWidth - 24f * scale);
+        float extraLikedRows = likedExtraRows.value();
+        panelH = Math.min(179f * scale, virtualHeight - 66f * scale);
+        panelX = virtualWidth * 0.5f - panelW * 0.5f;
+        panelY = virtualHeight * 0.5f - panelH * 0.5f;
+        cardH = 24.5f * scale;
+        columnGap = 6.5f * scale;
+        rowGap = 5f * scale;
+        cardW = (panelW - 24f * scale - columnGap * (COLUMNS - 1)) / COLUMNS;
+        contentTop = panelY + 5.5f * scale;
+        contentBottom = panelY + panelH - 37f * scale;
+        likedX = panelX + 12f * scale;
+        allX = likedX;
+        float likedReveal = likedSection.value();
+        float likedHeight = 41f * likedReveal + 29.5f * extraLikedRows;
+        inputX = panelX + 12f * scale;
+        inputY = panelY + panelH - 20f * scale;
+        inputW = 75f * scale;
+        inputH = 14f * scale;
+        addX = inputX + 80.5f * scale;
+        addW = 45.5f * scale;
+        int rows = (allRows().size() + COLUMNS - 1) / COLUMNS;
+        float contentH = rows <= 0 ? 0f : rows * (cardH + rowGap) - rowGap;
+        int favoriteRows = likedRowCount();
+        float unscrolledAllY = panelY + (19.5f + likedHeight) * scale;
+        float allBottom = unscrolledAllY + contentH;
+        float likedBottom = favoriteRows <= 0 ? panelY + 12f * scale
+                : panelY + 19.5f * scale + (favoriteRows - 1) * (cardH + rowGap) + cardH;
+        float contentEnd = Math.max(allBottom, likedBottom);
+        allClipH = Math.max(1f, contentBottom - contentTop);
+        scrollContentH = Math.max(allClipH, contentEnd - contentTop);
+        maxScroll = Math.max(0f, contentEnd - contentBottom);
+        scrollTarget = clamp(scrollTarget, -maxScroll, 0f);
+        scrollOffset = clamp(scrollOffset, -maxScroll, 0f);
+        likedY = panelY + 19.5f * scale;
+        allLabelY = panelY + (8f + likedHeight) * scale;
+        allY = unscrolledAllY;
+    }
+
+    private void updateScroll() {
+        scrollAnimation.setTarget(scrollTarget);
+        scrollOffset = clamp(scrollAnimation.value(), -maxScroll, 0f);
+    }
+
+    private void updateVirtualScreen() {
+        screenScale = ScreenScaleUtil.scale();
+        virtualWidth = ScreenScaleUtil.virtualWidth();
+        virtualHeight = ScreenScaleUtil.virtualHeight();
+        if (virtualWidth <= 0f) virtualWidth = width / Math.max(0.001f, screenScale);
+        if (virtualHeight <= 0f) virtualHeight = height / Math.max(0.001f, screenScale);
+    }
+
+    private float layoutScale() {
+        return Math.max(0.58f, Math.min(1.42f,
+                Math.min(virtualWidth / 960f, virtualHeight / 540f)));
     }
 
     private void ensureCurrentAccount() {
@@ -375,9 +626,7 @@ public final class AccountSwitcherScreen extends Screen {
 
     private void rebuildRows() {
         rowAnimations.clear();
-        for (int i = 0; i < accounts.size(); i++) {
-            rowAnimations.add(RowAnim.visible(accounts.get(i), i));
-        }
+        for (int i = 0; i < accounts.size(); i++) rowAnimations.add(RowAnim.visible(accounts.get(i), i));
     }
 
     private void updateRowTargets() {
@@ -390,227 +639,154 @@ public final class AccountSwitcherScreen extends Screen {
             }
             row.showAt(i);
         }
+        rowAnimations.sort((first, second) -> Integer.compare(
+                first.removing ? Integer.MAX_VALUE : first.index,
+                second.removing ? Integer.MAX_VALUE : second.index));
     }
 
-    private RowAnim findRow(AccountProfile account) {
-        for (RowAnim row : rowAnimations) {
-            if (sameAccount(row.account, account)) {
-                return row;
-            }
-        }
-        return null;
+    private void primeSkins() {
+        for (AccountProfile account : accounts) primeSkin(account);
     }
 
-    private static boolean sameAccount(AccountProfile a, AccountProfile b) {
-        return a != null && b != null && a.name().equalsIgnoreCase(b.name());
-    }
-
-    private void addAccount() {
-        String name = input.trim();
-        if (!AccountRepository.isValidName(name)) {
-            return;
-        }
-        if (AccountRepository.containsName(accounts, name)) {
-            return;
-        }
-        AccountProfile profile = AccountProfile.offline(name);
-        accounts.add(0, profile);
-        rowAnimations.add(0, RowAnim.appearing(profile, 0f));
-        scrollTarget = 0f;
-        updateRowTargets();
-        AccountRepository.save(accounts);
-        updateInput("");
-    }
-
-    private void switchAccount(AccountProfile profile) {
-        if (profile == null) return;
-        AccountSessionManager.switchTo(profile);
-        status = ClientLanguage.text("ui.account.selected", "Выбран: %s").formatted(profile.name());
-        EnoughSoundPlayer.playScroll();
-    }
-
-    private void removeAccount(AccountProfile account) {
-        if (account == null) return;
-        int index = indexOfAccount(account);
-        if (index < 0) return;
-
-        boolean removedCurrent = account.name().equalsIgnoreCase(currentName());
-        AccountProfile removed = accounts.remove(index);
-        RowAnim row = findRow(removed);
-        if (row != null) {
-            row.remove();
-        }
-        updateRowTargets();
-        AccountRepository.save(accounts);
-        if (removedCurrent) {
-            if (!accounts.isEmpty()) {
-                switchAccount(accounts.get(Math.min(index, accounts.size() - 1)));
-            } else {
-                AccountRepository.saveSelected(null);
-                status = "";
-            }
-        }
-    }
-
-    private int indexOfAccount(AccountProfile account) {
-        for (int i = 0; i < accounts.size(); i++) {
-            if (sameAccount(accounts.get(i), account)) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    private void layout() {
-        float scale = layoutScale();
-        panelW = Math.min(220f * scale, virtualWidth - 24f * scale);
-        panelX = virtualWidth * 0.5f - panelW * 0.5f;
-        panelY = virtualHeight * 0.5f - 92f * scale;
-        inputX = panelX;
-        inputY = panelY + 30f * scale;
-        inputW = 148f * scale;
-        inputH = 19.5f * scale;
-        addX = inputX + inputW + 5f * scale;
-        addW = panelW - inputW - 5f * scale;
-        rowX = panelX;
-        rowY = inputY + inputH + 6f * scale;
-        rowW = panelW;
-        rowH = 22.5f * scale;
-        gap = 4.0f * scale;
-        int visibleRows = Math.max(1, Math.min(VISIBLE_ROWS, accounts.size()));
-        float desiredListH = (rowH + gap) * visibleRows - gap;
-        float availableH = Math.max(rowH, virtualHeight - rowY - 38f * scale);
-        rowClipH = Math.min(desiredListH, availableH);
-        maxScroll = Math.max(0f, Math.max(0, accounts.size()) * (rowH + gap) - gap - rowClipH);
-        scrollTarget = clamp(scrollTarget, -maxScroll, 0f);
-        if (scrollOffset < -maxScroll || scrollOffset > 0f) {
-            scrollOffset = clamp(scrollOffset, -maxScroll, 0f);
-            scrollAnimation.snap(scrollOffset);
-        }
-    }
-
-    private void updateScroll() {
-        maxScroll = Math.max(0f, Math.max(0, accounts.size()) * (rowH + gap) - gap - rowClipH);
-        scrollTarget = clamp(scrollTarget, -maxScroll, 0f);
-        scrollAnimation.setTarget(scrollTarget);
-        scrollOffset = clamp(scrollAnimation.value(), -maxScroll, 0f);
-    }
-
-    private float layoutScale() {
-        return Math.max(0.58f, Math.min(1.14f, Math.min(virtualWidth / 960f, virtualHeight / 540f)));
-    }
-
-    private void updateVirtualScreen() {
-        screenScale = ScreenScaleUtil.scale();
-        virtualWidth = ScreenScaleUtil.virtualWidth();
-        virtualHeight = ScreenScaleUtil.virtualHeight();
-        if (virtualWidth <= 0f) virtualWidth = width / Math.max(0.001f, screenScale);
-        if (virtualHeight <= 0f) virtualHeight = height / Math.max(0.001f, screenScale);
-    }
-
-    private void drawBackground(DrawContext ctx) {
-        configureBackgroundFiltering();
-
-        Identifier background = MenuBackgroundManager.texture();
-        int backgroundWidth = MenuBackgroundManager.textureWidth();
-        int backgroundHeight = MenuBackgroundManager.textureHeight();
-
-        float screenAspect = width / (float) Math.max(1, height);
-        float textureAspect = backgroundWidth / (float) backgroundHeight;
-        float sourceX = 0f;
-        float sourceY = 0f;
-        int sourceW = backgroundWidth;
-        int sourceH = backgroundHeight;
-
-        if (screenAspect > textureAspect) {
-            sourceH = Math.round(backgroundWidth / screenAspect);
-            sourceY = (backgroundHeight - sourceH) * 0.5f;
-        } else if (screenAspect < textureAspect) {
-            sourceW = Math.round(backgroundHeight * screenAspect);
-            sourceX = (backgroundWidth - sourceW) * 0.5f;
-        }
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, 0.0f, 0.0f, 1.0f);
-        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, 0.45f, 0.0f, 0.055f);
-        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, -0.45f, 0.0f, 0.055f);
-        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, 0.0f, 0.45f, 0.055f);
-        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, 0.0f, -0.45f, 0.055f);
-        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, 0.35f, 0.35f, 0.035f);
-        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, -0.35f, 0.35f, 0.035f);
-        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, 0.35f, -0.35f, 0.035f);
-        drawBackgroundPass(ctx, background, backgroundWidth, backgroundHeight, sourceX, sourceY, sourceW, sourceH, -0.35f, -0.35f, 0.035f);
-        ctx.draw();
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        RenderSystem.disableBlend();
-    }
-
-    private void drawBackgroundPass(DrawContext ctx, Identifier background, int backgroundWidth, int backgroundHeight,
-                                    float sourceX, float sourceY, int sourceW, int sourceH,
-                                    float offsetX, float offsetY, float alpha) {
-        RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(offsetX, offsetY, 0f);
-        ctx.drawTexture(RenderLayer::getGuiTextured, background, 0, 0, sourceX, sourceY,
-                width, height, sourceW, sourceH, backgroundWidth, backgroundHeight);
-        ctx.getMatrices().pop();
-    }
-
-    private void configureBackgroundFiltering() {
-        Identifier background = MenuBackgroundManager.texture();
-        if (background.equals(filteredBackground) || client == null) return;
-
+    private void primeSkin(AccountProfile account) {
+        if (account == null || client == null) return;
+        skins.putIfAbsent(account.uuid(), DefaultSkinHelper.getSkinTextures(account.uuid()).texture());
         try {
-            AbstractTexture texture = client.getTextureManager().getTexture(background);
-            if (texture != null) {
-                texture.setFilter(true, true);
-                filteredBackground = background;
-            }
+            GameProfile profile = new GameProfile(account.uuid(), account.name());
+            client.getSkinProvider().fetchSkinTextures(profile).thenAccept(optional -> optional.ifPresent(skin -> {
+                if (client != null) client.execute(() -> skins.put(account.uuid(), skin.texture()));
+            }));
         } catch (Throwable ignored) {
         }
     }
 
-    private void drawDim(DrawContext ctx) {
-        RenderUtil.drawRect(ctx, 0f, 0f, width, height, 0x4A000000);
-        RenderUtil.drawGradientRect(ctx, 0f, 0f, width, height * 0.30f, 0x5C000000, 0x00000000);
-        RenderUtil.drawGradientRect(ctx, 0f, height * 0.66f, width, height * 0.34f, 0x00000000, 0x6A000000);
+    private void addAccount() {
+        String name = input.trim();
+        if (!AccountRepository.isValidName(name) || AccountRepository.containsName(accounts, name)) return;
+        AccountProfile profile = AccountProfile.offline(name);
+        accounts.add(0, profile);
+        rowAnimations.add(RowAnim.appearing(profile, 0));
+        updateRowTargets();
+        primeSkin(profile);
+        scrollTarget = 0f;
+        AccountRepository.save(accounts);
+        updateInput("");
+    }
+
+    private void switchAccount(AccountProfile account) {
+        if (account == null) return;
+        AccountSessionManager.switchTo(account);
+    }
+
+    private void toggleLiked(AccountProfile account) {
+        String key = normalize(account.name());
+        RowAnim row = findRow(account);
+        boolean toLiked = !likedNames.contains(key);
+        float sourceX = row != null && row.positionReady ? row.displayX : allX;
+        float sourceY = row != null && row.positionReady ? row.displayY : allY;
+        if (row != null) {
+            if (!row.positionReady && toLiked) {
+                int index = allRows().indexOf(row);
+                if (index >= 0) {
+                    float[] source = allPosition(index);
+                    sourceX = source[0];
+                    sourceY = source[1];
+                }
+            } else if (!row.positionReady) {
+                int index = likedRows().indexOf(row);
+                if (index >= 0) {
+                    sourceX = likedX + (index % COLUMNS) * (cardW + columnGap);
+                    sourceY = likedY + (index / COLUMNS) * (cardH + rowGap);
+                }
+            }
+        }
+
+        if (toLiked) likedNames.add(key);
+        else likedNames.remove(key);
+        likedSection.setTarget(likedNames.isEmpty() ? 0f : 1f);
+        likedExtraRows.setTarget(Math.max(0, likedRowCount() - 1));
+        scrollTarget = 0f;
+        if (row != null) row.beginTransfer(sourceX, sourceY, toLiked);
+        AccountRepository.saveLikedNames(likedNames);
+    }
+
+    private void removeAccount(AccountProfile account) {
+        int index = indexOfAccount(account);
+        if (index < 0) return;
+        boolean removedCurrent = account.name().equalsIgnoreCase(currentName());
+        AccountProfile removed = accounts.remove(index);
+        likedNames.remove(normalize(removed.name()));
+        likedSection.setTarget(likedNames.isEmpty() ? 0f : 1f);
+        likedExtraRows.setTarget(Math.max(0, likedRowCount() - 1));
+        AccountRepository.saveLikedNames(likedNames);
+        RowAnim row = findRow(removed);
+        if (row != null) row.remove();
+        updateRowTargets();
+        AccountRepository.save(accounts);
+        if (removedCurrent) {
+            if (!accounts.isEmpty()) switchAccount(accounts.get(Math.min(index, accounts.size() - 1)));
+            else AccountRepository.saveSelected(null);
+        }
+    }
+
+    private RowAnim findRow(AccountProfile account) {
+        for (RowAnim row : rowAnimations) if (sameAccount(row.account, account)) return row;
+        return null;
+    }
+
+    private int indexOfAccount(AccountProfile account) {
+        for (int i = 0; i < accounts.size(); i++) if (sameAccount(accounts.get(i), account)) return i;
+        return -1;
+    }
+
+    private static boolean sameAccount(AccountProfile first, AccountProfile second) {
+        return first != null && second != null && first.name().equalsIgnoreCase(second.name());
     }
 
     private String currentName() {
-        if (client == null || client.getSession() == null || client.getSession().getUsername() == null) {
-            return "Player";
-        }
+        if (client == null || client.getSession() == null || client.getSession().getUsername() == null) return "Player";
         return client.getSession().getUsername();
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (closing) return true;
         if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
         float mx = ScreenScaleUtil.screenToVirtual(mouseX);
         float my = ScreenScaleUtil.screenToVirtual(mouseY);
+        float scale = layoutScale();
+        if (MenuCredits.click(mx, my, virtualWidth, virtualHeight, scale)) return true;
         inputActive = inside(mx, my, inputX, inputY, inputW, inputH);
-
         if (inside(mx, my, addX, inputY, addW, inputH)) {
             addAccount();
             return true;
         }
 
-        float scale = layoutScale();
-        for (RowAnim row : rowAnimations) {
-            if (row.removing) continue;
-            float slot = visibleSlot(row);
-            float y = rowY + slot * (rowH + gap);
-            if (!rowIntersectsList(y) || edgeAlpha(y) <= 0.55f) continue;
-            if (!inside(mx, my, rowX, y, rowW, rowH)) continue;
-            if (mx >= rowX + rowW - 27f * scale) {
-                removeAccount(row.account);
-            } else {
-                switchAccount(row.account);
-            }
-            return true;
+        List<RowAnim> liked = likedRows();
+        for (int i = 0; i < liked.size(); i++) {
+            if (isTransferring(liked.get(i))) continue;
+            RowAnim row = liked.get(i);
+            float y = visibleY(row);
+            if (y + cardH < contentTop || y > contentBottom) continue;
+            if (handleCardClick(row, mx, my, row.displayX, y)) return true;
         }
+        List<RowAnim> all = allRows();
+        for (int index = 0; index < all.size(); index++) {
+            RowAnim row = all.get(index);
+            if (isTransferring(row)) continue;
+            float y = visibleY(row);
+            if (y + cardH < contentTop || y > contentBottom) continue;
+            if (handleCardClick(row, mx, my, row.displayX, y)) return true;
+        }
+        return true;
+    }
+
+    private boolean handleCardClick(RowAnim row, float mouseX, float mouseY, float x, float y) {
+        if (!inside(mouseX, mouseY, x, y, cardW, cardH)) return false;
+        float scale = layoutScale();
+        if (mouseX >= x + cardW - 7.2f * scale) removeAccount(row.account);
+        else if (mouseX >= x + cardW - 14f * scale) toggleLiked(row.account);
+        else switchAccount(row.account);
         return true;
     }
 
@@ -618,9 +794,9 @@ public final class AccountSwitcherScreen extends Screen {
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
         float mx = ScreenScaleUtil.screenToVirtual(mouseX);
         float my = ScreenScaleUtil.screenToVirtual(mouseY);
-        float[] clip = rowsClipBounds(layoutScale());
-        if (inside(mx, my, clip[2], clip[0], clip[3], clip[1] - clip[0]) && maxScroll > 0.5f) {
-            scrollTarget += (float) (verticalAmount * (rowH + gap) * 0.76f);
+        if (inside(mx, my, panelX + 8f * layoutScale(), contentTop,
+                panelW - 16f * layoutScale(), allClipH) && maxScroll > 0.5f) {
+            scrollTarget += (float) (verticalAmount * (cardH + rowGap) * 0.82f);
             scrollTarget = clamp(scrollTarget, -maxScroll, 0f);
             scrollAnimation.setTarget(scrollTarget);
             return true;
@@ -631,12 +807,10 @@ public final class AccountSwitcherScreen extends Screen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-            client.setScreen(parent);
+            close();
             return true;
         }
-        if (!inputActive) {
-            return super.keyPressed(keyCode, scanCode, modifiers);
-        }
+        if (!inputActive) return super.keyPressed(keyCode, scanCode, modifiers);
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             addAccount();
             return true;
@@ -650,11 +824,10 @@ public final class AccountSwitcherScreen extends Screen {
 
     @Override
     public boolean charTyped(char chr, int modifiers) {
-        if (!inputActive) return super.charTyped(chr, modifiers);
+        if (closing || !inputActive) return super.charTyped(chr, modifiers);
         if (input.length() >= 16) return true;
         if (Character.isLetterOrDigit(chr) || chr == '_') {
             updateInput(input + chr);
-            status = "";
             return true;
         }
         return true;
@@ -663,7 +836,6 @@ public final class AccountSwitcherScreen extends Screen {
     private void updateInput(String next) {
         next = next == null ? "" : next;
         if (next.equals(input)) return;
-
         if (next.length() == input.length() + 1 && next.startsWith(input)) {
             typedCharIndex = input.length();
             typedCharStartMs = System.currentTimeMillis();
@@ -680,12 +852,53 @@ public final class AccountSwitcherScreen extends Screen {
             removedChar = "";
             removedCharStartMs = 0L;
         }
-
         input = next;
     }
 
-    private static boolean inside(double mx, double my, float x, float y, float w, float h) {
-        return mx >= x && mx <= x + w && my >= y && my <= y + h;
+    private void drawAnimatedRemovedChar(DrawContext context, float x, float y, float size, float alpha) {
+        if (removedChar.isEmpty() || removedCharStartMs <= 0L) return;
+        float progress = clamp((System.currentTimeMillis() - removedCharStartMs) / 180f, 0f, 1f);
+        if (progress >= 0.999f) {
+            removedChar = "";
+            removedCharStartMs = 0L;
+            return;
+        }
+        float symbolW = CustomFontRenderer.getTextWidth(removedChar, size, FontWeight.SEMIBOLD);
+        float symbolX = x + CustomFontRenderer.getTextWidth(input, size, FontWeight.SEMIBOLD);
+        float shrink = 1f - 0.72f * RenderUtil.easeInQuad(progress);
+        context.getMatrices().push();
+        context.getMatrices().translate(symbolX + symbolW * 0.5f, y + size * 0.5f, 0f);
+        context.getMatrices().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-50f * progress));
+        context.getMatrices().scale(shrink, shrink, 1f);
+        CustomFontRenderer.drawText(context, removedChar, -symbolW * 0.5f, -size * 0.5f, size,
+                RenderUtil.withAlpha(TEXT, alpha * (1f - progress)), FontWeight.SEMIBOLD);
+        context.getMatrices().pop();
+    }
+
+    private static String formatDate(long createdAt) {
+        try {
+            return DATE.format(Instant.ofEpochMilli(createdAt).atZone(ZoneId.systemDefault()));
+        } catch (Throwable ignored) {
+            return "--.--.--";
+        }
+    }
+
+    private static String normalize(String value) {
+        return value == null ? "" : value.toLowerCase(Locale.ROOT);
+    }
+
+    private static void renderScaled(DrawContext context, float x, float y, float width, float height,
+                                     float scale, Runnable render) {
+        context.getMatrices().push();
+        context.getMatrices().translate(x + width * 0.5f, y + height * 0.5f, 0f);
+        context.getMatrices().scale(scale, scale, 1f);
+        context.getMatrices().translate(-(x + width * 0.5f), -(y + height * 0.5f), 0f);
+        render.run();
+        context.getMatrices().pop();
+    }
+
+    private static boolean inside(double mouseX, double mouseY, float x, float y, float width, float height) {
+        return mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
     }
 
     private static float clamp(float value, float min, float max) {
@@ -697,45 +910,98 @@ public final class AccountSwitcherScreen extends Screen {
         return false;
     }
 
+    @Override
+    public void close() {
+        if (closing) return;
+        closing = true;
+        inputActive = false;
+        addHover.setTarget(0f);
+        openAnimation.duration(CLOSE_MS).easing(Easing.IN_OUT_CUBIC).playTo(0f);
+    }
+
+    private void returnToParent() {
+        if (client == null) return;
+        if (parent instanceof CustomMainMenuScreen menu) menu.resumeFromAccountManager();
+        else client.setScreen(parent);
+    }
+
+    private static void drawCenteredIcon(DrawContext context, String icon,
+                                         float centerX, float centerY, float size, int color) {
+        float y = centerY - CustomFontRenderer.getTextHeight(size, FontWeight.SOLAR_ICONS) * 0.5f;
+        CustomFontRenderer.drawCenteredText(context, icon, centerX, y, size, color, FontWeight.SOLAR_ICONS);
+    }
+
     private static final class RowAnim {
         private final AccountProfile account;
-        private final AnimatedFloat hover = new AnimatedFloat(0f, 160L, Easing.OUT_CUBIC);
-        private final AnimatedFloat selected = new AnimatedFloat(0f, 190L, Easing.OUT_CUBIC);
-        private final AnimatedFloat index;
+        private final AnimatedFloat hover = new AnimatedFloat(0f, 150L, Easing.OUT_CUBIC);
+        private final AnimatedFloat favoriteHover = new AnimatedFloat(0f, 145L, Easing.OUT_CUBIC);
+        private final AnimatedFloat deleteHover = new AnimatedFloat(0f, 145L, Easing.OUT_CUBIC);
+        private final AnimatedFloat selected = new AnimatedFloat(0f, 180L, Easing.OUT_CUBIC);
         private final AnimatedFloat alpha;
+        private final AnimatedFloat spawn;
+        private float displayX;
+        private float displayY;
+        private float transferFromX;
+        private float transferFromY;
+        private long transferStartedAt;
+        private boolean positionReady;
+        private boolean transferring;
+        private boolean transferToLiked;
+        private int index;
         private boolean removing;
 
-        private RowAnim(AccountProfile account, float index, float alpha) {
+        private RowAnim(AccountProfile account, int index, float alpha) {
             this.account = account;
-            this.index = new AnimatedFloat(index, 280L, Easing.OUT_CUBIC);
-            this.alpha = new AnimatedFloat(alpha, 220L, Easing.OUT_CUBIC);
+            this.index = index;
+            this.alpha = new AnimatedFloat(alpha, 360L, Easing.OUT_QUART);
+            this.spawn = new AnimatedFloat(alpha, 520L, Easing.OUT_QUART);
         }
 
         private static RowAnim visible(AccountProfile account, int index) {
             return new RowAnim(account, index, 1f);
         }
 
-        private static RowAnim appearing(AccountProfile account, float fromIndex) {
-            RowAnim row = new RowAnim(account, fromIndex, 0f);
+        private static RowAnim appearing(AccountProfile account, int index) {
+            RowAnim row = new RowAnim(account, index, 0f);
             row.alpha.setTarget(1f);
+            row.spawn.setTarget(1f);
             return row;
         }
 
         private void showAt(int targetIndex) {
             removing = false;
-            index.setTarget(targetIndex);
+            index = targetIndex;
             alpha.setTarget(1f);
         }
 
         private void remove() {
             removing = true;
+            transferring = false;
             hover.setTarget(0f);
+            favoriteHover.setTarget(0f);
+            deleteHover.setTarget(0f);
             selected.setTarget(0f);
             alpha.setTarget(0f);
         }
 
         private boolean isGone() {
             return removing && alpha.value() <= 0.025f;
+        }
+
+        private void beginTransfer(float fromX, float fromY, boolean toLiked) {
+            displayX = fromX;
+            displayY = fromY;
+            transferFromX = fromX;
+            transferFromY = fromY;
+            transferToLiked = toLiked;
+            transferStartedAt = System.currentTimeMillis();
+            positionReady = true;
+            transferring = true;
+        }
+
+        private float transferProgress() {
+            return Easing.clamp((System.currentTimeMillis() - transferStartedAt)
+                    / (float) FAVORITE_TRANSFER_MS);
         }
     }
 }

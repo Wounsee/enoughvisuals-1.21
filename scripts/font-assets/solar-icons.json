@@ -97,6 +97,7 @@
     {"constant": "CHAT_SQUARE_STATS", "purpose": "pause menu statistics", "solar": "chat-square-2-bold", "codepoint": "F15C"},
     {"constant": "FEEDBACK_STAR", "purpose": "pause menu feedback", "solar": "star-bold", "codepoint": "F15D"},
     {"constant": "BUG", "purpose": "pause menu bug report", "solar": "bug-bold", "codepoint": "F15E"},
-    {"constant": "NETWORK_GLOBAL", "purpose": "pause menu open to LAN", "solar": "global-bold", "codepoint": "F15F"}
+    {"constant": "NETWORK_GLOBAL", "purpose": "pause menu open to LAN", "solar": "global-bold", "codepoint": "F15F"},
+    {"constant": "COPYRIGHT", "purpose": "copyright mark", "solar": "copyright-outline", "codepoint": "F160"}
   ]
 }

@@ -77,6 +77,54 @@ CUSTOM_FILES = {
 }
 
 
+def generate_logo(root: Path, tools: Path, generator: Path, fantasticon: Path) -> None:
+    """Generate the dedicated Enough logo MTSDF atlas from the Figma vector."""
+    source = Path(__file__).with_name("custom-icons") / "enough_logo.svg"
+    work = root / ".codex-temp" / "logo-font"
+    svg_dir = work / "svg"
+    font_dir = work / "font"
+    shutil.rmtree(work, ignore_errors=True)
+    svg_dir.mkdir(parents=True)
+    font_dir.mkdir(parents=True)
+    shutil.copyfile(source, svg_dir / "logo.svg")
+
+    config = {
+        "inputDir": str(svg_dir),
+        "outputDir": str(font_dir),
+        "name": "enough-logo",
+        "fontTypes": ["ttf"],
+        "assetTypes": ["json"],
+        "fontHeight": 1024,
+        "normalize": True,
+        "round": 1000000000000,
+        "codepoints": {"logo": 0xF002},
+        "formatOptions": {"json": {"indent": 2}},
+    }
+    config_path = work / "fantasticonrc.json"
+    config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
+    subprocess.run([str(fantasticon), "-c", str(config_path)], check=True, cwd=root)
+
+    charset = work / "logo_charset.txt"
+    charset.write_text("0xF002\n", encoding="utf-8")
+    output = root / "src" / "main" / "resources" / "assets" / "enough" / "fonts" / "msdf"
+    subprocess.run(
+        [
+            str(generator),
+            "-font", str(font_dir / "enough-logo.ttf"),
+            "-fontname", "Enough Visuals Logo",
+            "-charset", str(charset),
+            "-type", "mtsdf",
+            "-size", "128",
+            "-pxrange", "16",
+            "-coloringstrategy", "distance",
+            "-square4",
+            "-imageout", str(output / "logo.png"),
+            "-json", str(output / "logo.json"),
+        ],
+        check=True,
+    )
+
+
 def normalize_evenodd_paths(svg_path: Path) -> None:
     """Convert SVG even-odd contours to font-compatible non-zero winding.
 
@@ -232,6 +280,7 @@ def main() -> None:
         ],
         check=True,
     )
+    generate_logo(root, tools, args.generator.resolve(), fantasticon)
     print(f"Generated {len(codepoints)} UI icons ({custom_count} custom, {len(codepoints) - custom_count} Solar fallbacks)")
 
 

@@ -50,6 +50,7 @@ public final class TargetHud extends HudElement {
     private long lastTargetSearchMs;
     private float healthAnim;
     private float maxHealthAnim = 20f;
+    private float nameWidth = 36f;
 
     public TargetHud(float x, float y) {
         super(x, y, BASE_WIDTH, BASE_HEIGHT);
@@ -75,7 +76,11 @@ public final class TargetHud extends HudElement {
         }
 
         float s = HudDesign.scale(scale, 0.90f);
-        setWidth(BASE_WIDTH * s);
+        String name = protectedName(displayTarget);
+        int count = name.codePointCount(0, name.length());
+        String visibleName = count > 12 ? name.substring(0, name.offsetByCodePoints(0, 12)) : name;
+        nameWidth = Math.max(36f, CustomFontRenderer.getTextWidth(visibleName, 7f, FontWeight.SEMIBOLD));
+        setWidth((BASE_WIDTH + nameWidth - 36f) * s);
         setHeight(BASE_HEIGHT * s);
     }
 
@@ -118,8 +123,8 @@ public final class TargetHud extends HudElement {
 
         drawVerticalDivider(ctx, x + 41f * s, y + 6f * s, 25f * s, alpha);
         drawIdentity(ctx, x + 48.5f * s, y, s, alpha);
-        drawVerticalDivider(ctx, x + 95f * s, y + 6f * s, 25f * s, alpha);
-        drawEquipment(ctx, x + 102.5f * s, y + 10.5f * s, s, alpha);
+        drawVerticalDivider(ctx, x + (95f + nameWidth - 36f) * s, y + 6f * s, 25f * s, alpha);
+        drawEquipment(ctx, x + (102.5f + nameWidth - 36f) * s, y + 10.5f * s, s, alpha);
     }
 
     private void drawIdentity(DrawContext ctx, float x, float panelY, float s, float alpha) {
@@ -131,9 +136,9 @@ public final class TargetHud extends HudElement {
                 iconSize, dim, FontWeight.HUD_ICONS);
         String name = protectedName(displayTarget);
         float nameX = x + 10f * s;
-        if (CustomFontRenderer.getTextWidth(name, textSize, FontWeight.SEMIBOLD) > 36f * s) {
+        if (name.codePointCount(0, name.length()) > 12) {
             RenderUtil.drawMarqueeText(ctx, name, nameX, panelY + 7.25f * s,
-                    36f * s, 8f * s, textSize, text, FontWeight.SEMIBOLD, 14f * s);
+                    nameWidth * s, 8f * s, textSize, text, FontWeight.SEMIBOLD, 14f * s);
         } else {
             CustomFontRenderer.drawText(ctx, name, nameX, panelY + 7.25f * s,
                     textSize, text, FontWeight.SEMIBOLD);

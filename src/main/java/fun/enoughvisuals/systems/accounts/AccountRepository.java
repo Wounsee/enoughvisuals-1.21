@@ -12,9 +12,12 @@ import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 public final class AccountRepository {
@@ -64,6 +67,26 @@ public final class AccountRepository {
         writeData(data);
     }
 
+    public static Set<String> loadLikedNames() {
+        AccountData data = readData();
+        Set<String> liked = new LinkedHashSet<>();
+        for (String name : data.likedNames) {
+            if (isValidName(name)) liked.add(normalize(name));
+        }
+        return liked;
+    }
+
+    public static synchronized void saveLikedNames(Collection<String> names) {
+        AccountData data = readData();
+        data.likedNames = new ArrayList<>();
+        if (names != null) {
+            for (String name : names) {
+                if (isValidName(name)) data.likedNames.add(normalize(name));
+            }
+        }
+        writeData(data);
+    }
+
     public static boolean isValidName(String name) {
         return name != null && name.matches("[A-Za-z0-9_]{3,16}");
     }
@@ -88,6 +111,7 @@ public final class AccountRepository {
             AccountData data = GSON.fromJson(reader, AccountData.class);
             if (data == null) return new AccountData();
             if (data.accounts == null) data.accounts = new ArrayList<>();
+            if (data.likedNames == null) data.likedNames = new ArrayList<>();
             return data;
         } catch (IOException | JsonSyntaxException ignored) {
             return new AccountData();
@@ -109,6 +133,8 @@ public final class AccountRepository {
         private List<StoredAccount> accounts = new ArrayList<>();
         @SerializedName("selectedName")
         private String selectedName;
+        @SerializedName("likedNames")
+        private List<String> likedNames = new ArrayList<>();
     }
 
     private static final class StoredAccount {

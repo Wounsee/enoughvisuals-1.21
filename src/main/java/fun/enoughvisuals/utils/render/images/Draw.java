@@ -102,10 +102,12 @@ public class Draw {
     public static void imagePlayerHeadRounded(DrawContext ctx, Identifier skin, float x, float y, float size, float radius, float alpha) {
         if (alpha <= 0.005f) return;
         float safeRadius = Math.min(radius, size * 0.5f);
-        RenderUtil.drawRoundedTextureShader(ctx, skin, x, y, size, size, safeRadius, alpha,
-                8f, 8f, 8f, 8f, 64f, 64f);
-        RenderUtil.drawRoundedTextureShader(ctx, skin, x, y, size, size, safeRadius, alpha,
-                40f, 8f, 8f, 8f, 64f, 64f);
+        // Use the SDF mask directly with zero geometry/UV padding. Atlas padding
+        // would otherwise sample neighbouring skin tiles and create corner halos.
+        RenderUtil.drawRoundedTextureShaderExact(ctx, skin, x, y, size, size,
+                safeRadius, alpha, 8f, 8f, 8f, 8f, 64f, 64f);
+        RenderUtil.drawRoundedTextureShaderExact(ctx, skin, x, y, size, size,
+                safeRadius, alpha, 40f, 8f, 8f, 8f, 64f, 64f);
     }
 
     private static void drawTextureUV(DrawContext ctx, Identifier texture, float x, float y, float w, float h,

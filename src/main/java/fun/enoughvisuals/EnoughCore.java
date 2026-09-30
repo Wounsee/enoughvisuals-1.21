@@ -21,6 +21,7 @@ import fun.enoughvisuals.systems.events.EventFeedService;
 import fun.enoughvisuals.systems.network.HolyWorldFeatureControl;
 
 import fun.enoughvisuals.ui.gate.GateScreen;
+import fun.enoughvisuals.ui.mainmenu.WindowTitleAnimator;
 
 import fun.enoughvisuals.ui.hud.BindsHud;
 
@@ -274,6 +275,7 @@ public final class EnoughCore {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(EnoughCore::tickGate);
+        ClientTickEvents.END_CLIENT_TICK.register(WindowTitleAnimator::tick);
 
         ClientTickEvents.END_CLIENT_TICK.register(CombatSoundService::onClientTick);
 

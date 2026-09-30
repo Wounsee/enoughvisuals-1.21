@@ -103,6 +103,7 @@ public final class SolarIcons {
     public static final String FEEDBACK_STAR = "\uF15D";
     public static final String BUG = "\uF15E";
     public static final String NETWORK_GLOBAL = "\uF15F";
+    public static final String COPYRIGHT = "\uF160";
 
     private SolarIcons() {
     }

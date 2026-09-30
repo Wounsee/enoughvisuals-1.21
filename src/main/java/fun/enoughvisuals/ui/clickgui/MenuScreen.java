@@ -467,14 +467,14 @@ public class MenuScreen extends Screen {
                 RenderUtil.withAlpha(0xFFFFFF, 0.045f * alpha));
 
         float brandIntro = intro(now, openTime + 35L, 260L);
-        float logoX = windowX + 6f * scale;
-        float logoY = windowY + 4.9f * scale;
-        float logoSize = 36f * scale * (0.82f + 0.18f * RenderUtil.easeOutBack(brandIntro));
+        float logoX = windowX + 10.1f * scale;
+        float logoY = windowY + 11.8f * scale;
+        float logoSize = 17f * scale * (0.82f + 0.18f * RenderUtil.easeOutBack(brandIntro));
         CustomFontRenderer.drawText(context, LOGO_GLYPH, logoX, logoY, logoSize,
                 RenderUtil.withAlpha(ACCENT_LIGHT, alpha * brandIntro), FontWeight.LOGO);
-        CustomFontRenderer.drawText(context, Info.DISPLAY_NAME, windowX + 43f * scale, windowY + 12.7f * scale,
+        CustomFontRenderer.drawText(context, Info.DISPLAY_NAME, windowX + 38f * scale, windowY + 12.7f * scale,
                 8.5f * scale, RenderUtil.withAlpha(TEXT_WHITE, alpha * brandIntro), FontWeight.SEMIBOLD);
-        CustomFontRenderer.drawText(context, Info.VERSION, windowX + 43f * scale, windowY + 24.9f * scale,
+        CustomFontRenderer.drawText(context, Info.VERSION, windowX + 38f * scale, windowY + 24.9f * scale,
                 6f * scale, RenderUtil.withAlpha(TEXT_DIM, 0.94f * alpha * brandIntro), FontWeight.REGULAR);
 
         float categoryY = windowY + NAV_CATEGORY_Y * scale;

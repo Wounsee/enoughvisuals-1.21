@@ -3,8 +3,8 @@ package fun.enoughvisuals.ui.mainmenu;
 import fun.enoughvisuals.systems.animations.Easing;
 
 public final class MainMenuAnimation {
-    private static final long OPEN_MS = 430L;
-    private static final long BUTTON_STAGGER_MS = 54L;
+    private static final long OPEN_MS = 500L;
+    private static final long BUTTON_STAGGER_MS = 48L;
     private long openedAt = System.currentTimeMillis();
 
     public void restart() {
