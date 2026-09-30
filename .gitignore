@@ -1,19 +1,40 @@
-# Project exclude paths
+# Build output and caches
 /.gradle/
+/.gradle-user/
 /build/
+/out/
+/bin/
 /run/
+/logs/
+/config/
 /mappings/
 /skidfuscator/mappings/
-/.codex-temp/
-/config/
-/logs/
-/out/
 /scripts/*.class
+*.zip
+*.tar.gz
 
 # Embedded cosmetic build: keep sources and the Gradle wrapper, not caches.
 /cosmetic-build/.gradle/
 /cosmetic-build/build/
 /cosmetic-build/**/.gradle/
+/cosmetic-build/**/build/
 /cosmetic-build/.idea/
-*.zip
-*.tar.gz
+
+# IDE and tooling state
+/.idea/
+*.iml
+.vscode/
+.obsidian/
+/.codex-temp/
+/.zcode/
+/.claude/
+
+# Local leftovers
+/backups/
+/META-INF/
+/net/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
