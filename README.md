@@ -18,10 +18,10 @@
 
 - **Интерфейс** — собственные ClickGUI, главное меню, экраны паузы и настроек, менеджер аккаунтов, выбор языка (RU / UK / EN). Текст рисуется MSDF-шрифтом Inter, иконки — набор Solar.
 - **HUD** — Watermark, Target HUD, эффекты, кулдауны, бинды, броня, инвентарь, кастомный хотбар, медиаплеер и уведомления. Все элементы перетаскиваются по сетке.
-- **Визуал** — GlowESP, TargetESP, Trails, Particles, Jump Circle, China Hat, Kill / Attack Effect, Motion Blur, ColorPlus, Atmosphere, Shader Sky, Item Physics, Prediction и ещё около 40 модулей.
+- **Визуал** — Shader Player (свечение и дым), TargetESP, Trails, Particles, Jump Circle, China Hat, Kill / Attack Effect, Motion Blur, ColorPlus, Atmosphere, Shader Sky, Item Physics, Prediction и ещё около 40 модулей.
 - **Косметика** — каталог моделей с предпросмотром, питомцы, колесо эмоций с анимациями персонажа и граффити.
 - **WebPanels** — браузерные панели в мире (MCEF/CEF) с пространственным звуком.
-- **Утилиты** — макросы, GPS, друзья, конфиги, Auto Potion / Eat / Swap, Fast XP, Item Scroller, Streamer Mode и другие.
+- **Утилиты** — макросы, GPS, друзья, сжатые бинарные конфиги (с косметикой), Fast Swap, Item Swap, Item Scroller, Streamer Mode и другие.
 - **Совместимость с серверами** — модули, запрещённые на конкретном сервере (HolyWorld, ReallyWorld и др.), отключаются автоматически, в том числе через HolyWorld LiteAPI.
 
 ## Установка
