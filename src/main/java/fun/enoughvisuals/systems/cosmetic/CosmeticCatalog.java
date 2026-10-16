@@ -135,6 +135,34 @@ public final class CosmeticCatalog {
         readEquippedIds();
     }
 
+    public static synchronized boolean isInitialized() { return initialized; }
+
+    /** Equipped entry id per kind, for config profiles. */
+    public static Map<String, String> equippedIds() {
+        Map<String, String> result = new java.util.LinkedHashMap<>();
+        for (Kind kind : Kind.values()) {
+            Entry entry = equipped(kind);
+            if (entry != null) result.put(kind.name().toLowerCase(Locale.ROOT), entry.id());
+        }
+        return result;
+    }
+
+    /** Equips exactly the given ids (missing kinds are unequipped); unknown ids are ignored. */
+    public static void applyEquippedIds(Map<String, String> ids) {
+        if (ids == null) return;
+        for (Kind kind : Kind.values()) {
+            String id = ids.get(kind.name().toLowerCase(Locale.ROOT));
+            Entry current = equipped(kind);
+            if (id == null || id.isBlank()) {
+                if (current != null) unequip(kind);
+                continue;
+            }
+            if (current != null && current.id().equals(id)) continue;
+            ENTRIES.stream().filter(entry -> entry.kind() == kind && entry.id().equals(id))
+                    .findFirst().ifPresent(CosmeticCatalog::equip);
+        }
+    }
+
     public static List<Entry> all() { initialize(); return List.copyOf(ENTRIES); }
     public static List<Entry> of(Kind kind) { return all().stream().filter(e -> e.kind() == kind).toList(); }
 

@@ -7,6 +7,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.annotations.SerializedName;
+import fun.enoughvisuals.systems.cosmetic.CosmeticCatalog;
 import fun.enoughvisuals.systems.hud.DragAndDrop;
 import fun.enoughvisuals.systems.hud.HudElement;
 import fun.enoughvisuals.systems.hud.HudViewport;
@@ -30,7 +31,6 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.text.Normalizer;
 import java.util.Base64;
 import java.util.ArrayList;
@@ -46,7 +46,7 @@ public final class ConfigSystem {
     private static final Logger LOGGER = LoggerFactory.getLogger("EnoughVisuals/Config");
     private static final ConfigSystem INSTANCE = new ConfigSystem();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final int CURRENT_VERSION = 2;
+    private static final int CURRENT_VERSION = 3;
     private static final long AUTOSAVE_POLL_MS = 1_000L;
     private static final long AUTOSAVE_DEBOUNCE_MS = 1_250L;
     private static final long AUTOSAVE_MAX_DELAY_MS = 10_000L;
@@ -57,7 +57,6 @@ public final class ConfigSystem {
     private static final byte[] ENCRYPTION_CONTEXT =
             "EnoughVisuals/config/portable/v2".getBytes(StandardCharsets.UTF_8);
     private static final byte[] OBFUSCATION_KEY = "enoughvisuals".getBytes(StandardCharsets.UTF_8);
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private Path configDir;
     private Path stateFile;
@@ -69,6 +68,10 @@ public final class ConfigSystem {
     private long lastChangeMs = 0L;
     private int pendingFingerprint = 0;
     private int lastSavedFingerprint = 0;
+    /** Cosmetics of the loaded profile, applied once a player exists. */
+    private Map<String, String> pendingCosmetics;
+    /** Last known cosmetics, kept while the catalog is not loaded yet so saves never drop them. */
+    private Map<String, String> knownCosmetics;
 
     private ConfigSystem() {}
 
@@ -124,7 +127,7 @@ public final class ConfigSystem {
 
     public synchronized boolean load(String name) {
         ensureInitialized();
-        String normalized = normalizeName(name);
+        String normalized = canonicalName(name);
         if (normalized == null) return false;
 
         Path file = getConfigPath(normalized);
@@ -134,7 +137,7 @@ public final class ConfigSystem {
         if (snapshot == null) return false;
 
         applySnapshot(snapshot);
-        boolean needsRewrite = !hasCurrentHeader(file) || snapshot.version < CURRENT_VERSION;
+        boolean needsRewrite = !isCompactFile(file) || snapshot.version < CURRENT_VERSION;
         snapshot.version = CURRENT_VERSION;
         snapshot.name = normalized;
         if (needsRewrite) {
@@ -154,7 +157,7 @@ public final class ConfigSystem {
 
     public synchronized boolean saveAs(String name) {
         ensureInitialized();
-        String normalized = normalizeName(name);
+        String normalized = canonicalName(name);
         if (normalized == null) return false;
 
         ConfigSnapshot snapshot = captureSnapshot(normalized);
@@ -224,6 +227,16 @@ public final class ConfigSystem {
         return out;
     }
 
+    /** Maps a name onto an existing config regardless of case, so "PvP" and "pvp" never split. */
+    private String canonicalName(String name) {
+        String normalized = normalizeName(name);
+        if (normalized == null || configDir == null) return normalized;
+        for (String existing : listConfigs()) {
+            if (existing.equalsIgnoreCase(normalized)) return existing;
+        }
+        return normalized;
+    }
+
     public synchronized String resolveNameOrIndex(String nameOrIndex) {
         if (nameOrIndex == null || nameOrIndex.isBlank()) return null;
         String trimmed = nameOrIndex.trim();
@@ -238,7 +251,7 @@ public final class ConfigSystem {
         } catch (NumberFormatException ignored) {
         }
 
-        return normalizeName(trimmed);
+        return canonicalName(trimmed);
     }
 
     public synchronized void setLastConfigName(String name) {
@@ -261,6 +274,16 @@ public final class ConfigSystem {
     public synchronized void onClientTick(MinecraftClient client) {
         if (!initialized) return;
         if (client == null) return;
+
+        if (pendingCosmetics != null && client.player != null) {
+            Map<String, String> cosmetics = pendingCosmetics;
+            pendingCosmetics = null;
+            try {
+                CosmeticCatalog.applyEquippedIds(cosmetics);
+            } catch (Exception e) {
+                LOGGER.warn("Failed to apply config cosmetics", e);
+            }
+        }
 
         long now = System.currentTimeMillis();
         if (now - lastAutosavePollMs < AUTOSAVE_POLL_MS) return;
@@ -355,7 +378,20 @@ public final class ConfigSystem {
             snapshot.hud.elements.add(hudElement);
         }
 
+        snapshot.cosmetics = captureCosmetics();
         return snapshot;
+    }
+
+    private Map<String, String> captureCosmetics() {
+        if (pendingCosmetics != null) return new LinkedHashMap<>(pendingCosmetics);
+        if (CosmeticCatalog.isInitialized()) {
+            try {
+                knownCosmetics = CosmeticCatalog.equippedIds();
+            } catch (Exception e) {
+                LOGGER.debug("Could not read equipped cosmetics", e);
+            }
+        }
+        return knownCosmetics == null ? null : new LinkedHashMap<>(knownCosmetics);
     }
 
     private void applySnapshot(ConfigSnapshot snapshot) {
@@ -415,6 +451,12 @@ public final class ConfigSystem {
 
         HUD hudModule = moduleManager.get(HUD.class);
         if (hudModule != null) hudModule.syncWatermarkVisibility();
+
+        // Older configs carry no cosmetics: keep whatever is equipped instead of stripping it.
+        if (snapshot.cosmetics != null) {
+            knownCosmetics = new LinkedHashMap<>(snapshot.cosmetics);
+            pendingCosmetics = new LinkedHashMap<>(snapshot.cosmetics);
+        }
     }
 
     private void applySettings(List<Setting<?>> settings, Map<String, Object> values) {
@@ -434,11 +476,11 @@ public final class ConfigSystem {
         Path file = getConfigPath(snapshot.name);
         try {
             Files.createDirectories(configDir);
-            String plainJson = GSON.toJson(snapshot);
+            byte[] packed = encode(snapshot);
             if (Files.exists(file) && readConfigFile(file, false) != null) {
-                writeAtomically(backupPath(file), Files.readString(file, StandardCharsets.UTF_8));
+                writeAtomically(backupPath(file), Files.readAllBytes(file));
             }
-            writeAtomically(file, encrypt(plainJson));
+            writeAtomically(file, packed);
             return true;
         } catch (Exception e) {
             LOGGER.error("Failed to write config {}", file, e);
@@ -459,7 +501,7 @@ public final class ConfigSystem {
         if (snapshot != null) {
             LOGGER.warn("Recovered config {} from {}", file.getFileName(), recovery.getFileName());
             try {
-                writeAtomically(file, encrypt(GSON.toJson(snapshot)));
+                writeAtomically(file, encode(snapshot));
             } catch (Exception error) {
                 LOGGER.warn("Recovered {}, but could not repair the primary file", file.getFileName(), error);
             }
@@ -469,21 +511,20 @@ public final class ConfigSystem {
 
     private ConfigSnapshot readConfigFile(Path file, boolean logFailure) {
         if (file == null || !Files.exists(file)) return null;
-        try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-            StringBuilder raw = new StringBuilder();
-            char[] buf = new char[4096];
-            int read;
-            while ((read = reader.read(buf)) >= 0) {
-                raw.append(buf, 0, read);
+        try {
+            byte[] data = Files.readAllBytes(file);
+            JsonObject root;
+            if (CompactConfigCodec.isCompact(data)) {
+                root = CompactConfigCodec.decode(data).getAsJsonObject();
+            } else {
+                String text = new String(data, StandardCharsets.UTF_8);
+                String json = decrypt(text);
+                if (json == null) json = deobfuscateLegacy(text);
+                if (json == null || json.isBlank()) {
+                    json = text;
+                }
+                root = JsonParser.parseString(json).getAsJsonObject();
             }
-
-            String text = raw.toString();
-            String json = decrypt(text);
-            if (json == null) json = deobfuscateLegacy(text);
-            if (json == null || json.isBlank()) {
-                json = text;
-            }
-            JsonObject root = JsonParser.parseString(json).getAsJsonObject();
             ConfigSnapshot snapshot = GSON.fromJson(root, ConfigSnapshot.class);
             if (snapshot != null && snapshot.modules != null && !snapshot.modules.isEmpty()) {
                 return snapshot;
@@ -515,7 +556,7 @@ public final class ConfigSystem {
                 }
             }
             if (migrated.lastConfigName == null || migrated.lastConfigName.isBlank()) return state;
-            writeAtomically(stateFile, GSON.toJson(migrated));
+            writeAtomically(stateFile, GSON.toJson(migrated).getBytes(StandardCharsets.UTF_8));
             return migrated;
         } catch (Exception e) {
             LOGGER.error("Failed to read config state {}", stateFile, e);
@@ -530,7 +571,7 @@ public final class ConfigSystem {
             ConfigState state = new ConfigState();
             state.lastConfigName = lastConfigName;
             state.updatedAt = System.currentTimeMillis();
-            writeAtomically(stateFile, GSON.toJson(state));
+            writeAtomically(stateFile, GSON.toJson(state).getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
             LOGGER.error("Failed to write config state {}", stateFile, e);
         }
@@ -579,7 +620,7 @@ public final class ConfigSystem {
         if (migrated.modules.isEmpty()) return null;
 
         try {
-            writeAtomically(sourceFile, encrypt(GSON.toJson(migrated)));
+            writeAtomically(sourceFile, encode(migrated));
             LOGGER.info("Migrated protected config {} to stable schema", sourceFile.getFileName());
         } catch (Exception error) {
             LOGGER.warn("Loaded legacy config {}, but could not rewrite it", sourceFile.getFileName(), error);
@@ -636,11 +677,19 @@ public final class ConfigSystem {
         return result;
     }
 
+    /** Hash of everything that is saved except name and timestamp. */
     private int fingerprint(ConfigSnapshot snapshot) {
-        int result = Integer.hashCode(snapshot.version);
-        result = 31 * result + GSON.toJson(snapshot.modules).hashCode();
-        result = 31 * result + GSON.toJson(snapshot.hud).hashCode();
-        return result;
+        JsonObject content = new JsonObject();
+        content.add("modules", GSON.toJsonTree(snapshot.modules));
+        content.add("hud", GSON.toJsonTree(snapshot.hud));
+        content.add("cosmetics", GSON.toJsonTree(snapshot.cosmetics));
+        java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+        crc.update(CompactConfigCodec.body(content));
+        return 31 * Integer.hashCode(snapshot.version) + (int) crc.getValue();
+    }
+
+    private byte[] encode(ConfigSnapshot snapshot) {
+        return CompactConfigCodec.encode(GSON.toJsonTree(snapshot));
     }
 
     private String normalizeName(String raw) {
@@ -663,19 +712,26 @@ public final class ConfigSystem {
         return name;
     }
 
-    private void writeAtomically(Path target, String contents) throws Exception {
-        Path temporary = temporaryPath(target);
-        byte[] bytes = contents.getBytes(StandardCharsets.UTF_8);
-        try (FileChannel channel = FileChannel.open(temporary,
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
-            ByteBuffer buffer = ByteBuffer.wrap(bytes);
-            while (buffer.hasRemaining()) channel.write(buffer);
-            channel.force(true);
-        }
+    /**
+     * Writes through a uniquely named temporary file, so two game instances
+     * sharing a directory can never interleave into one torn config.
+     */
+    private void writeAtomically(Path target, byte[] bytes) throws Exception {
+        Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".part");
         try {
-            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
-            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+            try (FileChannel channel = FileChannel.open(temporary,
+                    StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+                ByteBuffer buffer = ByteBuffer.wrap(bytes);
+                while (buffer.hasRemaining()) channel.write(buffer);
+                channel.force(true);
+            }
+            try {
+                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
+                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temporary);
         }
     }
 
@@ -687,33 +743,13 @@ public final class ConfigSystem {
         return target.resolveSibling(target.getFileName() + ".tmp");
     }
 
-    private boolean hasCurrentHeader(Path target) {
+    private boolean isCompactFile(Path target) {
         if (target == null || !Files.exists(target)) return false;
-        try (Reader reader = Files.newBufferedReader(target, StandardCharsets.UTF_8)) {
-            char[] prefix = new char[ENCRYPTION_HEADER.length()];
-            return reader.read(prefix) == prefix.length
-                    && ENCRYPTION_HEADER.equals(new String(prefix));
+        try (java.io.InputStream in = Files.newInputStream(target)) {
+            return CompactConfigCodec.isCompact(in.readNBytes(16));
         } catch (Exception ignored) {
             return false;
         }
-    }
-
-    private String encrypt(String json) throws Exception {
-        if (json == null) return "";
-        byte[] nonce = new byte[12];
-        SECURE_RANDOM.nextBytes(nonce);
-        Cipher cipher = Cipher.getInstance(ENCRYPTION_ALGORITHM);
-        cipher.init(Cipher.ENCRYPT_MODE, portableKey(), new GCMParameterSpec(128, nonce));
-        cipher.updateAAD(ENCRYPTION_CONTEXT);
-        byte[] ciphertext = cipher.doFinal(json.getBytes(StandardCharsets.UTF_8));
-
-        EncryptedEnvelope envelope = new EncryptedEnvelope();
-        envelope.version = CURRENT_VERSION;
-        envelope.algorithm = "AES-256-GCM";
-        envelope.nonce = Base64.getEncoder().encodeToString(nonce);
-        envelope.payload = Base64.getEncoder().encodeToString(ciphertext);
-        return ENCRYPTION_HEADER + Base64.getEncoder().encodeToString(
-                GSON.toJson(envelope).getBytes(StandardCharsets.UTF_8));
     }
 
     private String decrypt(String text) {
@@ -796,6 +832,9 @@ public final class ConfigSystem {
         private List<ModuleSnapshot> modules = new ArrayList<>();
         @SerializedName("hud")
         private HudSnapshot hud = new HudSnapshot();
+        /** Equipped cosmetic id per kind; null in configs written before v3. */
+        @SerializedName("cosmetics")
+        private Map<String, String> cosmetics;
     }
 
     private static final class ModuleSnapshot {
