@@ -130,7 +130,7 @@ public final class EnoughCore {
                 new ViewModel(),
                 new BetterHands(),
                 new ShaderHands(),
-                new GlowESP(),
+                new ShaderPlayer(),
                 new JumpCube(),
                 new Svetoch(),
                 new FreeLook(),

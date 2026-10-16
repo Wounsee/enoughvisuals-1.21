@@ -32,7 +32,6 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LivingEntityRenderer.class)
 public class LivingEntityRendererMixin {
@@ -221,14 +220,6 @@ public class LivingEntityRendererMixin {
                 ((LivingEntityRendererAccessor) livingRenderer).enoughvisuals$getFeatures(),
                 livingRenderer.getTexture(state)
         );
-    }
-
-    @Inject(method = "shouldRenderFeatures", at = @At("HEAD"), cancellable = true)
-    private void enough$skipFeaturesDuringShaderMask(net.minecraft.client.render.entity.state.LivingEntityRenderState state,
-                                                     CallbackInfoReturnable<Boolean> cir) {
-        if (ShaderEspRenderer.isRenderingMask()) {
-            cir.setReturnValue(false);
-        }
     }
 
     @Inject(
