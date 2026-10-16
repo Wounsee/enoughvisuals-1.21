@@ -8,7 +8,6 @@ import fun.enoughvisuals.systems.animations.AnimatedFloat;
 import fun.enoughvisuals.systems.animations.Easing;
 import fun.enoughvisuals.systems.animations.TimeAnimation;
 import fun.enoughvisuals.ui.mainmenu.MenuBackgroundManager;
-import fun.enoughvisuals.ui.mainmenu.MenuCredits;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.font.SolarIcons;
@@ -39,11 +38,13 @@ import java.util.Set;
 import java.util.UUID;
 
 public final class AccountSwitcherScreen extends Screen {
+    private static final int ACCENT = 0xFF7F94DD;
     private static final int TEXT = 0xFFFFFFFF;
-    private static final int MUTED = 0xFFFFFFFF;
-    private static final int CARD = 0xFF000000;
-    private static final int CARD_HOVER = 0xFF181818;
-    private static final int DELETE = 0xFFFFFFFF;
+    private static final int MUTED = 0xFFB7AFCA;
+    private static final int CARD = 0xFF151515;
+    private static final int CARD_HOVER = 0xFF1F1F1F;
+    private static final int FIELD = 0xFF121218;
+    private static final int DELETE = 0xFFFF6E67;
     private static final int COLUMNS = 3;
     private static final int VISIBLE_ROWS = 3;
     private static final long OPEN_MS = 500L;
@@ -140,7 +141,7 @@ public final class AccountSwitcherScreen extends Screen {
         updateScroll();
         layout();
         updateRowPositions();
-        MenuBackgroundManager.drawSelectedBackground(context, width, height, mouseX, mouseY);
+        MenuBackgroundManager.drawSelectedBackground(context, width, height);
         GlassUtil.BLUR_OFFSET = 1.35f;
         GlassUtil.beginFrame();
 
@@ -165,7 +166,6 @@ public final class AccountSwitcherScreen extends Screen {
         context.getMatrices().translate(-virtualWidth * 0.5f, -virtualHeight * 0.5f, 0f);
         renderPanel(context, alpha, open);
         context.getMatrices().pop();
-        MenuCredits.render(context, virtualWidth, virtualHeight, layoutScale(), 1f, mx, my);
         context.getMatrices().pop();
         rowAnimations.removeIf(RowAnim::isGone);
     }
@@ -173,13 +173,13 @@ public final class AccountSwitcherScreen extends Screen {
     private void renderPanel(DrawContext context, float alpha, float open) {
         float scale = layoutScale();
         GlassUtil.drawGlassPanel(context, panelX, panelY, panelW, panelH, 6.5f * scale,
-                0x000000, 0.64f * alpha, alpha);
+                0x151515, 0.72f * alpha, alpha);
 
         float titleY = panelY - 19.5f * scale + (1f - open) * 3f * scale;
         CustomFontRenderer.drawCenteredText(context,
                 ClientLanguage.text("ui.account.title", "Аккаунты"),
-                virtualWidth * 0.5f, titleY, 9.5f * scale,
-                RenderUtil.withAlpha(TEXT, alpha * 0.75f), FontWeight.SEMIBOLD);
+                virtualWidth * 0.5f, titleY, 10.5f * scale,
+                RenderUtil.withAlpha(TEXT, alpha), FontWeight.BOLD);
 
         float contentAlpha = alpha * itemProgress(0);
         enableContentScissor();
@@ -219,13 +219,13 @@ public final class AccountSwitcherScreen extends Screen {
         float x = panelX + 12f * scale;
         float size = 5.2f * scale;
         CustomFontRenderer.drawText(context, label, x, y, size,
-                RenderUtil.withAlpha(MUTED, alpha * 0.25f), FontWeight.SEMIBOLD);
+                RenderUtil.withAlpha(MUTED, alpha * 0.62f), FontWeight.SEMIBOLD);
         float iconSize = 5.1f * scale;
         float iconX = x + CustomFontRenderer.getTextWidth(label, size, FontWeight.SEMIBOLD) + 2f * scale;
         float iconY = y + (CustomFontRenderer.getTextHeight(size, FontWeight.SEMIBOLD)
                 - CustomFontRenderer.getTextHeight(iconSize, FontWeight.SOLAR_ICONS)) * 0.5f;
         CustomFontRenderer.drawText(context, icon, iconX, iconY, iconSize,
-                RenderUtil.withAlpha(MUTED, alpha * 0.25f), FontWeight.SOLAR_ICONS);
+                RenderUtil.withAlpha(MUTED, alpha * 0.62f), FontWeight.SOLAR_ICONS);
         return iconX + CustomFontRenderer.getTextWidth(icon, iconSize, FontWeight.SOLAR_ICONS)
                 + 6f * scale;
     }
@@ -234,7 +234,7 @@ public final class AccountSwitcherScreen extends Screen {
         float scale = layoutScale();
         float right = panelX + panelW - 16f * scale;
         RenderUtil.drawRect(context, startX, y, Math.max(1f, right - startX), 0.5f * scale,
-                RenderUtil.withAlpha(TEXT, alpha * 0.05f));
+                RenderUtil.withAlpha(MUTED, alpha * 0.10f));
     }
 
     private void renderLikedCards(DrawContext context, float alpha, float shiftY) {
@@ -302,8 +302,8 @@ public final class AccountSwitcherScreen extends Screen {
         context.getMatrices().translate(-(x + cardW * 0.5f), -(shiftedY + cardH * 0.5f), 0f);
 
         int background = RenderUtil.lerpColor(CARD, CARD_HOVER, hover);
-        RenderUtil.drawRoundedRect(context, x, shiftedY, cardW, cardH, 7f * scale,
-                RenderUtil.withAlpha(background, alpha));
+        RenderUtil.drawRoundedRect(context, x, shiftedY, cardW, cardH, 6f * scale,
+                RenderUtil.withAlpha(background, alpha * 0.92f));
 
         float avatar = 14f * scale;
         Identifier skin = skins.getOrDefault(row.account.uuid(),
@@ -316,7 +316,7 @@ public final class AccountSwitcherScreen extends Screen {
             float badgeY = shiftedY + 17.9f * scale;
             float badgeRadius = 3.1f * scale;
             RenderUtil.drawCrispCircle(context, badgeX, badgeY, badgeRadius,
-                    RenderUtil.withAlpha(0xFF0A0A0A, alpha * selected * 0.96f));
+                    RenderUtil.withAlpha(ACCENT, alpha * selected * 0.96f));
             drawCenteredIcon(context, SolarIcons.CHECK, badgeX, badgeY,
                     3.7f * scale, RenderUtil.withAlpha(TEXT, alpha * selected * 0.92f));
         }
@@ -326,10 +326,10 @@ public final class AccountSwitcherScreen extends Screen {
         String name = CustomFontRenderer.trimToWidth(row.account.name(), cardW - 42f * scale,
                 nameSize, FontWeight.SEMIBOLD);
         CustomFontRenderer.drawText(context, name, textX, shiftedY + 4f * scale, nameSize,
-                RenderUtil.withAlpha(TEXT, alpha * 0.75f), FontWeight.SEMIBOLD);
+                RenderUtil.withAlpha(TEXT, alpha), FontWeight.SEMIBOLD);
         CustomFontRenderer.drawText(context, formatDate(row.account.createdAt()), textX,
                 shiftedY + 12.5f * scale, 4.3f * scale,
-                RenderUtil.withAlpha(TEXT, alpha * 0.35f), FontWeight.SEMIBOLD);
+                RenderUtil.withAlpha(MUTED, alpha * 0.72f), FontWeight.SEMIBOLD);
 
         boolean liked = likedNames.contains(normalize(row.account.name()));
         float favoriteHover = row.favoriteHover.value();
@@ -338,18 +338,18 @@ public final class AccountSwitcherScreen extends Screen {
         float starSize = 4.8f * scale * (1f + favoriteHover * 0.15f);
         drawCenteredIcon(context, liked ? SolarIcons.FEEDBACK_STAR : SolarIcons.STAR,
                 x + cardW - 10.5f * scale, iconCenterY, starSize,
-                RenderUtil.withAlpha(TEXT, alpha * (liked ? 0.82f : 0.25f + favoriteHover * 0.52f)));
+                RenderUtil.withAlpha(liked ? ACCENT : MUTED, alpha * (liked ? 0.95f : 0.45f + favoriteHover * 0.45f)));
         float closeSize = 4.5f * scale * (1f + deleteHover * 0.13f);
         drawCenteredIcon(context, SolarIcons.CLOSE,
                 x + cardW - 4.4f * scale, iconCenterY, closeSize,
-                RenderUtil.withAlpha(DELETE, alpha * (0.25f + deleteHover * 0.50f)));
+                RenderUtil.withAlpha(RenderUtil.lerpColor(MUTED, DELETE, deleteHover), alpha * (0.45f + deleteHover * 0.50f)));
         context.getMatrices().pop();
     }
 
     private void renderInput(DrawContext context, float alpha) {
         float scale = layoutScale();
-        RenderUtil.drawRoundedRect(context, inputX, inputY, inputW, inputH, 4f * scale,
-                RenderUtil.withAlpha(CARD, alpha * 0.40f));
+        RenderUtil.drawRoundedRect(context, inputX, inputY, inputW, inputH, 5f * scale,
+                RenderUtil.withAlpha(FIELD, alpha * 0.89f));
         boolean placeholder = input.isBlank() && !inputActive;
         String display = placeholder ? ClientLanguage.text("ui.account.placeholder", "Никнейм...") : input;
         float size = 4.75f * scale;
@@ -357,7 +357,7 @@ public final class AccountSwitcherScreen extends Screen {
         String trimmed = CustomFontRenderer.trimToWidth(display, inputW - 10f * scale, size, FontWeight.SEMIBOLD);
         int safeTypedIndex = placeholder ? -1 : Math.min(typedCharIndex, trimmed.length() - 1);
         RenderUtil.drawAnimatedInputText(context, trimmed, inputX + 5f * scale, textY, size,
-                RenderUtil.withAlpha(TEXT, alpha * (placeholder ? 0.28f : 0.75f)), FontWeight.SEMIBOLD,
+                RenderUtil.withAlpha(placeholder ? MUTED : TEXT, alpha * (placeholder ? 0.82f : 1f)), FontWeight.SEMIBOLD,
                 safeTypedIndex, typedCharStartMs);
         drawAnimatedRemovedChar(context, inputX + 5f * scale, textY, size, alpha);
         if (inputActive && ((System.currentTimeMillis() / 460L) % 2L == 0L)) {
@@ -377,18 +377,18 @@ public final class AccountSwitcherScreen extends Screen {
         context.getMatrices().translate(addX + addW * 0.5f, inputY + inputH * 0.5f, 0f);
         context.getMatrices().scale(grow, grow, 1f);
         context.getMatrices().translate(-(addX + addW * 0.5f), -(inputY + inputH * 0.5f), 0f);
-        RenderUtil.drawRoundedRect(context, addX, inputY, addW, inputH, 4f * scale,
-                RenderUtil.withAlpha(RenderUtil.lerpColor(CARD, CARD_HOVER, hover), alpha * 0.40f));
+        RenderUtil.drawRoundedRect(context, addX, inputY, addW, inputH, 5f * scale,
+                RenderUtil.withAlpha(RenderUtil.lerpColor(ACCENT, RenderUtil.lighten(ACCENT, 0.08f), hover), alpha * 0.98f));
         String label = ClientLanguage.text("ui.account.add", "Создать");
         float textSize = 4.75f * scale;
         float textY = inputY + (inputH - CustomFontRenderer.getTextHeight(textSize, FontWeight.SEMIBOLD)) * 0.5f;
         CustomFontRenderer.drawText(context, label, addX + 4.5f * scale, textY, textSize,
-                RenderUtil.withAlpha(TEXT, alpha * 0.75f), FontWeight.SEMIBOLD);
+                RenderUtil.withAlpha(TEXT, alpha), FontWeight.SEMIBOLD);
         float iconSize = 5f * scale;
         float iconY = inputY + (inputH - CustomFontRenderer.getTextHeight(iconSize, FontWeight.SOLAR_ICONS)) * 0.5f;
         CustomFontRenderer.drawRightText(context, SolarIcons.USER, addX + addW - 4f * scale,
                 iconY, iconSize,
-                RenderUtil.withAlpha(TEXT, alpha * 0.75f), FontWeight.SOLAR_ICONS);
+                RenderUtil.withAlpha(TEXT, alpha), FontWeight.SOLAR_ICONS);
         context.getMatrices().pop();
     }
 
@@ -401,9 +401,9 @@ public final class AccountSwitcherScreen extends Screen {
         float x = panelX + panelW - 9.5f * scale;
         float y = contentTop + travel * progress;
         RenderUtil.drawRoundedRect(context, x, contentTop, 4f * scale, allClipH, 2f * scale,
-                RenderUtil.withAlpha(0xFF1F1E1E, alpha * 0.30f));
+                RenderUtil.withAlpha(MUTED, alpha * 0.10f));
         RenderUtil.drawRoundedRect(context, x + 1f * scale, y, 2f * scale, thumbH, 1f * scale,
-                RenderUtil.withAlpha(0xFF848585, alpha * 0.25f));
+                RenderUtil.withAlpha(ACCENT, alpha * 0.62f));
     }
 
     private void updateCardAnimations(float mouseX, float mouseY) {
@@ -755,7 +755,6 @@ public final class AccountSwitcherScreen extends Screen {
         float mx = ScreenScaleUtil.screenToVirtual(mouseX);
         float my = ScreenScaleUtil.screenToVirtual(mouseY);
         float scale = layoutScale();
-        if (MenuCredits.click(mx, my, virtualWidth, virtualHeight, scale)) return true;
         inputActive = inside(mx, my, inputX, inputY, inputW, inputH);
         if (inside(mx, my, addX, inputY, addW, inputH)) {
             addAccount();

@@ -31,6 +31,8 @@
 
 # Local leftovers
 /backups/
+/OBSIDIAN/
+/docs/
 /META-INF/
 /net/
 
@@ -38,3 +40,9 @@
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Local secrets and machine-specific settings
+local.properties
+enoughvisuals-dev.properties
+*.env
+.env*

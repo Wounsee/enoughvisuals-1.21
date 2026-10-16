@@ -7,6 +7,7 @@ fallback so a partial custom delivery can never produce an incomplete atlas.
 
 from __future__ import annotations
 
+import os
 import argparse
 import json
 import shutil
@@ -171,7 +172,7 @@ def main() -> None:
     parser.add_argument(
         "--generator",
         type=Path,
-        default=Path(r"C:\Users\<user>\Desktop\msdf-atlas-gen\msdf-atlas-gen.exe"),
+        default=Path(os.environ.get("MSDF_ATLAS_GEN", "msdf-atlas-gen")),
     )
     args = parser.parse_args()
 

@@ -49,6 +49,10 @@ def funtimeEventsSdk = "com.github.Rizzener:FunTimeEventsSDK:v1.0.5"
 def discordPresence = "com.github.CrashSystemZ:jDRPC:v1.0.0"
 def pulseCosmeticsRuntimeJar = file("libs/pulse-cosmetics-local-1.21.4.jar")
 def mcefRuntimeJar = file("libs/mcef.jar")
+// Punchy 2.6.2 source jar: -PpunchySourceJar=..., PUNCHY_SOURCE_JAR, or libs/.
+def punchySourceJarPath = providers.gradleProperty("punchySourceJar")
+        .orElse(providers.environmentVariable("PUNCHY_SOURCE_JAR"))
+        .getOrElse("libs/punchy-2.6.2-fabric-1.21.5.jar")
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
@@ -74,9 +78,7 @@ dependencies {
     // Punchy is compiled into EnoughVisuals. Its recovered sources use
     // intermediary Minecraft names, so expose the matching 1.21.4 artifact to
     // javac alongside Loom's named development jar.
-    compileOnly files(
-            "C:/Users/<user>/Downloads/punchy-2.6.2-fabric-1.21.5.jar"
-    )
+    compileOnly files(punchySourceJarPath)
     testImplementation platform("org.junit:junit-bom:5.11.4")
     testImplementation "org.junit.jupiter:junit-jupiter"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
@@ -121,13 +123,14 @@ tasks.matching { it.name == "runClient" || it.name == "generateRemapClasspath" }
     dependsOn tasks.named("buildEmbeddedCosmetic")
 }
 
-def punchySourceJar = file("C:/Users/<user>/Downloads/punchy-2.6.2-fabric-1.21.5.jar")
+def punchySourceJar = file(punchySourceJarPath)
+def gradleCaches = new File(gradle.gradleUserHomeDir, "caches").absolutePath.replace(File.separator, "/") + "/"
 def punchyTargetMinecraftJar = file(
-        "C:/Users/<user>/.gradle/caches/fabric-loom/minecraftMaven/net/minecraft/" +
+        gradleCaches + "fabric-loom/minecraftMaven/net/minecraft/" +
         "minecraft-merged-intermediary/1.21.4-net.fabricmc.yarn.1_21_4.1.21.4+build.2-v2/" +
         "minecraft-merged-intermediary-1.21.4-net.fabricmc.yarn.1_21_4.1.21.4+build.2-v2.jar")
 def punchyFabricResourceLoaderJar = file(
-        "C:/Users/<user>/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/" +
+        gradleCaches + "modules-2/files-2.1/net.fabricmc.fabric-api/" +
         "fabric-resource-loader-v0/3.1.1+360374ac04/" +
         "37dede548214e182babb9f66cdb25b2b5871ccfb/" +
         "fabric-resource-loader-v0-3.1.1+360374ac04.jar")
@@ -140,7 +143,7 @@ def generatedPunchyIntermediaryResources =
         layout.buildDirectory.dir("generated/punchy-resources-intermediary")
 def generatedPunchyResources = layout.buildDirectory.dir("generated/punchy-resources-named")
 def yarnTinyMappings = file(
-        "C:/Users/<user>/.gradle/caches/fabric-loom/1.21.4/" +
+        gradleCaches + "fabric-loom/1.21.4/" +
         "net.fabricmc.yarn.1_21_4.1.21.4+build.2-v2/mappings.tiny")
 
 tasks.register("compilePunchyCompatPatcher", Exec) {
@@ -288,10 +291,10 @@ tasks.withType(Test).configureEach {
 // EnoughGuard path can be supplied through:
 //   gradle.properties: enoughGuardRoot=C:/path/to/EnoughGuard/obfuscator
 //   environment:       ENOUGH_GUARD_ROOT=C:/path/to/EnoughGuard/obfuscator
-// The hardcoded path is used only as a local fallback.
+// Keep machine-specific paths in ~/.gradle/gradle.properties, not in the repo.
 def enoughGuardRootPath = providers.gradleProperty("enoughGuardRoot")
         .orElse(providers.environmentVariable("ENOUGH_GUARD_ROOT"))
-        .getOrElse("C:/Users/<user>/Desktop/EnoughGuard/obfuscator")
+        .getOrElse("../EnoughGuard/obfuscator")
 def enoughGuardRoot = file(enoughGuardRootPath)
 def enoughGuardIsWindows = System.getProperty("os.name")
         .toLowerCase()

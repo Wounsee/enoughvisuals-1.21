@@ -682,7 +682,7 @@
   "chat.cfg.help_dir": " §d.cfg dir §f- open configs folder",
   "ui.main_menu.multiplayer": "Multiplayer",
   "ui.main_menu.singleplayer": "Singleplayer",
-  "ui.main_menu.account": "Accounts",
+  "ui.main_menu.account": "Switch account",
   "ui.main_menu.settings": "Settings",
   "ui.main_menu.quit": "Exit",
   "ui.main_menu.choose_background": "Choose background",

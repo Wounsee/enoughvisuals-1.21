@@ -4,7 +4,6 @@ import fun.enoughvisuals.systems.animations.AnimatedFloat;
 import fun.enoughvisuals.systems.animations.Easing;
 import fun.enoughvisuals.ui.mainmenu.AnimatedFlagRenderer;
 import fun.enoughvisuals.ui.mainmenu.MenuBackgroundManager;
-import fun.enoughvisuals.ui.mainmenu.MenuCredits;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
 import fun.enoughvisuals.utils.font.SolarIcons;
@@ -24,9 +23,11 @@ import java.util.List;
 import java.util.Map;
 
 public final class LanguagePickerScreen extends Screen {
+    private static final int ACCENT = 0xFF7F94DD;
     private static final int TEXT = 0xFFFFFFFF;
-    private static final int CARD = 0xFF000000;
-    private static final int CARD_HOVER = 0xFF181818;
+    private static final int MUTED = 0xFFB7AFCA;
+    private static final int CARD = 0xFF151515;
+    private static final int CARD_HOVER = 0xFF1F1F1F;
     private static final int COLUMNS = 3;
     private static final long OPEN_MS = 500L;
     private static final long CLOSE_MS = 300L;
@@ -83,7 +84,7 @@ public final class LanguagePickerScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         RenderUtil.beginFrame();
         updateVirtualScreen();
-        MenuBackgroundManager.drawSelectedBackground(context, width, height, mouseX, mouseY);
+        MenuBackgroundManager.drawSelectedBackground(context, width, height);
         GlassUtil.BLUR_OFFSET = 1.35f;
         GlassUtil.beginFrame();
 
@@ -108,8 +109,6 @@ public final class LanguagePickerScreen extends Screen {
         context.getMatrices().translate(-virtualWidth * 0.5f, -virtualHeight * 0.5f, 0f);
         renderPanel(context, layout, reveal);
         context.getMatrices().pop();
-        MenuCredits.render(context, virtualWidth, virtualHeight, layout.scale, 1f,
-                mouseVirtualX, mouseVirtualY);
         context.getMatrices().pop();
 
         if (!closing && reopenAfterNanos != 0L && System.nanoTime() >= reopenAfterNanos) {
@@ -120,12 +119,12 @@ public final class LanguagePickerScreen extends Screen {
 
     private void renderPanel(DrawContext context, Layout layout, float alpha) {
         GlassUtil.drawGlassPanel(context, layout.x, layout.y, layout.w, layout.h,
-                6.5f * layout.scale, 0x000000, 0.64f * alpha, alpha);
+                6.5f * layout.scale, 0x151515, 0.72f * alpha, alpha);
 
         String title = ClientLanguage.text("ui.language.title", "Языки");
         CustomFontRenderer.drawCenteredText(context, title, virtualWidth * 0.5f,
-                layout.y - 19.5f * layout.scale, 9.5f * layout.scale,
-                RenderUtil.withAlpha(TEXT, alpha * 0.75f), FontWeight.SEMIBOLD);
+                layout.y - 19.5f * layout.scale, 10.5f * layout.scale,
+                RenderUtil.withAlpha(TEXT, alpha), FontWeight.BOLD);
 
         renderSectionLabel(context,
                 status == null ? ClientLanguage.text("ui.language.languages", "Языки") : status,
@@ -133,7 +132,7 @@ public final class LanguagePickerScreen extends Screen {
                 layout.scale, alpha);
         RenderUtil.drawRect(context, layout.x + 49f * layout.scale, layout.y + 11.5f * layout.scale,
                 layout.w - 65f * layout.scale, 0.5f * layout.scale,
-                RenderUtil.withAlpha(TEXT, alpha * 0.05f));
+                RenderUtil.withAlpha(MUTED, alpha * 0.10f));
 
         enableListScissor(layout);
         List<LanguageInfo> languages = ClientLanguage.availableLanguages();
@@ -165,7 +164,7 @@ public final class LanguagePickerScreen extends Screen {
                 settingsY + 3.5f * layout.scale,
                 Math.max(1f, layout.x + layout.w - 16f * layout.scale - settingsStartX),
                 0.5f * layout.scale,
-                RenderUtil.withAlpha(TEXT, alpha * 0.05f));
+                RenderUtil.withAlpha(MUTED, alpha * 0.10f));
         renderFooterButton(context, layout.autoX, layout.buttonY, layout.autoW, layout.buttonH,
                 ClientLanguage.text("ui.language.auto", "Авто"), SolarIcons.ROBOT,
                 "auto".equals(ClientLanguage.selectedLanguageCode()), autoHover.value(), alpha, layout.scale);
@@ -179,13 +178,13 @@ public final class LanguagePickerScreen extends Screen {
         float size = 5.2f * scale;
         String trimmed = CustomFontRenderer.trimToWidth(label, 112f * scale, size, FontWeight.SEMIBOLD);
         CustomFontRenderer.drawText(context, trimmed, x, y, size,
-                RenderUtil.withAlpha(TEXT, alpha * 0.25f), FontWeight.SEMIBOLD);
+                RenderUtil.withAlpha(MUTED, alpha * 0.62f), FontWeight.SEMIBOLD);
         float iconSize = 5.1f * scale;
         float iconX = x + CustomFontRenderer.getTextWidth(trimmed, size, FontWeight.SEMIBOLD) + 2f * scale;
         float iconY = y + (CustomFontRenderer.getTextHeight(size, FontWeight.SEMIBOLD)
                 - CustomFontRenderer.getTextHeight(iconSize, FontWeight.SOLAR_ICONS)) * 0.5f;
         CustomFontRenderer.drawText(context, icon, iconX, iconY, iconSize,
-                RenderUtil.withAlpha(TEXT, alpha * 0.25f), FontWeight.SOLAR_ICONS);
+                RenderUtil.withAlpha(MUTED, alpha * 0.62f), FontWeight.SOLAR_ICONS);
     }
 
     private void renderLanguage(DrawContext context, LanguageInfo language, float x, float y,
@@ -201,8 +200,13 @@ public final class LanguagePickerScreen extends Screen {
         context.getMatrices().translate(-(x + layout.cardW * 0.5f), -(y + layout.cardH * 0.5f), 0f);
 
         int background = RenderUtil.lerpColor(CARD, CARD_HOVER, hoverValue);
-        RenderUtil.drawRoundedRect(context, x, y, layout.cardW, layout.cardH, 7f * layout.scale,
-                RenderUtil.withAlpha(background, alpha * (selected ? 0.54f : 0.40f)));
+        RenderUtil.drawRoundedRect(context, x, y, layout.cardW, layout.cardH, 6f * layout.scale,
+                RenderUtil.withAlpha(background, alpha * 0.92f));
+        if (selected) {
+            RenderUtil.drawRoundedRect(context, x, y + layout.cardH - 1.2f * layout.scale,
+                    layout.cardW, 1.2f * layout.scale, 0.6f * layout.scale,
+                    RenderUtil.withAlpha(ACCENT, alpha * 0.85f));
+        }
 
         float flagSize = 14f * layout.scale;
         AnimatedFlagRenderer.draw(context, language.flagAsset(), x + 4.5f * layout.scale,
@@ -212,7 +216,7 @@ public final class LanguagePickerScreen extends Screen {
         String name = CustomFontRenderer.trimToWidth(language.displayName(),
                 layout.cardW - 29f * layout.scale, nameSize, FontWeight.SEMIBOLD);
         CustomFontRenderer.drawText(context, name, textX, y + 4f * layout.scale,
-                nameSize, RenderUtil.withAlpha(TEXT, alpha * 0.75f), FontWeight.SEMIBOLD);
+                nameSize, RenderUtil.withAlpha(TEXT, alpha), FontWeight.SEMIBOLD);
 
         String detail;
         if (language.curated()) detail = ClientLanguage.text("ui.language.curated", "Проверенный перевод");
@@ -223,12 +227,12 @@ public final class LanguagePickerScreen extends Screen {
         detail = CustomFontRenderer.trimToWidth(detail, layout.cardW - 29f * layout.scale,
                 4.1f * layout.scale, FontWeight.SEMIBOLD);
         CustomFontRenderer.drawText(context, detail, textX, y + 12.5f * layout.scale,
-                4.1f * layout.scale, RenderUtil.withAlpha(TEXT, alpha * 0.35f), FontWeight.SEMIBOLD);
+                4.1f * layout.scale, RenderUtil.withAlpha(MUTED, alpha * 0.72f), FontWeight.SEMIBOLD);
 
         if (selected) {
             CustomFontRenderer.drawRightText(context, SolarIcons.CHECK,
                     x + layout.cardW - 4f * layout.scale, y + 9.4f * layout.scale,
-                    4.6f * layout.scale, RenderUtil.withAlpha(TEXT, alpha * 0.72f),
+                    4.6f * layout.scale, RenderUtil.withAlpha(ACCENT, alpha),
                     FontWeight.SOLAR_ICONS);
         }
         context.getMatrices().pop();
@@ -242,18 +246,20 @@ public final class LanguagePickerScreen extends Screen {
         context.getMatrices().translate(x + width * 0.5f, y + height * 0.5f, 0f);
         context.getMatrices().scale(grow, grow, 1f);
         context.getMatrices().translate(-(x + width * 0.5f), -(y + height * 0.5f), 0f);
-        RenderUtil.drawRoundedRect(context, x, y, width, height, 4f * scale,
-                RenderUtil.withAlpha(RenderUtil.lerpColor(CARD, CARD_HOVER, hover),
-                        alpha * (active ? 0.56f : 0.40f)));
+        int base = active ? ACCENT : CARD;
+        int hoverColor = active ? RenderUtil.lighten(ACCENT, 0.08f) : CARD_HOVER;
+        RenderUtil.drawRoundedRect(context, x, y, width, height, 5f * scale,
+                RenderUtil.withAlpha(RenderUtil.lerpColor(base, hoverColor, hover),
+                        alpha * (active ? 0.98f : 0.92f)));
         float size = 4.75f * scale;
         float textY = y + (height - CustomFontRenderer.getTextHeight(size, FontWeight.SEMIBOLD)) * 0.5f;
         CustomFontRenderer.drawText(context, label, x + 4.5f * scale, textY, size,
-                RenderUtil.withAlpha(TEXT, alpha * 0.75f), FontWeight.SEMIBOLD);
+                RenderUtil.withAlpha(TEXT, alpha), FontWeight.SEMIBOLD);
         float iconSize = 5f * scale;
         float iconY = y + (height - CustomFontRenderer.getTextHeight(iconSize, FontWeight.SOLAR_ICONS)) * 0.5f;
         CustomFontRenderer.drawRightText(context, icon, x + width - 4f * scale,
                 iconY, iconSize,
-                RenderUtil.withAlpha(TEXT, alpha * 0.75f), FontWeight.SOLAR_ICONS);
+                RenderUtil.withAlpha(TEXT, alpha), FontWeight.SOLAR_ICONS);
         context.getMatrices().pop();
     }
 
@@ -286,9 +292,9 @@ public final class LanguagePickerScreen extends Screen {
         float thumbY = layout.listY + (layout.listH - thumbH) * (scroll / max);
         float x = layout.x + layout.w - 9.5f * layout.scale;
         RenderUtil.drawRoundedRect(context, x, layout.listY, 4f * layout.scale, layout.listH,
-                2f * layout.scale, RenderUtil.withAlpha(0xFF1F1E1E, alpha * 0.30f));
+                2f * layout.scale, RenderUtil.withAlpha(MUTED, alpha * 0.10f));
         RenderUtil.drawRoundedRect(context, x + layout.scale, thumbY, 2f * layout.scale, thumbH,
-                layout.scale, RenderUtil.withAlpha(0xFF848585, alpha * 0.25f));
+                layout.scale, RenderUtil.withAlpha(ACCENT, alpha * 0.62f));
     }
 
     @Override
@@ -297,7 +303,6 @@ public final class LanguagePickerScreen extends Screen {
         float mx = ScreenScaleUtil.screenToVirtual(mouseX);
         float my = ScreenScaleUtil.screenToVirtual(mouseY);
         Layout layout = layout().offsetY((1f - reveal()) * 4f * layoutScale());
-        if (MenuCredits.click(mx, my, virtualWidth, virtualHeight, layout.scale)) return true;
         if (inside(mx, my, layout.closeX, layout.buttonY, layout.closeW, layout.buttonH)) {
             close();
             return true;

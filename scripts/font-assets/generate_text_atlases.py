@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import argparse
 import json
 import re
@@ -77,11 +78,11 @@ def collect_characters(root: Path) -> set[str]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
-    parser.add_argument("--inter-dir", type=Path, default=Path(r"C:\Users\<user>\Desktop\inter"))
+    parser.add_argument("--inter-dir", type=Path, default=Path(os.environ.get("INTER_FONT_DIR", "inter")))
     parser.add_argument(
         "--generator",
         type=Path,
-        default=Path(r"C:\Users\<user>\Desktop\msdf-atlas-gen\msdf-atlas-gen.exe"),
+        default=Path(os.environ.get("MSDF_ATLAS_GEN", "msdf-atlas-gen")),
     )
     args = parser.parse_args()
 

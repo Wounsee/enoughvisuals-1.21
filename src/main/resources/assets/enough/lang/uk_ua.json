@@ -682,7 +682,7 @@
   "chat.cfg.help_dir": " §d.cfg dir §f- відкрити папку конфігів",
   "ui.main_menu.multiplayer": "Мережева гра",
   "ui.main_menu.singleplayer": "Одиночна гра",
-  "ui.main_menu.account": "Акаунти",
+  "ui.main_menu.account": "Змінити обліковий запис",
   "ui.main_menu.settings": "Налаштування",
   "ui.main_menu.quit": "Вийти",
   "ui.main_menu.choose_background": "Вибрати фон",

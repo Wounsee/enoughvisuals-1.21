@@ -1,8 +1,6 @@
 package fun.enoughvisuals.ui.mainmenu;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import fun.enoughvisuals.systems.animations.AnimatedFloat;
-import fun.enoughvisuals.systems.animations.Easing;
 import fun.enoughvisuals.utils.render.RenderUtil;
 import fun.enoughvisuals.utils.system.ClientLanguage;
 import net.minecraft.client.MinecraftClient;
@@ -54,13 +52,11 @@ public final class MenuBackgroundManager {
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10)).followRedirects(HttpClient.Redirect.NORMAL).build();
     private static final Map<String, Boolean> CACHED = new ConcurrentHashMap<>();
-    private static final AnimatedFloat PARALLAX_X = new AnimatedFloat(0f, 360L, Easing.OUT_QUART);
-    private static final AnimatedFloat PARALLAX_Y = new AnimatedFloat(0f, 360L, Easing.OUT_QUART);
 
     private static Entry selected = DEFAULT;
     private static Identifier texture = DEFAULT_TEXTURE;
-    private static int textureWidth = 3840;
-    private static int textureHeight = 2160;
+    private static int textureWidth = 1920;
+    private static int textureHeight = 1080;
     private static volatile float progress;
     private static volatile String error;
     private static volatile boolean loading;
@@ -72,13 +68,8 @@ public final class MenuBackgroundManager {
     public static void initialize(MinecraftClient client) {
         if (initialized) return;
         initialized = true;
-        // The Figma menu is authored around the bundled bgg.png composition.
-        // Always enter on that exact background; the gallery can still be
-        // opened explicitly by development tooling and select another entry.
-        selected = DEFAULT;
-        texture = DEFAULT_TEXTURE;
-        textureWidth = 3840;
-        textureHeight = 2160;
+        String id = readSelection(client);
+        ENTRIES.stream().filter(e -> e.id().equals(id)).findFirst().ifPresent(e -> select(client, e));
     }
 
     public static void select(MinecraftClient client, Entry entry) {
@@ -87,8 +78,8 @@ public final class MenuBackgroundManager {
         if (entry == DEFAULT) {
             selected = DEFAULT;
             texture = DEFAULT_TEXTURE;
-            textureWidth = 3840;
-            textureHeight = 2160;
+            textureWidth = 1920;
+            textureHeight = 1080;
             saveSelection(client, DEFAULT.id());
             return;
         }
@@ -145,7 +136,7 @@ public final class MenuBackgroundManager {
         try {
             Identifier id = Identifier.of("enough", "mainmenu/remote_" + entry.id().replace('-', '_'));
             NativeImageBackedTexture backed = new NativeImageBackedTexture(image);
-            backed.setFilter(true, false);
+            backed.setFilter(true, true);
             client.getTextureManager().registerTexture(id, backed);
             textureWidth = image.getWidth();
             textureHeight = image.getHeight();
@@ -210,18 +201,13 @@ public final class MenuBackgroundManager {
     public static Entry pending() { return pending; }
     public static String error() { return error; }
 
-    /** Draws the selected image with the Figma overlay and a barely perceptible mouse parallax. */
+    /** Draws the same selected gallery image as the main menu, cropped to cover the screen. */
     public static void drawSelectedBackground(DrawContext context, int width, int height) {
-        drawSelectedBackground(context, width, height, width * 0.5, height * 0.5);
-    }
-
-    public static void drawSelectedBackground(DrawContext context, int width, int height,
-                                              double mouseX, double mouseY) {
         MinecraftClient client = MinecraftClient.getInstance();
         Identifier background = texture;
         try {
             AbstractTexture loaded = client.getTextureManager().getTexture(background);
-            if (loaded != null) loaded.setFilter(true, false);
+            if (loaded != null) loaded.setFilter(true, true);
         } catch (Throwable ignored) {
         }
 
@@ -241,20 +227,26 @@ public final class MenuBackgroundManager {
             sourceX = (imageWidth - sourceWidth) * 0.5f;
         }
 
-        float normalizedX = width <= 0 ? 0f : (float) (mouseX / width * 2.0 - 1.0);
-        float normalizedY = height <= 0 ? 0f : (float) (mouseY / height * 2.0 - 1.0);
-        PARALLAX_X.setTarget(Math.max(-1f, Math.min(1f, normalizedX)));
-        PARALLAX_Y.setTarget(Math.max(-1f, Math.min(1f, normalizedY)));
-        float overscan = Math.max(3f, Math.min(width, height) * 0.008f);
-        float shiftX = -PARALLAX_X.value() * overscan * 0.34f;
-        float shiftY = -PARALLAX_Y.value() * overscan * 0.24f;
-
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        drawBackgroundPass(context, background,
-                width + Math.round(overscan * 2f), height + Math.round(overscan * 2f),
-                sourceX, sourceY, sourceWidth, sourceHeight, imageWidth, imageHeight,
-                -overscan + shiftX, -overscan + shiftY, 1f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, 0f, 0f, 1f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, 0.45f, 0f, 0.055f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, -0.45f, 0f, 0.055f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, 0f, 0.45f, 0.055f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, 0f, -0.45f, 0.055f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, 0.35f, 0.35f, 0.035f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, -0.35f, 0.35f, 0.035f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, 0.35f, -0.35f, 0.035f);
+        drawBackgroundPass(context, background, width, height, sourceX, sourceY, sourceWidth, sourceHeight,
+                imageWidth, imageHeight, -0.35f, -0.35f, 0.035f);
         context.draw();
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         RenderSystem.disableBlend();
@@ -262,11 +254,11 @@ public final class MenuBackgroundManager {
     }
 
     public static void drawBackgroundDim(DrawContext context, int width, int height) {
-        float middle = height * 0.503f;
-        RenderUtil.drawGradientRect(context, 0f, 0f, width, middle,
-                0xB3000000, 0x21000000);
-        RenderUtil.drawGradientRect(context, 0f, middle, width, height - middle,
-                0x21000000, 0xB3000000);
+        RenderUtil.drawRect(context, 0f, 0f, width, height, 0x4A000000);
+        RenderUtil.drawGradientRect(context, 0f, 0f, width, height * 0.30f,
+                0x5C000000, 0x00000000);
+        RenderUtil.drawGradientRect(context, 0f, height * 0.66f, width, height * 0.34f,
+                0x00000000, 0x6A000000);
     }
 
     private static void drawBackgroundPass(DrawContext context, Identifier background, int width, int height,

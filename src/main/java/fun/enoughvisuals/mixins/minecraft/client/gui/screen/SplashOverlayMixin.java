@@ -1,6 +1,8 @@
 package fun.enoughvisuals.mixins.minecraft.client.gui.screen;
 
 import com.mojang.blaze3d.platform.GlStateManager;
+import fun.enoughvisuals.systems.modules.modules.client.CustomTheme;
+import fun.enoughvisuals.utils.render.RenderUtil;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.SplashOverlay;
 import net.minecraft.client.render.RenderLayer;
@@ -24,22 +26,9 @@ import java.util.function.Function;
 
 @Mixin(SplashOverlay.class)
 public abstract class SplashOverlayMixin {
-    private static final int LOGO_RASTER_SIZE = 512;
-    private static final int BACKGROUND_WIDTH = 3840;
-    private static final int BACKGROUND_HEIGHT = 2160;
-    private static final int BRAND_WIDTH = 736;
-    private static final int BRAND_HEIGHT = 104;
-    private static final int CREDITS_WIDTH = 1136;
-    private static final int CREDITS_HEIGHT = 152;
-    private static final int VIGNETTE_HEIGHT = 1024;
-    private static final int CAPSULE_WIDTH = 448;
-    private static final int CAPSULE_HEIGHT = 12;
-    private static final Identifier SPLASH_BACKGROUND = Identifier.of("enough", "splash/figma_background");
+    private static final int BACKGROUND = 0xFF0C0D10;
+    private static final int SPLASH_LOGO_SIZE = 512;
     private static final Identifier SPLASH_LOGO = Identifier.of("enough", "splash/logo_glyph");
-    private static final Identifier SPLASH_BRAND = Identifier.of("enough", "splash/figma_brand");
-    private static final Identifier SPLASH_CREDITS = Identifier.of("enough", "splash/figma_credits");
-    private static final Identifier SPLASH_VIGNETTE = Identifier.of("enough", "splash/smooth_vignette");
-    private static final Identifier SPLASH_CAPSULE = Identifier.of("enough", "splash/capsule");
 
     @Shadow private float progress;
     @Shadow private long reloadCompleteTime;
@@ -48,27 +37,19 @@ public abstract class SplashOverlayMixin {
     @Unique private long enoughvisuals$lastFrameTime = -1L;
 
     @Inject(method = "init", at = @At("TAIL"))
-    private static void enoughvisuals$prepareTextures(TextureManager textureManager, CallbackInfo ci) {
-        enoughvisuals$loadTexture(textureManager,
-                "/assets/enough/textures/mainmenu/bg.png", SPLASH_BACKGROUND, false);
-        enoughvisuals$loadTexture(textureManager,
-                "/assets/enough/textures/mainmenu/loading_brand_bootstrap.png", SPLASH_BRAND, false);
-        enoughvisuals$loadTexture(textureManager,
-                "/assets/enough/textures/mainmenu/loading_credits_bootstrap.png", SPLASH_CREDITS, false);
-        enoughvisuals$prepareVignette(textureManager);
-        enoughvisuals$prepareCapsule(textureManager);
-
-        // Rasterize the exact Figma-derived MTSDF logo once because the custom
-        // MSDF shader is intentionally unavailable during the first reload.
+    private static void enoughvisuals$prepareLogo(TextureManager textureManager, CallbackInfo ci) {
+        // Rasterize the alpha distance channel of the exact F002/LOGO atlas
+        // once. This preserves the menu glyph while avoiding the custom MSDF
+        // shader, which is intentionally unavailable during the first reload.
         try (InputStream stream = SplashOverlayMixin.class.getResourceAsStream(
                 "/assets/enough/fonts/msdf/logo.png")) {
             if (stream == null) return;
             try (NativeImage source = NativeImage.read(stream)) {
-                NativeImage glyph = new NativeImage(LOGO_RASTER_SIZE, LOGO_RASTER_SIZE, true);
-                for (int y = 0; y < LOGO_RASTER_SIZE; y++) {
-                    for (int x = 0; x < LOGO_RASTER_SIZE; x++) {
-                        float sourceX = ((x + 0.5f) * source.getWidth() / LOGO_RASTER_SIZE) - 0.5f;
-                        float sourceY = ((y + 0.5f) * source.getHeight() / LOGO_RASTER_SIZE) - 0.5f;
+                NativeImage glyph = new NativeImage(SPLASH_LOGO_SIZE, SPLASH_LOGO_SIZE, true);
+                for (int y = 0; y < SPLASH_LOGO_SIZE; y++) {
+                    for (int x = 0; x < SPLASH_LOGO_SIZE; x++) {
+                        float sourceX = ((x + 0.5f) * source.getWidth() / SPLASH_LOGO_SIZE) - 0.5f;
+                        float sourceY = ((y + 0.5f) * source.getHeight() / SPLASH_LOGO_SIZE) - 0.5f;
                         float distance = enoughvisuals$sampleDistance(source, sourceX, sourceY);
                         float coverage = enoughvisuals$smoothstep(0.482f, 0.518f, distance);
                         int alpha = MathHelper.clamp(Math.round(coverage * 255.0f), 0, 255);
@@ -84,93 +65,13 @@ public abstract class SplashOverlayMixin {
         }
     }
 
-    @Unique
-    private static void enoughvisuals$prepareVignette(TextureManager textureManager) {
-        NativeImage image = new NativeImage(1, VIGNETTE_HEIGHT, true);
-        for (int y = 0; y < VIGNETTE_HEIGHT; y++) {
-            float position = y / (float) (VIGNETTE_HEIGHT - 1);
-            float distance = Math.abs(position - 0.503f) / (position < 0.503f ? 0.503f : 0.497f);
-            float eased = distance * distance * (3f - 2f * distance);
-            int alpha = MathHelper.clamp(Math.round(MathHelper.lerp(eased, 0.13f, 0.70f) * 255f), 0, 255);
-            image.setColorArgb(0, y, alpha << 24);
-        }
-        NativeImageBackedTexture texture = new NativeImageBackedTexture(image);
-        texture.setFilter(true, false);
-        textureManager.registerTexture(SPLASH_VIGNETTE, texture);
-    }
-
-    @Unique
-    private static void enoughvisuals$prepareCapsule(TextureManager textureManager) {
-        NativeImage image = new NativeImage(CAPSULE_WIDTH, CAPSULE_HEIGHT, true);
-        float radius = CAPSULE_HEIGHT * 0.5f;
-        for (int y = 0; y < CAPSULE_HEIGHT; y++) {
-            for (int x = 0; x < CAPSULE_WIDTH; x++) {
-                float closestX = MathHelper.clamp(x + 0.5f, radius, CAPSULE_WIDTH - radius);
-                float dx = x + 0.5f - closestX;
-                float dy = y + 0.5f - radius;
-                float distance = (float) Math.sqrt(dx * dx + dy * dy);
-                float coverage = MathHelper.clamp(radius + 0.5f - distance, 0f, 1f);
-                int alpha = Math.round(coverage * 255f);
-                image.setColorArgb(x, y, (alpha << 24) | 0x00FFFFFF);
-            }
-        }
-        NativeImageBackedTexture texture = new NativeImageBackedTexture(image);
-        texture.setFilter(true, false);
-        textureManager.registerTexture(SPLASH_CAPSULE, texture);
-    }
-
-    @Unique
-    private static void enoughvisuals$loadTexture(TextureManager textureManager, String path,
-                                                  Identifier identifier, boolean mipmap) {
-        try (InputStream stream = SplashOverlayMixin.class.getResourceAsStream(path)) {
-            if (stream == null) return;
-            NativeImage image = NativeImage.read(stream);
-            NativeImageBackedTexture texture = new NativeImageBackedTexture(image);
-            texture.setFilter(true, mipmap);
-            textureManager.registerTexture(identifier, texture);
-        } catch (IOException exception) {
-            System.err.println("[EnoughVisuals] Failed to prepare splash texture " + path + ": "
-                    + exception.getMessage());
-        }
-    }
-
-    @Unique
-    private static void enoughvisuals$loadWhiteMaskTexture(TextureManager textureManager,
-                                                            String path, Identifier identifier) {
-        try (InputStream stream = SplashOverlayMixin.class.getResourceAsStream(path)) {
-            if (stream == null) return;
-            try (NativeImage source = NativeImage.read(stream)) {
-                NativeImage transparent = new NativeImage(source.getWidth(), source.getHeight(), true);
-                for (int y = 0; y < source.getHeight(); y++) {
-                    for (int x = 0; x < source.getWidth(); x++) {
-                        int color = source.getColorArgb(x, y);
-                        int red = (color >>> 16) & 0xFF;
-                        int green = (color >>> 8) & 0xFF;
-                        int blue = color & 0xFF;
-                        // Figma exports these vectors composited over #1E1E1E.
-                        // Recover their original white coverage, including the
-                        // authored 20/50/75 percent opacities, without a halo.
-                        float value = Math.max(red, Math.max(green, blue));
-                        int alpha = MathHelper.clamp(Math.round((value - 30f) / 225f * 255f), 0, 255);
-                        transparent.setColorArgb(x, y, (alpha << 24) | 0x00FFFFFF);
-                    }
-                }
-                NativeImageBackedTexture texture = new NativeImageBackedTexture(transparent);
-                texture.setFilter(true, false);
-                textureManager.registerTexture(identifier, texture);
-            }
-        } catch (IOException exception) {
-            System.err.println("[EnoughVisuals] Failed to prepare splash mask " + path + ": "
-                    + exception.getMessage());
-        }
-    }
-
     @Redirect(
             method = "render",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/DrawContext;fill(Lnet/minecraft/client/render/RenderLayer;IIIII)V")
     )
     private void enoughvisuals$hideMojangBackground(DrawContext context, RenderLayer layer,
                                                      int x1, int y1, int x2, int y2, int color) {
+        // Drawn once at TAIL with the custom fade; suppress Mojang's red layer.
     }
 
     @Redirect(
@@ -182,6 +83,7 @@ public abstract class SplashOverlayMixin {
                                                Identifier texture, int x, int y, float u, float v,
                                                int width, int height, int regionWidth, int regionHeight,
                                                int textureWidth, int textureHeight, int color) {
+        // The original method draws both halves of the Mojang logo.
     }
 
     @Redirect(
@@ -189,7 +91,7 @@ public abstract class SplashOverlayMixin {
             at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/platform/GlStateManager;_clearColor(FFFF)V")
     )
     private void enoughvisuals$useDarkClear(float red, float green, float blue, float alpha) {
-        GlStateManager._clearColor(0.035f, 0.039f, 0.035f, 1.0f);
+        GlStateManager._clearColor(0.055f, 0.059f, 0.071f, 1.0f);
     }
 
     @Inject(method = "renderProgressBar", at = @At("HEAD"), cancellable = true)
@@ -206,130 +108,105 @@ public abstract class SplashOverlayMixin {
         int height = context.getScaledWindowHeight();
         long now = Util.getMeasuringTimeMs();
 
-        float outroTime = reloadCompleteTime < 0L ? -1f : (now - reloadCompleteTime) / 1000f;
-        float outro = outroTime < 0f ? 0f : enoughvisuals$smoothstep(1f, 2f, outroTime);
-        float fadeOut = 1f - outro;
+        float outroTime = reloadCompleteTime < 0L
+                ? -1.0f
+                : (now - reloadCompleteTime) / 1000.0f;
+        // Vanilla only starts drawing the destination screen beneath this
+        // overlay after one second. Hold the opaque splash until that point,
+        // then cross-fade throughout vanilla's remaining one-second window.
+        float outro = outroTime < 0.0f
+                ? 0.0f
+                : enoughvisuals$smoothstep(1.0f, 2.0f, outroTime);
+        float fadeOut = 1.0f - outro;
         float fadeIn = reloadStartTime < 0L
-                ? 1f : MathHelper.clamp((now - reloadStartTime) / 360f, 0f, 1f);
+                ? 1.0f
+                : MathHelper.clamp((now - reloadStartTime) / 360.0f, 0.0f, 1.0f);
         float opacity = fadeOut * fadeIn;
-        int alpha = MathHelper.clamp(Math.round(opacity * 255f), 0, 255);
+        int alpha = MathHelper.clamp(Math.round(opacity * 255.0f), 0, 255);
         if (alpha <= 0) return;
 
-        enoughvisuals$drawCover(context, SPLASH_BACKGROUND, width, height,
-                BACKGROUND_WIDTH, BACKGROUND_HEIGHT, enoughvisuals$withAlpha(0xFFFFFFFF, alpha));
-        context.draw();
-        context.drawTexture(RenderLayer::getGuiTextured, SPLASH_VIGNETTE,
-                0, 0, 0f, 0f, width, height,
-                1, VIGNETTE_HEIGHT, 1, VIGNETTE_HEIGHT,
-                enoughvisuals$withAlpha(0xFFFFFFFF, alpha));
+        context.fill(0, 0, width, height, enoughvisuals$withAlpha(BACKGROUND, alpha));
         context.draw();
 
-        float contentOutro = outroTime < 0f ? 0f : enoughvisuals$smoothstep(0.82f, 1.82f, outroTime);
-        float contentOpacity = fadeIn * (1f - contentOutro);
-        int contentAlpha = MathHelper.clamp(Math.round(contentOpacity * 255f), 0, 255);
-        float scale = Math.max(0.58f, Math.min(1.42f,
-                Math.min(width / 960f, height / 540f)));
-        float centerX = width * 0.5f;
-        float centerY = height * 0.5f;
-
-        float brandX = centerX - 46f * scale;
-        float brandY = centerY - 14f * scale;
-        int tinted = enoughvisuals$withAlpha(0xFFFFFFFF, Math.round(contentAlpha * 0.75f));
+        float contentOutro = outroTime < 0.0f
+                ? 0.0f
+                : enoughvisuals$smoothstep(0.82f, 1.82f, outroTime);
+        float contentOpacity = fadeIn * (1.0f - contentOutro);
+        float logoSize = MathHelper.clamp(Math.min(width, height) * 0.135f, 42.0f, 72.0f);
+        float logoHeight = logoSize;
+        float logoY = height * 0.5f - logoHeight * 0.5f - 26.0f;
+        int logoAlpha = MathHelper.clamp(
+                Math.round(255.0f * contentOpacity * (0.90f + 0.10f * fadeIn)), 0, 255);
+        int drawnSize = Math.round(logoSize);
+        int logoX = (width - drawnSize) / 2;
+        int drawnY = Math.round(logoY);
+        int accent = enoughvisuals$accent();
+        int accentHead = RenderUtil.lighten(accent, 0.30f);
         context.drawTexture(RenderLayer::getGuiTextured, SPLASH_LOGO,
-                Math.round(brandX), Math.round(brandY + 1.25f * scale),
-                0f, 0f, Math.round(13.5f * scale), Math.round(13.5f * scale),
-                LOGO_RASTER_SIZE, LOGO_RASTER_SIZE, LOGO_RASTER_SIZE, LOGO_RASTER_SIZE, tinted);
-        context.drawTexture(RenderLayer::getGuiTextured, SPLASH_BRAND,
-                Math.round(brandX + 19f * scale), Math.round(brandY),
-                152f, 0f, Math.round(73f * scale), Math.round(13f * scale),
-                584, BRAND_HEIGHT, BRAND_WIDTH, BRAND_HEIGHT,
-                enoughvisuals$withAlpha(0xFFFFFFFF, contentAlpha));
+                logoX, drawnY, 0.0f, 0.0f,
+                drawnSize, drawnSize, SPLASH_LOGO_SIZE, SPLASH_LOGO_SIZE,
+                SPLASH_LOGO_SIZE, SPLASH_LOGO_SIZE,
+                enoughvisuals$withAlpha(accentHead, logoAlpha));
 
-        float targetProgress = MathHelper.clamp(progress, 0f, 1f);
+        float targetProgress = MathHelper.clamp(progress, 0.0f, 1.0f);
         if (enoughvisuals$lastFrameTime < 0L) {
             enoughvisuals$displayedProgress = targetProgress;
         } else {
             float elapsed = MathHelper.clamp(now - enoughvisuals$lastFrameTime, 0L, 100L);
-            float response = 1f - (float) Math.exp(-elapsed / 175f);
+            float response = 1.0f - (float) Math.exp(-elapsed / 175.0f);
             enoughvisuals$displayedProgress = MathHelper.lerp(response,
                     enoughvisuals$displayedProgress, targetProgress);
-            if (targetProgress >= 1f) {
+            if (targetProgress >= 1.0f) {
                 enoughvisuals$displayedProgress = Math.max(enoughvisuals$displayedProgress, 0.998f);
             }
         }
         enoughvisuals$lastFrameTime = now;
-        enoughvisuals$displayedProgress = Math.max(0f,
+        enoughvisuals$displayedProgress = Math.max(0.0f,
                 Math.min(targetProgress, enoughvisuals$displayedProgress));
 
-        float barWidth = 112f * scale;
-        float barHeight = 3f * scale;
-        float barX = centerX - barWidth * 0.5f;
-        float barY = centerY + 9.5f * scale + contentOutro * 3f * scale;
-        int barLeft = Math.round(barX);
-        int barTop = Math.round(barY);
-        int barPixelWidth = Math.max(1, Math.round(barWidth));
-        int barPixelHeight = Math.max(1, Math.round(barHeight));
-        context.drawTexture(RenderLayer::getGuiTextured, SPLASH_CAPSULE,
-                barLeft, barTop, 0f, 0f, barPixelWidth, barPixelHeight,
-                CAPSULE_WIDTH, CAPSULE_HEIGHT, CAPSULE_WIDTH, CAPSULE_HEIGHT,
-                enoughvisuals$withAlpha(0xFF000000, Math.round(contentAlpha * 0.60f)));
-        float fillWidth = barWidth * enoughvisuals$displayedProgress;
-        if (fillWidth > 0.01f) {
-            context.drawTexture(RenderLayer::getGuiTextured, SPLASH_CAPSULE,
-                    barLeft, barTop, 0f, 0f, Math.max(1, Math.round(fillWidth)), barPixelHeight,
-                    CAPSULE_WIDTH, CAPSULE_HEIGHT, CAPSULE_WIDTH, CAPSULE_HEIGHT,
-                    enoughvisuals$withAlpha(0xFFFFFFFF, Math.round(contentAlpha * 0.75f)));
-        }
+        float eased = enoughvisuals$displayedProgress;
+        int barWidth = MathHelper.clamp(Math.round(width * 0.20f), 118, 238);
+        int barX = (width - barWidth) / 2;
+        int barY = Math.round(height * 0.5f + 38.0f + contentOutro * 5.0f);
+        int fillWidth = MathHelper.clamp(Math.round(barWidth * eased), 0, barWidth);
+        int barHeight = 3;
+        int contentAlpha = MathHelper.clamp(Math.round(contentOpacity * 255.0f), 0, 255);
 
-        context.drawTexture(RenderLayer::getGuiTextured, SPLASH_CREDITS,
-                Math.round(centerX - 71f * scale), Math.round(height - 29f * scale),
-                0f, 0f, Math.round(142f * scale), Math.round(19f * scale),
-                CREDITS_WIDTH, CREDITS_HEIGHT, CREDITS_WIDTH, CREDITS_HEIGHT,
-                enoughvisuals$withAlpha(0xFFFFFFFF, contentAlpha));
+        RenderUtil.drawRoundedRect(context, barX, barY, barWidth, barHeight, barHeight * 0.5f,
+                enoughvisuals$withAlpha(accent, Math.round(contentAlpha * 0.17f)));
+        if (fillWidth > 0) {
+            RenderUtil.drawRoundedRect(context, barX, barY, fillWidth, barHeight,
+                    Math.min(barHeight * 0.5f, fillWidth * 0.5f),
+                    enoughvisuals$withAlpha(accent, contentAlpha));
+        }
         context.draw();
     }
 
-    @Unique
-    private static void enoughvisuals$drawCover(DrawContext context, Identifier texture,
-                                                int width, int height, int imageWidth, int imageHeight,
-                                                int color) {
-        float screenAspect = width / (float) Math.max(1, height);
-        float textureAspect = imageWidth / (float) imageHeight;
-        float sourceX = 0f;
-        float sourceY = 0f;
-        int sourceWidth = imageWidth;
-        int sourceHeight = imageHeight;
-        if (screenAspect > textureAspect) {
-            sourceHeight = Math.round(imageWidth / screenAspect);
-            sourceY = (imageHeight - sourceHeight) * 0.5f;
-        } else if (screenAspect < textureAspect) {
-            sourceWidth = Math.round(imageHeight * screenAspect);
-            sourceX = (imageWidth - sourceWidth) * 0.5f;
-        }
-        context.drawTexture(RenderLayer::getGuiTextured, texture,
-                0, 0, sourceX, sourceY, width, height,
-                sourceWidth, sourceHeight, imageWidth, imageHeight, color);
-    }
-
-    @Unique
     private static int enoughvisuals$withAlpha(int color, int alpha) {
         return (color & 0x00FFFFFF) | (MathHelper.clamp(alpha, 0, 255) << 24);
     }
 
     @Unique
-    private static float enoughvisuals$smoothstep(float edge0, float edge1, float value) {
-        float t = MathHelper.clamp((value - edge0) / (edge1 - edge0), 0f, 1f);
-        return t * t * (3f - 2f * t);
+    private static int enoughvisuals$accent() {
+        try {
+            return CustomTheme.guiAccent();
+        } catch (Throwable ignored) {
+            return 0xFF7F94DD;
+        }
     }
 
-    @Unique
+    private static float enoughvisuals$smoothstep(float edge0, float edge1, float value) {
+        float t = MathHelper.clamp((value - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+        return t * t * (3.0f - 2.0f * t);
+    }
+
     private static float enoughvisuals$sampleDistance(NativeImage image, float x, float y) {
         int x0 = MathHelper.clamp((int) Math.floor(x), 0, image.getWidth() - 1);
         int y0 = MathHelper.clamp((int) Math.floor(y), 0, image.getHeight() - 1);
         int x1 = Math.min(x0 + 1, image.getWidth() - 1);
         int y1 = Math.min(y0 + 1, image.getHeight() - 1);
-        float tx = MathHelper.clamp(x - (float) Math.floor(x), 0f, 1f);
-        float ty = MathHelper.clamp(y - (float) Math.floor(y), 0f, 1f);
+        float tx = MathHelper.clamp(x - (float) Math.floor(x), 0.0f, 1.0f);
+        float ty = MathHelper.clamp(y - (float) Math.floor(y), 0.0f, 1.0f);
         float a00 = enoughvisuals$medianDistance(image.getColorArgb(x0, y0));
         float a10 = enoughvisuals$medianDistance(image.getColorArgb(x1, y0));
         float a01 = enoughvisuals$medianDistance(image.getColorArgb(x0, y1));
@@ -341,9 +218,10 @@ public abstract class SplashOverlayMixin {
 
     @Unique
     private static float enoughvisuals$medianDistance(int color) {
-        float red = ((color >>> 16) & 0xFF) / 255f;
-        float green = ((color >>> 8) & 0xFF) / 255f;
-        float blue = (color & 0xFF) / 255f;
+        float red = ((color >>> 16) & 0xFF) / 255.0f;
+        float green = ((color >>> 8) & 0xFF) / 255.0f;
+        float blue = (color & 0xFF) / 255.0f;
         return Math.max(Math.min(red, green), Math.min(Math.max(red, green), blue));
     }
+
 }
