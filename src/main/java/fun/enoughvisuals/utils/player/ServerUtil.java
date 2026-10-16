@@ -148,18 +148,6 @@ public class ServerUtil {
                 || hasServerSegment("fillcube");
     }
 
-    public static boolean isElytraUtilitySupported() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null) return false;
-        if (mc.isInSingleplayer()) return true;
-
-        return hasServerSegment("funtime")
-                || hasServerSegment("funsky")
-                || hasServerSegment("holytime")
-                || hasServerSegment("spookytime")
-                || hasServerSegment("funmoon");
-    }
-
     public static boolean isItemScrollerSupported() {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc == null) return false;
