@@ -5,7 +5,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import fun.enoughvisuals.systems.modules.modules.client.Globals;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
-import fun.enoughvisuals.utils.render.ShaderEspRenderer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gl.ShaderProgram;
@@ -27,7 +26,7 @@ import org.lwjgl.opengl.GL14;
 
 @Mixin(EntityRenderer.class)
 public class NametagLogoMixin {
-    private static final int GL_BLEND_EQUATION = 0x8009;
+    private static DrawContext enough$logoContext;
     private static final float LOGO_SIZE = 16.0f;
     private static final float OFFSET_Y = -1.8f;
 
@@ -83,7 +82,10 @@ public class NametagLogoMixin {
             RenderSystem.depthMask(false);
             RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
-            DrawContext ctx = new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers());
+            if (enough$logoContext == null) {
+                enough$logoContext = new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers());
+            }
+            DrawContext ctx = enough$logoContext;
             ctx.getMatrices().push();
             ctx.getMatrices().peek().getPositionMatrix().set(matrices.peek().getPositionMatrix());
             CustomFontRenderer.drawText(ctx, Globals.LOGO_ICON, logoX, OFFSET_Y,
@@ -114,64 +116,37 @@ public class NametagLogoMixin {
         return "FakePlayer".equals(playerState.name);
     }
 
-    private record RenderStateSnapshot(
-            boolean blend,
-            boolean depthTest,
-            boolean cull,
-            boolean depthMask,
-            int depthFunc,
-            int blendSrcRgb,
-            int blendDstRgb,
-            int blendSrcAlpha,
-            int blendDstAlpha,
-            int blendEquation,
-            ShaderProgram shader,
-            int texture0,
-            int texture1,
-            int texture2,
-            int activeTexture,
-            float[] shaderColor
-    ) {
+    /**
+     * The logo is drawn right after the entity buffers were flushed, where GL
+     * sits at the render-layer baseline. Only the Java-side RenderSystem state
+     * is captured; GL state is reset to that baseline instead of being read back
+     * with glGet*, which stalls threaded drivers once per nametag.
+     */
+    private record RenderStateSnapshot(ShaderProgram shader, int texture0, int texture1, int texture2,
+                                       float[] shaderColor) {
         private static RenderStateSnapshot capture() {
             return new RenderStateSnapshot(
-                    GL11.glIsEnabled(GL11.GL_BLEND),
-                    GL11.glIsEnabled(GL11.GL_DEPTH_TEST),
-                    GL11.glIsEnabled(GL11.GL_CULL_FACE),
-                    GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK),
-                    GL11.glGetInteger(GL11.GL_DEPTH_FUNC),
-                    GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB),
-                    GL11.glGetInteger(GL14.GL_BLEND_DST_RGB),
-                    GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA),
-                    GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA),
-                    GL11.glGetInteger(GL_BLEND_EQUATION),
                     RenderSystem.getShader(),
                     RenderSystem.getShaderTexture(0),
                     RenderSystem.getShaderTexture(1),
                     RenderSystem.getShaderTexture(2),
-                    GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE),
                     RenderSystem.getShaderColor().clone()
             );
         }
 
         private void restore() {
-            if (blend) RenderSystem.enableBlend();
-            else RenderSystem.disableBlend();
-            if (depthTest) RenderSystem.enableDepthTest();
-            else RenderSystem.disableDepthTest();
-            if (cull) RenderSystem.enableCull();
-            else RenderSystem.disableCull();
-
-            RenderSystem.depthMask(depthMask);
-            RenderSystem.depthFunc(depthFunc);
-            RenderSystem.blendEquation(blendEquation);
-            RenderSystem.blendFuncSeparate(blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha);
+            RenderSystem.disableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.blendEquation(GL14.GL_FUNC_ADD);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(true);
+            RenderSystem.enableCull();
             if (shader != null) RenderSystem.setShader(shader);
             RenderSystem.setShaderTexture(0, texture0);
             RenderSystem.setShaderTexture(1, texture1);
             RenderSystem.setShaderTexture(2, texture2);
             GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-            GlStateManager._bindTexture(texture0);
-            GlStateManager._activeTexture(activeTexture);
             RenderSystem.setShaderColor(shaderColor[0], shaderColor[1], shaderColor[2], shaderColor[3]);
         }
     }
