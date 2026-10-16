@@ -49,6 +49,23 @@ def funtimeEventsSdk = "com.github.Rizzener:FunTimeEventsSDK:v1.0.5"
 def discordPresence = "com.github.CrashSystemZ:jDRPC:v1.0.0"
 def pulseCosmeticsRuntimeJar = file("libs/pulse-cosmetics-local-1.21.4.jar")
 def mcefRuntimeJar = file("libs/mcef.jar")
+def cosmeticRuntimeDir = file("cosmetic-build")
+def embeddedCosmeticJar = file(
+        "cosmetic-build/fabric/build/libs/cosmetic-0.1.5+1.21.4-fabric-mc.jar")
+
+if (!embeddedCosmeticJar.isFile()) {
+    // Loom checksums this jar while the project is still being configured, so on
+    // a clean checkout it must exist before any task (and buildEmbeddedCosmetic) runs.
+    def windows = System.getProperty("os.name").toLowerCase().contains("windows")
+    logger.lifecycle("Embedded cosmetic jar is missing, building it first...")
+    providers.exec {
+        workingDir cosmeticRuntimeDir
+        environment "JAVA_HOME", System.getProperty("java.home")
+        commandLine(windows
+                ? ["cmd", "/c", "gradlew.bat", ":fabric:remapJar", "--no-daemon"]
+                : ["./gradlew", ":fabric:remapJar", "--no-daemon"])
+    }.result.get()
+}
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
@@ -79,10 +96,6 @@ dependencies {
 sourceSets.main.java.exclude "fun/wounsee/cosmetic/**"
 // Resource inputs are declared explicitly in processResources below.
 sourceSets.main.resources.setSrcDirs([])
-
-def cosmeticRuntimeDir = file("cosmetic-build")
-def embeddedCosmeticJar = file(
-        "cosmetic-build/fabric/build/libs/cosmetic-0.1.5+1.21.4-fabric-mc.jar")
 
 tasks.register("buildEmbeddedCosmetic", Exec) {
     inputs.dir("src/main/java/fun/wounsee/cosmetic")
