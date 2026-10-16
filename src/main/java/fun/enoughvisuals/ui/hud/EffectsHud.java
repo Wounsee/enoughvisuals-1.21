@@ -107,7 +107,7 @@ public final class EffectsHud extends HudElement {
         HudDesign.drawRounderPanel(ctx, x, y, w, h, 23f * u, alpha);
         RenderUtil.enableScissor(x, y, w, h);
         CustomFontRenderer.drawText(ctx, HudIcons.FLASK, x + 17f * u, y + 8f * u,
-                26f * u, RenderUtil.withAlpha(HudDesign.ACCENT, alpha), FontWeight.HUD_ICONS);
+                26f * u, RenderUtil.withAlpha(HudDesign.accent(), alpha), FontWeight.HUD_ICONS);
         CustomFontRenderer.drawText(ctx, ClientLanguage.text("ui.hud.effects", "Эффекты"), x + 51f * u, y + 11f * u,
                 16f * u, RenderUtil.withAlpha(HudDesign.TEXT, alpha), FontWeight.MEDIUM);
         // y + 41u remains the collapse guide; the divider itself is intentionally invisible.
@@ -134,7 +134,7 @@ public final class EffectsHud extends HudElement {
                 }
             }
 
-            int semanticColor = line.urgent() ? HudDesign.DANGER : HudDesign.ACCENT;
+            int semanticColor = line.urgent() ? HudDesign.DANGER : HudDesign.accent();
             HudRollingText timer = timerAnimations.get(row.key());
             float timerTextWidth = timer == null
                     ? CustomFontRenderer.getTextWidth(line.time(), 13.6f * u, FontWeight.MEDIUM)

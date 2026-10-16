@@ -114,9 +114,9 @@ public final class TargetHud extends HudElement {
             }
 
             RenderUtil.drawCrispSquircleProgressOutline(ctx, headX, headY, headSize, headSize, headRadius,
-                    1.75f * s, 1f, RenderUtil.withAlpha(0xFF29292C, alpha));
+                    1.75f * s, 1f, RenderUtil.withAlpha(HudDesign.ROW_MARK, alpha));
             RenderUtil.drawCrispSquircleProgressOutline(ctx, headX, headY, headSize, headSize, headRadius,
-                    1.75f * s, hpProgress, RenderUtil.withAlpha(HudDesign.ACCENT, alpha));
+                    1.75f * s, hpProgress, RenderUtil.withAlpha(HudDesign.accent(), alpha));
         } finally {
             RenderUtil.restoreSquircleExponent(previousExponent);
         }
@@ -145,13 +145,13 @@ public final class TargetHud extends HudElement {
         }
 
         CustomFontRenderer.drawText(ctx, HudIcons.HEART, x, panelY + 20.5f * s,
-                iconSize, RenderUtil.withAlpha(HudDesign.ACCENT, alpha), FontWeight.HUD_ICONS);
+                iconSize, RenderUtil.withAlpha(HudDesign.accent(), alpha), FontWeight.HUD_ICONS);
         String hp = String.format(java.util.Locale.ROOT, "%.1f", Math.max(0f, healthAnim));
         float hpY = panelY + 20.25f * s;
         CustomFontRenderer.drawText(ctx, hp, nameX, hpY, textSize, text, FontWeight.SEMIBOLD);
         float hpW = CustomFontRenderer.getTextWidth(hp, textSize, FontWeight.SEMIBOLD);
         CustomFontRenderer.drawText(ctx, "HP", nameX + hpW + 1f * s, hpY,
-                textSize, RenderUtil.withAlpha(HudDesign.ACCENT, alpha), FontWeight.SEMIBOLD);
+                textSize, RenderUtil.withAlpha(HudDesign.accent(), alpha), FontWeight.SEMIBOLD);
     }
 
     private void drawEquipment(DrawContext ctx, float x, float y, float s, float alpha) {

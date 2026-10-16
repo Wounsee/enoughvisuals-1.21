@@ -82,10 +82,10 @@ public final class PlayerHud extends HudElement {
                     radius - 0.9f * s, alpha,
                     0f, 0f, 1f, 1f, 1f, 1f);
             HudDesign.drawProgressOutline(ctx, artX, artY, artSize, artSize, radius, outlineWidth,
-                    1f, RenderUtil.withAlpha(0xFF29292C, alpha));
+                    1f, RenderUtil.withAlpha(HudDesign.ROW_MARK, alpha));
             float progress = track.active() ? timelineProgress : 0f;
             HudDesign.drawProgressOutline(ctx, artX, artY, artSize, artSize, radius, outlineWidth,
-                    progress, RenderUtil.withAlpha(HudDesign.ACCENT, alpha));
+                    progress, RenderUtil.withAlpha(HudDesign.accent(), alpha));
         } finally {
             RenderUtil.restoreSquircleExponent(previousExponent);
         }
@@ -96,7 +96,7 @@ public final class PlayerHud extends HudElement {
         String title = track.active() ? track.title()
                 : ClientLanguage.text("ui.player_hud.no_track", "Название: включите трек");
         drawMarquee(ctx, title, x + 58.9f * s, y + 9.5f * s, 139f * s,
-                9.7f * s, RenderUtil.withAlpha(0xFFC3C3CB, alpha), FontWeight.MEDIUM);
+                9.7f * s, RenderUtil.withAlpha(HudDesign.TEXT_SOFT, alpha), FontWeight.MEDIUM);
 
         String elapsed = formatTime(track.active() ? elapsedSeconds(track) : 0L);
         String total = track.active() && track.duration() > 0L
@@ -116,14 +116,14 @@ public final class PlayerHud extends HudElement {
     private static void drawVerticalDivider(DrawContext ctx, float x, float y,
                                             float height, float s, float alpha) {
         HudDesign.drawRounderRect(ctx, x, y, 0.75f * s, height, 0.375f * s,
-                RenderUtil.withAlpha(0xFF282731, alpha * 0.82f));
+                RenderUtil.withAlpha(HudDesign.ROW_MARK, alpha * 0.82f));
     }
 
     private static void drawControl(DrawContext ctx, String icon, float x, float y, float size, float alpha) {
         float s = size / CONTROL_SIZE;
         float iconSize = size - 0.45f * s;
         CustomFontRenderer.drawText(ctx, icon, x + 0.2f * s, y + 0.1f * s, iconSize,
-                RenderUtil.withAlpha(0xFF9A989F, alpha), FontWeight.HUD_ICONS);
+                RenderUtil.withAlpha(HudDesign.TEXT_DIM, alpha), FontWeight.HUD_ICONS);
     }
 
     private static void drawRotatedControl(DrawContext ctx, String icon, float x, float y,

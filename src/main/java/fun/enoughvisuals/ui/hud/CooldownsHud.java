@@ -98,7 +98,7 @@ public final class CooldownsHud extends HudElement {
         HudDesign.drawRounderPanel(ctx, x, y, w, h, 23f * u, alpha);
         RenderUtil.enableScissor(x, y, w, h);
         CustomFontRenderer.drawText(ctx, HudIcons.CLOCK, x + 17f * u, y + 8f * u,
-                25f * u, RenderUtil.withAlpha(HudDesign.ACCENT, alpha), FontWeight.HUD_ICONS);
+                25f * u, RenderUtil.withAlpha(HudDesign.accent(), alpha), FontWeight.HUD_ICONS);
         CustomFontRenderer.drawText(ctx, ClientLanguage.text("settings.hud.cooldowns.name", "Кулдауны"),
                 x + 51f * u, y + 11f * u, 16f * u,
                 RenderUtil.withAlpha(HudDesign.TEXT, alpha), FontWeight.MEDIUM);
@@ -128,15 +128,15 @@ public final class CooldownsHud extends HudElement {
             CustomFontRenderer.drawText(ctx, name, x + 44f * u, rowY + 4f * u,
                     14f * u, RenderUtil.withAlpha(HudDesign.TEXT, rowAlpha), FontWeight.MEDIUM);
             RenderUtil.drawRoundedRect(ctx, timerX, rowY, timerW, 22f * u, 6f * u,
-                    RenderUtil.withAlpha(HudDesign.ACCENT, rowAlpha * 0.20f));
+                    RenderUtil.withAlpha(HudDesign.accent(), rowAlpha * 0.20f));
             if (timer == null) {
                 CustomFontRenderer.drawCenteredText(ctx, time, timerX + timerW * 0.5f,
                         rowY + 3f * u, 13.6f * u,
-                        RenderUtil.withAlpha(HudDesign.ACCENT, rowAlpha), FontWeight.MEDIUM);
+                        RenderUtil.withAlpha(HudDesign.accent(), rowAlpha), FontWeight.MEDIUM);
             } else {
                 timer.drawCentered(ctx, timerX + timerW * 0.5f, rowY + 3f * u,
                         timerW - 4f * u, 13.6f * u, rowAlpha,
-                        HudDesign.ACCENT, FontWeight.MEDIUM);
+                        HudDesign.accent(), FontWeight.MEDIUM);
             }
         }
         ctx.draw();

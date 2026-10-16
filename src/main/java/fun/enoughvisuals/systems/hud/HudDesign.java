@@ -7,8 +7,6 @@ import fun.enoughvisuals.utils.render.blur.GlassUtil;
 /** Pixel constants shared by the Figma Main/HUD implementation. */
 public final class HudDesign {
     private static final float ROUNDER_HUD_EXPONENT = 2.35f;
-    public static final int ACCENT = 0xFF7F94DD;
-    public static final int ACCENT_SOFT = 0x337F94DD;
     public static final int PANEL = 0xFF121214;
     public static final int ITEM_SLOT_COLOR = 0xFF121214;
     public static final int ITEM_SLOT_OUTLINE = 0xFF2A2A2E;
@@ -19,9 +17,18 @@ public final class HudDesign {
     public static final int ROW_MARK = 0xFF29292C;
     public static final int TEXT = 0xFFFFFFFF;
     public static final int TEXT_DIM = 0xFF8D8D94;
+    /** Secondary text one step brighter than {@link #TEXT_DIM}. */
+    public static final int TEXT_SOFT = 0xFFC3C3CB;
+    /** Background track of bars and toggles. */
+    public static final int TRACK = 0xFF2A2A2E;
     public static final int DANGER = 0xFFED2E2E;
 
     private HudDesign() {
+    }
+
+    /** HUD accent follows the ClickGUI theme so both read as one interface. */
+    public static int accent() {
+        return fun.enoughvisuals.systems.modules.modules.client.CustomTheme.hudAccent();
     }
 
     public static float rounderHudExponent() {
@@ -106,7 +113,7 @@ public final class HudDesign {
     public static void drawKeycap(net.minecraft.client.gui.DrawContext ctx,
                                   float x, float y, float size, float alpha) {
         RenderUtil.drawRoundedRect(ctx, x, y, size, size, 3f,
-                RenderUtil.withAlpha(ACCENT, alpha * 0.20f));
+                RenderUtil.withAlpha(accent(), alpha * 0.20f));
     }
 
     /**

@@ -87,7 +87,7 @@ public final class CustomHotbarRenderer {
 
                 float selectionX = baseX + selectedPosition * STEP;
                 HudDesign.drawRounderRect(context, selectionX, baseY, SLOT, SLOT, RADIUS,
-                        RenderUtil.withAlpha(HudDesign.ACCENT, 0.18f));
+                        RenderUtil.withAlpha(HudDesign.accent(), 0.18f));
             } finally {
                 if (depthTest) RenderSystem.enableDepthTest();
             }
@@ -188,6 +188,6 @@ public final class CustomHotbarRenderer {
         drawSlot(context, x, y, 1f);
         RenderUtil.drawCrispSquircleProgressOutline(context, x + 1.25f, y + 1.25f,
                 SLOT - 2.5f, SLOT - 2.5f, RADIUS - 0.75f,
-                1.15f, MathHelper.clamp(progress, 0f, 1f), HudDesign.ACCENT);
+                1.15f, MathHelper.clamp(progress, 0f, 1f), HudDesign.accent());
     }
 }

@@ -163,7 +163,7 @@ public final class WatermarkHud extends HudElement {
                 TOP_HEIGHT * s, 16f * s, alpha);
         HudDesign.drawRounderRect(ctx, x, y, 22f * s, TOP_HEIGHT * s,
                 16f * s, 0f, 0f, 16f * s,
-                RenderUtil.withAlpha(0xFF18181B, alpha * 0.72f));
+                RenderUtil.withAlpha(HudDesign.PANEL, alpha * 0.72f));
         drawIcon(ctx, HudIcons.LOGO, x + 6.5f * s, y + 6.2f * s, 10f * s, alpha);
 
         drawIcon(ctx, HudIcons.USER, x + 28.5f * s, y + 7f * s, 8f * s, alpha);
@@ -181,14 +181,14 @@ public final class WatermarkHud extends HudElement {
         float fpsWidth = fpsValue.draw(ctx, fpsX, y + 6.75f * s,
                 (23f + fpsExtraWidth) * s, FONT_SIZE * s, alpha, HudDesign.TEXT, FontWeight.MEDIUM);
         drawText(ctx, "FPS", fpsX + fpsWidth, y + 6.75f * s, FONT_SIZE * s,
-                HudDesign.ACCENT, alpha);
+                HudDesign.accent(), alpha);
 
         drawIcon(ctx, HudIcons.PING, x + (191f + serverExtraWidth + fpsExtraWidth) * s, y + 7f * s, 8f * s, alpha);
         float pingX = x + (201f + serverExtraWidth + fpsExtraWidth) * s;
         float pingWidth = pingValue.draw(ctx, pingX, y + 6.75f * s,
                 (14f + pingExtraWidth) * s, FONT_SIZE * s, alpha, HudDesign.TEXT, FontWeight.MEDIUM);
         drawText(ctx, "MS", pingX + pingWidth, y + 6.75f * s, FONT_SIZE * s,
-                HudDesign.ACCENT, alpha);
+                HudDesign.accent(), alpha);
 
         float lowerX = x + (topWidth - lowerWidth) * 0.5f * s;
         float lowerY = y + LOWER_Y * s;
@@ -220,18 +220,18 @@ public final class WatermarkHud extends HudElement {
         float bpsWidth = speedValue.draw(ctx, bpsX, lowerY + 6.75f * s,
                 bpsClipWidth, FONT_SIZE * s, alpha, HudDesign.TEXT, FontWeight.MEDIUM);
         drawText(ctx, "BPS", bpsX + bpsWidth, lowerY + 6.75f * s, FONT_SIZE * s,
-                HudDesign.ACCENT, alpha);
+                HudDesign.accent(), alpha);
     }
 
     private void drawCoordinates(DrawContext ctx, float x, float y, float s, float alpha) {
         float cursor = x;
-        cursor = drawText(ctx, "x:", cursor, y, FONT_SIZE * s, HudDesign.ACCENT, alpha) + 1.5f * s;
+        cursor = drawText(ctx, "x:", cursor, y, FONT_SIZE * s, HudDesign.accent(), alpha) + 1.5f * s;
         cursor += xValue.draw(ctx, cursor, y, Math.max(xValue.width(FONT_SIZE * s, FontWeight.MEDIUM), xValue.layoutWidth(FONT_SIZE * s, FontWeight.MEDIUM)), FONT_SIZE * s, alpha, HudDesign.TEXT, FontWeight.MEDIUM);
         cursor += 2.5f * s;
-        cursor = drawText(ctx, "y:", cursor, y, FONT_SIZE * s, HudDesign.ACCENT, alpha) + 1.5f * s;
+        cursor = drawText(ctx, "y:", cursor, y, FONT_SIZE * s, HudDesign.accent(), alpha) + 1.5f * s;
         cursor += yValue.draw(ctx, cursor, y, Math.max(yValue.width(FONT_SIZE * s, FontWeight.MEDIUM), yValue.layoutWidth(FONT_SIZE * s, FontWeight.MEDIUM)), FONT_SIZE * s, alpha, HudDesign.TEXT, FontWeight.MEDIUM);
         cursor += 2.5f * s;
-        cursor = drawText(ctx, "z:", cursor, y, FONT_SIZE * s, HudDesign.ACCENT, alpha) + 1.5f * s;
+        cursor = drawText(ctx, "z:", cursor, y, FONT_SIZE * s, HudDesign.accent(), alpha) + 1.5f * s;
         zValue.draw(ctx, cursor, y, Math.max(zValue.width(FONT_SIZE * s, FontWeight.MEDIUM), zValue.layoutWidth(FONT_SIZE * s, FontWeight.MEDIUM)), FONT_SIZE * s, alpha, HudDesign.TEXT, FontWeight.MEDIUM);
     }
 
@@ -279,13 +279,13 @@ public final class WatermarkHud extends HudElement {
     private static void drawIcon(DrawContext ctx, String icon, float x, float y,
                                  float size, float alpha) {
         CustomFontRenderer.drawText(ctx, icon, x, y, size,
-                RenderUtil.withAlpha(HudDesign.ACCENT, alpha), FontWeight.HUD_ICONS);
+                RenderUtil.withAlpha(HudDesign.accent(), alpha), FontWeight.HUD_ICONS);
     }
 
     private static void drawVerticalDivider(DrawContext ctx, float x, float y,
                                             float height, float s, float alpha) {
         RenderUtil.drawRoundedRect(ctx, x, y, 1f * s, height, 0.5f * s,
-                RenderUtil.withAlpha(0xFF2D2D2F, alpha));
+                RenderUtil.withAlpha(HudDesign.DIVIDER, alpha));
     }
 
     private static String userName(MinecraftClient client) {

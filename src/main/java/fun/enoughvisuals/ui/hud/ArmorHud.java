@@ -79,9 +79,9 @@ public final class ArmorHud extends HudElement {
                                        float width, float height, float alpha) {
         if (!stack.isDamageable() || stack.getMaxDamage() <= 0) return;
         float remaining = 1f - stack.getDamage() / (float) stack.getMaxDamage();
-        int color = remaining < 0.22f ? HudDesign.DANGER : HudDesign.ACCENT;
+        int color = remaining < 0.22f ? HudDesign.DANGER : HudDesign.accent();
         RenderUtil.drawRoundedRect(ctx, x, y, width, height, height * 0.5f,
-                RenderUtil.withAlpha(0xFF2B2C31, alpha * 0.72f));
+                RenderUtil.withAlpha(HudDesign.TRACK, alpha * 0.72f));
         RenderUtil.drawRoundedRect(ctx, x, y, width * Math.max(0f, remaining), height, height * 0.5f,
                 RenderUtil.withAlpha(color, alpha));
     }

@@ -149,13 +149,13 @@ public final class NotificationHud extends HudElement {
         float radius = 9f * s;
         HudDesign.drawRounderPanel(ctx, x, y, width, ROW_HEIGHT * s, radius, alpha);
         HudDesign.drawRounderOutline(ctx, x, y, width, ROW_HEIGHT * s, radius,
-                0.5f * s, RenderUtil.withAlpha(0xFF1B1B1C, alpha));
+                0.5f * s, RenderUtil.withAlpha(HudDesign.DIVIDER, alpha));
         HudDesign.drawRounderRect(ctx, x + 30f * s, y + 5f * s,
                 0.8f * s, 13f * s, 0.4f * s,
                 RenderUtil.withAlpha(HudDesign.DIVIDER, alpha * 0.82f));
 
         int iconColor = notification.type() == Type.WARNING
-                ? HudDesign.DANGER : HudDesign.ACCENT;
+                ? HudDesign.DANGER : HudDesign.accent();
         boolean compactModuleIcon = notification.type() == Type.MODULE_ENABLED
                 || notification.type() == Type.MODULE_DISABLED;
         float iconSize = compactModuleIcon ? 11f * s : 14f * s;
@@ -199,7 +199,7 @@ public final class NotificationHud extends HudElement {
                                    boolean enabled, float s, float alpha) {
         float width = TOGGLE_WIDTH * s;
         float height = TOGGLE_HEIGHT * s;
-        int trackColor = enabled ? HudDesign.ACCENT : 0xFF34343A;
+        int trackColor = enabled ? HudDesign.accent() : HudDesign.TRACK;
         drawCapsule(ctx, x, y, width, height,
                 RenderUtil.withAlpha(trackColor, alpha * (enabled ? 0.84f : 0.88f)));
         drawCapsuleOutline(ctx, x, y, width, height, 0.45f * s,
@@ -246,7 +246,7 @@ public final class NotificationHud extends HudElement {
         module = CustomFontRenderer.trimToWidth(module,
                 Math.max(8f, maxWidth - suffixWidth), size, FontWeight.MEDIUM);
         CustomFontRenderer.drawText(ctx, module, x, y, size,
-                RenderUtil.withAlpha(HudDesign.ACCENT, alpha), FontWeight.MEDIUM);
+                RenderUtil.withAlpha(HudDesign.accent(), alpha), FontWeight.MEDIUM);
         float moduleWidth = CustomFontRenderer.getTextWidth(module, size, FontWeight.MEDIUM);
         CustomFontRenderer.drawText(ctx, suffix, x + moduleWidth, y, size,
                 RenderUtil.withAlpha(HudDesign.TEXT_DIM, alpha), FontWeight.MEDIUM);
@@ -276,7 +276,7 @@ public final class NotificationHud extends HudElement {
                 RenderUtil.withAlpha(HudDesign.TEXT, alpha), FontWeight.MEDIUM);
         float prefixWidth = CustomFontRenderer.getTextWidth(prefix, size, FontWeight.MEDIUM);
         CustomFontRenderer.drawText(ctx, tail, x + prefixWidth, y, size,
-                RenderUtil.withAlpha(0xFF9B9B9F, alpha), FontWeight.MEDIUM);
+                RenderUtil.withAlpha(HudDesign.TEXT_DIM, alpha), FontWeight.MEDIUM);
     }
 
     private static void drawTextOrMarquee(DrawContext ctx, String text, float x, float y,

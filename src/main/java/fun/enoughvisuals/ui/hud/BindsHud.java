@@ -87,7 +87,7 @@ public final class BindsHud extends HudElement {
         HudDesign.drawRounderPanel(ctx, x, y, w, h, 23f * u, alpha);
         RenderUtil.enableScissor(x, y, w, h);
         CustomFontRenderer.drawText(ctx, HudIcons.KEYBOARD, x + 16f * u, y + 6f * u,
-                30f * u, RenderUtil.withAlpha(HudDesign.ACCENT, alpha), FontWeight.HUD_ICONS);
+                30f * u, RenderUtil.withAlpha(HudDesign.accent(), alpha), FontWeight.HUD_ICONS);
         CustomFontRenderer.drawText(ctx, ClientLanguage.text("ui.hud.binds", "Бинды"), x + 55f * u, y + 11f * u,
                 16f * u, RenderUtil.withAlpha(HudDesign.TEXT, alpha), FontWeight.MEDIUM);
         // y + 41u remains the collapse guide; the divider itself is intentionally invisible.
@@ -121,10 +121,10 @@ public final class BindsHud extends HudElement {
                     14f * u, RenderUtil.withAlpha(HudDesign.TEXT, rowAlpha), FontWeight.MEDIUM);
 
             RenderUtil.drawRoundedRect(ctx, capX, rowY, capW, capH,
-                    6f * u, RenderUtil.withAlpha(HudDesign.ACCENT, rowAlpha * 0.20f));
+                    6f * u, RenderUtil.withAlpha(HudDesign.accent(), rowAlpha * 0.20f));
             CustomFontRenderer.drawCenteredText(ctx, line.key(), capX + capW * 0.5f,
                     rowY + 2f * u, 14f * u,
-                    RenderUtil.withAlpha(HudDesign.ACCENT, rowAlpha), FontWeight.MEDIUM);
+                    RenderUtil.withAlpha(HudDesign.accent(), rowAlpha), FontWeight.MEDIUM);
             ctx.getMatrices().pop();
         }
         RenderUtil.disableScissor();
