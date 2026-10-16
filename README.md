@@ -86,4 +86,4 @@ libs/                        локальные зависимости (MCEF, Pu
 
 ## Лицензия
 
-См. [LICENSE.txt](LICENSE.txt). Сторонние компоненты (Solar Icons, FunTimeEventsSDK, MCEF, Punchy) распространяются на условиях своих лицензий.
+Проект распространяется под [GNU GPL v3](LICENSE). Сторонние компоненты (Solar Icons, FunTimeEventsSDK, MCEF, Punchy) распространяются на условиях своих лицензий.
