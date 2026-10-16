@@ -52,11 +52,11 @@ jobs:
           test -f "$jar" || { echo "Missing $jar"; ls build/libs; exit 1; }
           cp "$jar" "${{ steps.meta.outputs.asset }}"
           # Release notes: the matching "## <version>" section of CHANGELOG.md.
-          awk -v v="${{ steps.meta.outputs.version }}" '
+          tr -d '' < CHANGELOG.md | awk -v v="${{ steps.meta.outputs.version }}" '
             $0 ~ "^## " v "([ ]|$)" { on = 1; next }
             on && /^## / { exit }
             on { print }
-          ' CHANGELOG.md > notes.md
+          ' > notes.md
           [ -s notes.md ] || echo "EnoughVisuals ${{ steps.meta.outputs.version }}" > notes.md
           {
             echo
