@@ -46,6 +46,7 @@ public final class CustomMainMenuScreen extends Screen {
     private boolean firstVisibleAnimation = true;
     private long pendingAnimationDelayMs;
     private boolean suppressNextIntro;
+    private boolean backdropMode;
     private float screenScale = 1.0f;
     private float virtualWidth;
     private float virtualHeight;
@@ -135,12 +136,12 @@ public final class CustomMainMenuScreen extends Screen {
         ctx.getMatrices().translate(0.0f, yOffset, 0.0f);
         renderHeader(ctx, scale, alpha, animation.openProgress());
         for (int i = 0; i < buttons.size(); i++) {
-            float buttonAlpha = alpha * animation.buttonAlpha(i);
+            float buttonAlpha = animation.buttonAlpha(i);
             float appear = animation.buttonProgress(i);
             buttons.get(i).render(ctx, scale, buttonAlpha, appear);
         }
-        renderBackgroundPickerButton(ctx, virtualMouseX, virtualMouseY, scale, alpha);
-        renderSocialButtons(ctx, virtualMouseX, virtualMouseY - yOffset, scale, alpha);
+        renderBackgroundPickerButton(ctx, virtualMouseX, virtualMouseY, scale, 1f);
+        renderSocialButtons(ctx, virtualMouseX, virtualMouseY - yOffset, scale, 1f);
         ctx.getMatrices().pop();
     }
 
@@ -152,9 +153,24 @@ public final class CustomMainMenuScreen extends Screen {
         float rowY = virtualHeight * 0.5f - 4f * scale
                 + (fullH + 4f * scale) * 3f + 1f * scale;
         float y = rowY + fullH + 7f * scale;
-        renderSocialButton(ctx, SolarIcons.DISCORD, x, y, size, mouseX, mouseY, alpha, discordHover, 10.2f);
-        renderSocialButton(ctx, SolarIcons.TELEGRAM, x + size + gap, y, size, mouseX, mouseY, alpha, telegramHover, 10.4f);
-        renderLanguageButton(ctx, x + (size + gap) * 2f, y, size, mouseX, mouseY, alpha);
+        float discord = itemProgress(5);
+        float telegram = itemProgress(6);
+        float language = itemProgress(7);
+        renderSocialButton(ctx, SolarIcons.DISCORD, x, y + rise(discord, scale), size,
+                mouseX, mouseY, alpha * discord, discordHover, 10.2f);
+        renderSocialButton(ctx, SolarIcons.TELEGRAM, x + size + gap, y + rise(telegram, scale), size,
+                mouseX, mouseY, alpha * telegram, telegramHover, 10.4f);
+        renderLanguageButton(ctx, x + (size + gap) * 2f, y + rise(language, scale), size,
+                mouseX, mouseY, alpha * language);
+    }
+
+    /** Element progress, or fully shown while a picker draws the menu as its backdrop. */
+    private float itemProgress(int index) {
+        return backdropMode ? 1f : animation.buttonProgress(index);
+    }
+
+    private static float rise(float progress, float scale) {
+        return MainMenuAnimation.rise(progress, MainMenuAnimation.ITEM_RISE, scale);
     }
 
     private void renderLanguageButton(DrawContext ctx, float x, float y, float size,
@@ -215,6 +231,9 @@ public final class CustomMainMenuScreen extends Screen {
         float x = virtualWidth * 0.5f - w * 0.5f;
         float y = virtualHeight - 27f * scale;
         boolean hover = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+        float appear = itemProgress(8);
+        alpha *= appear;
+        y += rise(appear, scale);
         pickerHover.setTarget(hover ? 1f : 0f);
         float hoverValue = pickerHover.value();
         float grow = 1f + hoverValue * 0.026f;
@@ -249,6 +268,15 @@ public final class CustomMainMenuScreen extends Screen {
     }
 
     void renderBackgroundPickerBackdrop(DrawContext ctx) {
+        backdropMode = true;
+        try {
+            renderBackdrop(ctx);
+        } finally {
+            backdropMode = false;
+        }
+    }
+
+    private void renderBackdrop(DrawContext ctx) {
         RenderUtil.beginFrame();
         updateVirtualScreen();
         drawBackground(ctx);
@@ -283,11 +311,8 @@ public final class CustomMainMenuScreen extends Screen {
         float titleSize = 12.2f * scale;
         float lineGap = 0.2f * scale;
 
-        float grow = 1.3f - 0.3f * appear;
         ctx.getMatrices().push();
-        ctx.getMatrices().translate(centerX, centerY - 45.0f * scale, 0.0f);
-        ctx.getMatrices().scale(grow, grow, 1.0f);
-        ctx.getMatrices().translate(-centerX, -(centerY - 45.0f * scale), 0.0f);
+        ctx.getMatrices().translate(0.0f, MainMenuAnimation.rise(appear, MainMenuAnimation.HEADER_RISE, scale), 0.0f);
         CustomFontRenderer.drawCenteredText(ctx,
                 ClientLanguage.text("ui.main_menu.greeting", "Давно не виделись, %s").formatted(username),
                 centerX,

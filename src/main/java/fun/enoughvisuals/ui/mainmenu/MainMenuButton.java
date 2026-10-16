@@ -50,10 +50,11 @@ public final class MainMenuButton {
         int hoverColor = active ? RenderUtil.lighten(ACTIVE, 0.08f) : HOVER;
         int bg = RenderUtil.withAlpha(RenderUtil.lerpColor(base, hoverColor, hoverValue), alpha * (active ? 0.98f : 0.92f));
         float radius = 6.0f * scale;
-        float appearScale = 1.3f - 0.3f * appear;
-        float grow = appearScale * (1.0f + hoverValue * 0.026f);
+        float grow = 1.0f + hoverValue * 0.025f;
+        float rise = MainMenuAnimation.rise(appear, MainMenuAnimation.ITEM_RISE, scale);
 
         ctx.getMatrices().push();
+        ctx.getMatrices().translate(0f, rise, 0f);
         ctx.getMatrices().translate(x + width * 0.5f, y + height * 0.5f, 0f);
         ctx.getMatrices().scale(grow, grow, 1f);
         ctx.getMatrices().translate(-(x + width * 0.5f), -(y + height * 0.5f), 0f);
