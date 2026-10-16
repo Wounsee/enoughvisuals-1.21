@@ -102,8 +102,14 @@ public final class ClientLanguage {
     private ClientLanguage() {
     }
 
+    /** Module names are product names: identical (English) in every language. */
     public static String moduleName(String moduleId, String fallback) {
-        return translate("modules." + moduleId + ".name", fallback);
+        String english = load(TRANSLATION_SOURCE).get("modules." + moduleId + ".name");
+        return english == null || english.isBlank() ? fallback : english;
+    }
+
+    private static boolean isModuleNameKey(String key) {
+        return key.startsWith("modules.") && key.endsWith(".name");
     }
 
     public static String moduleDescription(String moduleId, String fallback) {
@@ -167,6 +173,7 @@ public final class ClientLanguage {
         Map<String, String> target = load(active);
         Map<String, String> literals = new HashMap<>();
         for (String key : english.keySet()) {
+            if (isModuleNameKey(key)) continue;
             String translated = target.get(key);
             if (translated == null && !TRANSLATION_SOURCE.equals(active)) translated = english.get(key);
             if (translated == null || translated.isBlank()) continue;
@@ -175,6 +182,16 @@ public final class ClientLanguage {
             if (ru != null && !ru.isBlank()) literals.putIfAbsent(ru, translated);
             if (en != null && !en.isBlank()) literals.putIfAbsent(en, translated);
             literals.putIfAbsent(translated, translated);
+        }
+        // A module name drawn as a finished label must never be swapped for a
+        // setting that happens to share its English text ("Particles").
+        for (Map.Entry<String, String> entry : english.entrySet()) {
+            if (!isModuleNameKey(entry.getKey())) continue;
+            String name = entry.getValue();
+            if (name == null || name.isBlank()) continue;
+            literals.put(name, name);
+            String ru = russian.get(entry.getKey());
+            if (ru != null && !ru.isBlank()) literals.put(ru, name);
         }
         return Collections.unmodifiableMap(literals);
     }
@@ -260,6 +277,7 @@ public final class ClientLanguage {
     }
 
     private static String translateOrNull(String key) {
+        if (isModuleNameKey(key)) return load(TRANSLATION_SOURCE).get(key);
         String active = activeLanguageCode();
         String value = load(active).get(key);
         if (value != null) return value;

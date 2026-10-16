@@ -41,7 +41,7 @@
   "modules.friends.description": "GUI для списку друзів",
   "modules.configs.name": "Configs",
   "modules.configs.description": "GUI для конфігів",
-  "modules.gps.name": "Мітки",
+  "modules.gps.name": "Waypoints",
   "modules.gps.description": "GUI для GPS-міток",
   "modules.globals.name": "Globals",
   "modules.globals.description": "Показує користувачів EnoughVisuals в неймтегах та чаті",
