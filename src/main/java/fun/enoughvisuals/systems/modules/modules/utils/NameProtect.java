@@ -45,12 +45,13 @@ public class NameProtect extends Module {
         String result = text;
         String replacement = getMaskedName();
 
-        for (String rawName : collectOwnNames()) {
-            if (rawName == null || rawName.isBlank()) continue;
+        collectOwnNames();
+        for (int i = 0; i < cachedNameList.size(); i++) {
+            String rawName = cachedNameList.get(i);
             if (rawName.equalsIgnoreCase(replacement)) continue;
-
-            Pattern pattern = Pattern.compile(Pattern.quote(rawName), Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
-            result = pattern.matcher(result).replaceAll(replacement);
+            // Most strings never contain the name: skip the regex entirely for them.
+            if (!containsIgnoreCase(result, rawName)) continue;
+            result = cachedPatterns.get(i).matcher(result).replaceAll(java.util.regex.Matcher.quoteReplacement(replacement));
         }
 
         return result;
@@ -76,10 +77,37 @@ public class NameProtect extends Module {
         return toMutableText(replaced.chars).asOrderedText();
     }
 
+    private static String cachedNamesKey;
+    private static Set<String> cachedNames = Set.of();
+    private static List<String> cachedNameList = List.of();
+    private static List<Pattern> cachedPatterns = List.of();
+
+    private static boolean containsIgnoreCase(String text, String needle) {
+        int max = text.length() - needle.length();
+        for (int i = 0; i <= max; i++) {
+            if (text.regionMatches(true, i, needle, 0, needle.length())) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Own names change only on login or rename, while protect() runs for every
+     * drawn string; the set and its compiled patterns are rebuilt only then.
+     */
     private static Set<String> collectOwnNames() {
-        Set<String> names = new LinkedHashSet<>();
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null) return names;
+        if (mc == null) return Set.of();
+        String key;
+        try {
+            key = (mc.getSession() == null ? "" : mc.getSession().getUsername()) + '|'
+                    + (mc.player == null ? "" : mc.player.getGameProfile().getName() + '|'
+                    + mc.player.getName().getString());
+        } catch (Exception ignored) {
+            key = null;
+        }
+        if (key != null && key.equals(cachedNamesKey)) return cachedNames;
+
+        Set<String> names = new LinkedHashSet<>();
 
         try {
             if (mc.getSession() != null && mc.getSession().getUsername() != null) {
@@ -109,7 +137,16 @@ public class NameProtect extends Module {
                 finalNames.add(trimmed);
             }
         }
-        return finalNames;
+        List<String> list = new ArrayList<>(finalNames);
+        List<Pattern> patterns = new ArrayList<>(list.size());
+        for (String name : list) {
+            patterns.add(Pattern.compile(Pattern.quote(name), Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE));
+        }
+        cachedNameList = List.copyOf(list);
+        cachedPatterns = List.copyOf(patterns);
+        cachedNames = java.util.Collections.unmodifiableSet(finalNames);
+        cachedNamesKey = key;
+        return cachedNames;
     }
 
     private static List<StyledChar> fromText(Text text) {
