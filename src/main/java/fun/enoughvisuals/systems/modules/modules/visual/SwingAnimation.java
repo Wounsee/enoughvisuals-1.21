@@ -20,9 +20,6 @@ public final class SwingAnimation extends Module {
     public final SliderSetting speed=add(new SliderSetting("Скорость анимации","speed","",1.0,.1,3.0,.1));
     public final SliderSetting animationSize=add(new SliderSetting("Размер анимации","animation_size","",3.7,1.0,10.0,.1));
     public SwingAnimation(){INSTANCE=this;animationSize.visibleWhen(()->!mode.is("Off"));}
-    @Override protected void onEnable(){
-        if(BetterHands.INSTANCE!=null&&BetterHands.INSTANCE.isEnabled()) BetterHands.INSTANCE.disableSilent();
-    }
     public boolean shouldApplyAnimation(ItemStack stack){if(mode.is("Off")||stack==null||stack.isEmpty())return false;
         if(stack.isOf(Items.FILLED_MAP)||stack.isOf(Items.BOW)||stack.isOf(Items.CROSSBOW)||stack.isOf(Items.TRIDENT))return false;
         UseAction action=stack.getItem().getUseAction(stack);return action!=UseAction.EAT&&action!=UseAction.DRINK;}

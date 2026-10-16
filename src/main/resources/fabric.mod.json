@@ -17,9 +17,7 @@
     ]
   },
   "mixins": [
-    "enoughvisuals.mixins.json",
-    "punchy.mixins.json",
-    "punchy.compat.mixins.json"
+    "enoughvisuals.mixins.json"
   ],
   "jars": [
     {

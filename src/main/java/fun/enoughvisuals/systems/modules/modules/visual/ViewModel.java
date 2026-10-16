@@ -31,11 +31,6 @@ public class ViewModel extends Module {
         INSTANCE = this;
     }
 
-    @Override
-    protected boolean canEnable() {
-        return BetterHands.INSTANCE == null || !BetterHands.INSTANCE.isEnabled();
-    }
-
     public void applyTransform(MatrixStack matrices, Arm arm) {
         boolean isMain = arm == Arm.RIGHT;
 

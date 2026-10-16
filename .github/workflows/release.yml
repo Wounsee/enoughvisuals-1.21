@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # The embedded cosmetic build is launched through gradlew.bat.
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Read version
+        id: meta
+        run: |
+          version=$(sed -nE 's/.*VERSION *= *"([^"]+)".*/\1/p' src/main/java/fun/enoughvisuals/Info.java | head -n1)
+          minecraft=$(sed -nE 's/^minecraft_version=(.*)$/\1/p' gradle.properties | tr -d '\r')
+          [ -n "$version" ] && [ -n "$minecraft" ] || { echo "Cannot read version"; exit 1; }
+          tag="v$version"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "$tag" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match Info.VERSION ($version)"; exit 1
+          fi
+          {
+            echo "version=$version"
+            echo "minecraft=$minecraft"
+            echo "tag=$tag"
+            echo "asset=EnoughVisuals-$version-$minecraft-fabric.jar"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: ./gradlew remapJar --no-daemon --stacktrace
+
+      - name: Collect artifact
+        run: |
+          jar="build/libs/enoughvisuals-${{ steps.meta.outputs.version }}.jar"
+          test -f "$jar" || { echo "Missing $jar"; ls build/libs; exit 1; }
+          cp "$jar" "${{ steps.meta.outputs.asset }}"
+          # Release notes: the matching "## <version>" section of CHANGELOG.md.
+          awk -v v="${{ steps.meta.outputs.version }}" '
+            $0 ~ "^## " v "([ ]|$)" { on = 1; next }
+            on && /^## / { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "EnoughVisuals ${{ steps.meta.outputs.version }}" > notes.md
+          {
+            echo
+            echo "**Minecraft ${{ steps.meta.outputs.minecraft }} · Fabric Loader 0.18.4+ · Fabric API**"
+          } >> notes.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.asset }}
+          path: ${{ steps.meta.outputs.asset }}
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.meta.outputs.tag }}"
+          title="EnoughVisuals ${{ steps.meta.outputs.version }} — Minecraft ${{ steps.meta.outputs.minecraft }} (Fabric)"
+          asset="${{ steps.meta.outputs.asset }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$asset" --clobber
+            gh release edit "$tag" --title "$title" --notes-file notes.md
+          else
+            gh release create "$tag" "$asset" --target "$GITHUB_SHA" --title "$title" --notes-file notes.md
+          fi

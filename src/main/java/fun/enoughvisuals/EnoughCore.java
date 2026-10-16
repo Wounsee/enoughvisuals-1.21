@@ -127,7 +127,6 @@ public final class EnoughCore {
                 new NoRender(),
                 new SwingAnimation(),
                 new ViewModel(),
-                new BetterHands(),
                 new ShaderHands(),
                 new ShaderPlayer(),
                 new JumpCube(),

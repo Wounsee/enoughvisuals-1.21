@@ -39,17 +39,14 @@
 ```bash
 ./gradlew runClient      # запуск клиента в dev-окружении
 ./gradlew remapJar       # обычный jar: build/libs/enoughvisuals-<версия>.jar
-./gradlew build          # jar + защищённая сборка через EnoughGuard
 ./gradlew test           # юнит-тесты
 ```
 
-Перед первой сборкой проверьте локальные пути:
+Ключ FunTime Events (нужен только для запуска из IDE) не хранится в репозитории: задайте переменную `ENOUGH_FUNTIME_EVENTS_API_KEY` или положите `funtime.events.api-key` в `run/enoughvisuals-dev.properties`.
 
-| Что | Где задаётся |
-| --- | --- |
-| JDK для Gradle | `org.gradle.java.home` в `~/.gradle/gradle.properties` |
-| Обфускатор EnoughGuard (только для `build`) | `enoughGuardRoot` в `~/.gradle/gradle.properties` или переменная `ENOUGH_GUARD_ROOT` |
-| Исходный jar Punchy 2.6.2 | `punchySourceJar` в `~/.gradle/gradle.properties` или переменная `PUNCHY_SOURCE_JAR` |
+### Релизы
+
+Тег вида `v2.6` запускает GitHub Action (`.github/workflows/release.yml`): он собирает jar на Windows и публикует его в [Releases](../../releases). Вручную: вкладка Actions → Release → Run workflow.
 
 Версия мода берётся из `Info.VERSION` (`src/main/java/fun/enoughvisuals/Info.java`).
 
@@ -62,7 +59,6 @@ src/main/java/fun/enoughvisuals/
 ├── utils/        рендер (шейдеры, блюр, шрифты), звук, игрок, система
 ├── mixins/       миксины Minecraft
 └── port/         портированные эффекты и рендереры
-src/main/java/punchy/        встроенный Punchy (анимации)
 src/main/java/fun/wounsee/   мост косметики
 cosmetic-build/              вложенная сборка cosmetic-мода
 scripts/                     генерация шрифтовых атласов и иконок, тестовые скрипты
@@ -86,4 +82,4 @@ libs/                        локальные зависимости (MCEF, Pu
 
 ## Лицензия
 
-Проект распространяется под [GNU GPL v3](LICENSE). Сторонние компоненты (Solar Icons, FunTimeEventsSDK, MCEF, Punchy) распространяются на условиях своих лицензий.
+Проект распространяется под [GNU GPL v3](LICENSE). Сторонние компоненты (Solar Icons, FunTimeEventsSDK, MCEF) распространяются на условиях своих лицензий.

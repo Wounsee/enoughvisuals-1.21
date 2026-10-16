@@ -49,10 +49,6 @@ def funtimeEventsSdk = "com.github.Rizzener:FunTimeEventsSDK:v1.0.5"
 def discordPresence = "com.github.CrashSystemZ:jDRPC:v1.0.0"
 def pulseCosmeticsRuntimeJar = file("libs/pulse-cosmetics-local-1.21.4.jar")
 def mcefRuntimeJar = file("libs/mcef.jar")
-// Punchy 2.6.2 source jar: -PpunchySourceJar=..., PUNCHY_SOURCE_JAR, or libs/.
-def punchySourceJarPath = providers.gradleProperty("punchySourceJar")
-        .orElse(providers.environmentVariable("PUNCHY_SOURCE_JAR"))
-        .getOrElse("libs/punchy-2.6.2-fabric-1.21.5.jar")
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
@@ -75,19 +71,13 @@ dependencies {
     // Minecraft ships JNA at runtime; it is only needed to compile the WinRT
     // availability probe and must not be bundled into the mod.
     compileOnly "net.java.dev.jna:jna-platform:5.15.0"
-    // Punchy is compiled into EnoughVisuals. Its recovered sources use
-    // intermediary Minecraft names, so expose the matching 1.21.4 artifact to
-    // javac alongside Loom's named development jar.
-    compileOnly files(punchySourceJarPath)
     testImplementation platform("org.junit:junit-bom:5.11.4")
     testImplementation "org.junit.jupiter:junit-jupiter"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
 
-sourceSets.main.java.exclude "punchy/**"
 sourceSets.main.java.exclude "fun/wounsee/cosmetic/**"
-// Resource inputs are declared explicitly below so stale recovered Punchy
-// files in src/main/resources cannot shadow the deterministic generated copy.
+// Resource inputs are declared explicitly in processResources below.
 sourceSets.main.resources.setSrcDirs([])
 
 def cosmeticRuntimeDir = file("cosmetic-build")
@@ -123,93 +113,11 @@ tasks.matching { it.name == "runClient" || it.name == "generateRemapClasspath" }
     dependsOn tasks.named("buildEmbeddedCosmetic")
 }
 
-def punchySourceJar = file(punchySourceJarPath)
-def gradleCaches = new File(gradle.gradleUserHomeDir, "caches").absolutePath.replace(File.separator, "/") + "/"
-def punchyTargetMinecraftJar = file(
-        gradleCaches + "fabric-loom/minecraftMaven/net/minecraft/" +
-        "minecraft-merged-intermediary/1.21.4-net.fabricmc.yarn.1_21_4.1.21.4+build.2-v2/" +
-        "minecraft-merged-intermediary-1.21.4-net.fabricmc.yarn.1_21_4.1.21.4+build.2-v2.jar")
-def punchyFabricResourceLoaderJar = file(
-        gradleCaches + "modules-2/files-2.1/net.fabricmc.fabric-api/" +
-        "fabric-resource-loader-v0/3.1.1+360374ac04/" +
-        "37dede548214e182babb9f66cdb25b2b5871ccfb/" +
-        "fabric-resource-loader-v0-3.1.1+360374ac04.jar")
-def punchyToolClasspath = configurations.detachedConfiguration(
-        dependencies.create("org.ow2.asm:asm:9.9"),
-        dependencies.create("org.ow2.asm:asm-tree:9.9"),
-        dependencies.create("net.fabricmc:tiny-remapper:0.14.0"))
-def punchyToolClasses = layout.buildDirectory.dir("tools/punchy-compat")
-def generatedPunchyIntermediaryResources =
-        layout.buildDirectory.dir("generated/punchy-resources-intermediary")
-def generatedPunchyResources = layout.buildDirectory.dir("generated/punchy-resources-named")
-def yarnTinyMappings = file(
-        gradleCaches + "fabric-loom/1.21.4/" +
-        "net.fabricmc.yarn.1_21_4.1.21.4+build.2-v2/mappings.tiny")
-
-tasks.register("compilePunchyCompatPatcher", Exec) {
-    inputs.file("scripts/PunchyCompatPatcher.java")
-    inputs.file("scripts/PunchyNamespaceRemapper.java")
-    outputs.dir(punchyToolClasses)
-    doFirst {
-        delete(punchyToolClasses)
-        punchyToolClasses.get().asFile.mkdirs()
-    }
-    commandLine(
-            new File(System.getProperty("java.home"), "bin/javac.exe"),
-            "-cp", punchyToolClasspath.asPath,
-            "-d", punchyToolClasses.get().asFile,
-            file("scripts/PunchyCompatPatcher.java"),
-            file("scripts/PunchyNamespaceRemapper.java"))
-}
-
-tasks.register("preparePunchyIntermediaryResources", JavaExec) {
-    dependsOn tasks.named("compilePunchyCompatPatcher")
-    inputs.file(punchySourceJar)
-    inputs.file(punchyTargetMinecraftJar)
-    inputs.file("scripts/PunchyCompatPatcher.java")
-    outputs.dir(generatedPunchyIntermediaryResources)
-    classpath = files(punchyToolClasses, punchyToolClasspath)
-    mainClass = "PunchyCompatPatcher"
-    args "--prepare", punchySourceJar.absolutePath,
-            generatedPunchyIntermediaryResources.get().asFile.absolutePath,
-            punchyTargetMinecraftJar.absolutePath
-    doFirst {
-        delete(generatedPunchyIntermediaryResources)
-        generatedPunchyIntermediaryResources.get().asFile.mkdirs()
-    }
-}
-
-tasks.register("preparePunchyResources", JavaExec) {
-    dependsOn tasks.named("preparePunchyIntermediaryResources")
-    inputs.dir(generatedPunchyIntermediaryResources)
-    inputs.file(yarnTinyMappings)
-    inputs.file("scripts/PunchyNamespaceRemapper.java")
-    outputs.dir(generatedPunchyResources)
-    classpath = files(punchyToolClasses, punchyToolClasspath)
-    mainClass = "PunchyNamespaceRemapper"
-    args generatedPunchyIntermediaryResources.get().asFile.absolutePath,
-            generatedPunchyResources.get().asFile.absolutePath,
-            yarnTinyMappings.absolutePath,
-            files(punchyTargetMinecraftJar, punchyFabricResourceLoaderJar).asPath
-    doFirst {
-        delete(generatedPunchyResources)
-        generatedPunchyResources.get().asFile.mkdirs()
-    }
-}
-
 processResources {
-    dependsOn tasks.named("preparePunchyResources"), tasks.named("buildEmbeddedCosmetic")
+    dependsOn tasks.named("buildEmbeddedCosmetic")
     from("src/main/resources") {
         exclude "META-INF/jars/**"
-        exclude "punchy/**"
-        exclude "punchy.mixins.json"
-        exclude "punchy.compat.mixins.json"
-        exclude "assets/punchy/**"
-        exclude "assets/minecraft/textures/misc/powder_snow_outline.png"
-        exclude "resourcepacks/punchy/**"
-        exclude "META-INF/services/punchy.platform.services.*"
     }
-    from(generatedPunchyResources)
     from(embeddedCosmeticJar) {
         into "META-INF/jars"
         rename { "cosmetic.jar" }
@@ -269,9 +177,9 @@ java {
 
 jar {
     // MCEF starts its downloader before client entrypoints and before mixins on
-    // com.cinemamod.mcef.MCEF are guaranteed to be applied.  The protected
-    // loader exposes the outer mod manifest, not the nested mcef.jar manifest,
-    // so keep the pinned java-cef revision on the outer artifact as well.
+    // com.cinemamod.mcef.MCEF are guaranteed to be applied. Loaders that expose
+    // only the outer mod manifest, not the nested mcef.jar manifest, still need
+    // the pinned java-cef revision, so keep it on the outer artifact as well.
     manifest {
         attributes "java-cef-commit": "eaeb3d4370aa3526ee237ad1981ad59af3de4dd1"
     }
@@ -286,140 +194,6 @@ jar {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
-}
-
-// EnoughGuard path can be supplied through:
-//   gradle.properties: enoughGuardRoot=C:/path/to/EnoughGuard/obfuscator
-//   environment:       ENOUGH_GUARD_ROOT=C:/path/to/EnoughGuard/obfuscator
-// Keep machine-specific paths in ~/.gradle/gradle.properties, not in the repo.
-def enoughGuardRootPath = providers.gradleProperty("enoughGuardRoot")
-        .orElse(providers.environmentVariable("ENOUGH_GUARD_ROOT"))
-        .getOrElse("../EnoughGuard/obfuscator")
-def enoughGuardRoot = file(enoughGuardRootPath)
-def enoughGuardIsWindows = System.getProperty("os.name")
-        .toLowerCase()
-        .contains("windows")
-def enoughGuardWrapper = new File(
-        enoughGuardRoot,
-        enoughGuardIsWindows ? "gradlew.bat" : "gradlew")
-def enoughGuardCli = new File(
-        enoughGuardRoot,
-        "guard-cli/build/libs/guard-cli-0.1.0-all.jar")
-def enoughGuardProfile = new File(enoughGuardRoot, "profiles/enoughvisuals.yml")
-
-tasks.register("buildEnoughGuard", Exec) {
-    group = "build"
-    description = "Builds the standalone EnoughGuard CLI before protecting the mod"
-
-    inputs.files(fileTree(enoughGuardRoot) {
-        include "settings.gradle.kts"
-        include "build.gradle.kts"
-        include "gradle.properties"
-        include "gradle/wrapper/**"
-        include "gradlew"
-        include "gradlew.bat"
-        include "guard-core/build.gradle.kts"
-        include "guard-core/src/**"
-        include "guard-cli/build.gradle.kts"
-        include "guard-cli/src/**"
-    })
-    outputs.file(enoughGuardCli)
-
-    workingDir enoughGuardRoot
-
-    doFirst {
-        if (!enoughGuardRoot.isDirectory()) {
-            throw new GradleException(
-                    "EnoughGuard directory does not exist: ${enoughGuardRoot}. " +
-                            "Set enoughGuardRoot in gradle.properties or ENOUGH_GUARD_ROOT.")
-        }
-        if (!enoughGuardWrapper.isFile()) {
-            throw new GradleException(
-                    "EnoughGuard Gradle wrapper was not found: ${enoughGuardWrapper}")
-        }
-        if (!enoughGuardProfile.isFile()) {
-            throw new GradleException(
-                    "EnoughGuard profile was not found: ${enoughGuardProfile}")
-        }
-
-        // Build only the Java CLI needed by protectRelease. Do not invoke the
-        // root 'release' task: it also builds native-ui and therefore requires Rust/Cargo.
-        if (enoughGuardIsWindows) {
-            commandLine(
-                    "cmd", "/c",
-                    enoughGuardWrapper.absolutePath,
-                    ":guard-cli:uberJar",
-                    "--no-daemon")
-        } else {
-            commandLine(
-                    enoughGuardWrapper.absolutePath,
-                    ":guard-cli:uberJar",
-                    "--no-daemon")
-        }
-    }
-}
-def remappedReleaseJar =
-        layout.buildDirectory.file("libs/${project.archives_base_name}-${project.version}.jar")
-def protectedReleaseJar =
-        layout.buildDirectory.file(
-                "libs/${project.archives_base_name}-${project.version}-protected.jar")
-def protectionReport =
-        layout.buildDirectory.file(
-                "reports/enoughguard/${project.archives_base_name}-${project.version}.json")
-def punchyLinkageReport =
-        layout.buildDirectory.file("reports/punchy/remapped-linkage-errors.txt")
-
-tasks.register("auditPunchy1214", JavaExec) {
-    dependsOn tasks.named("remapJar"), tasks.named("compilePunchyCompatPatcher")
-    inputs.file(remappedReleaseJar)
-    inputs.file(punchyTargetMinecraftJar)
-    outputs.file(punchyLinkageReport)
-    classpath = files(punchyToolClasses, punchyToolClasspath)
-    mainClass = "PunchyCompatPatcher"
-    doFirst { punchyLinkageReport.get().asFile.parentFile.mkdirs() }
-    args "--audit-jar", remappedReleaseJar.get().asFile.absolutePath,
-            punchyTargetMinecraftJar.absolutePath,
-            punchyLinkageReport.get().asFile.absolutePath
-}
-
-tasks.register("protectRelease", Exec) {
-    group = "build"
-    description = "Builds the launcher-only EnoughGuard production artifact"
-    dependsOn tasks.named("auditPunchy1214"), tasks.named("buildEnoughGuard")
-    inputs.file(remappedReleaseJar)
-    inputs.file(enoughGuardCli)
-    inputs.file(enoughGuardProfile)
-    outputs.file(protectedReleaseJar)
-    outputs.file(protectionReport)
-
-    doFirst {
-        if (!enoughGuardCli.isFile()) {
-            throw new GradleException(
-                    "EnoughGuard CLI was not produced: ${enoughGuardCli}")
-        }
-        if (!enoughGuardProfile.isFile()) {
-            throw new GradleException(
-                    "EnoughGuard profile was not found: ${enoughGuardProfile}")
-        }
-        protectionReport.get().asFile.parentFile.mkdirs()
-        commandLine(
-                new File(System.getProperty("java.home"), "bin/java.exe"),
-                "-jar",
-                enoughGuardCli,
-                "protect",
-                "--input",
-                remappedReleaseJar.get().asFile,
-                "--output",
-                protectedReleaseJar.get().asFile,
-                "--config",
-                enoughGuardProfile,
-                "--report",
-                protectionReport.get().asFile)
-    }
-}
-
-tasks.named("build") {
-    dependsOn tasks.named("protectRelease")
 }
 
 publishing {

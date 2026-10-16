@@ -69,8 +69,7 @@
       "minecraft.client.network.ClientPlayerInteractionManagerMixin",
       "compat.McefCommitMixin",
       "compat.McefCommandLineMixin",
-      "compat.McefSettingsMixin",
-      "compat.PunchyConfigMixin"
+      "compat.McefSettingsMixin"
     ],
     "injectors":  {
       "defaultRequire":  1
