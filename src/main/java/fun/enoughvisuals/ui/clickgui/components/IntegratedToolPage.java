@@ -6,7 +6,7 @@ import fun.enoughvisuals.systems.friends.FriendRepo;
 import fun.enoughvisuals.systems.gps.GpsSystem;
 import fun.enoughvisuals.systems.gps.GpsSystem.WaypointView;
 import fun.enoughvisuals.systems.inventory.InventoryLayoutManager;
-import fun.enoughvisuals.systems.network.HolyWorldFeatureControl;
+import fun.enoughvisuals.utils.player.ServerRestrictions;
 import fun.enoughvisuals.systems.inventory.InventoryLayoutManager.LayoutView;
 import fun.enoughvisuals.systems.modules.modules.utils.Macros;
 import fun.enoughvisuals.ui.clickgui.MenuScreen;
@@ -62,8 +62,8 @@ public final class IntegratedToolPage {
                 case CONFIGS -> "tool:configs";
                 case FRIENDS -> "tool:friends";
                 case GPS -> "tool:gps";
-                case MACROS -> "tool:macros";
-                case INVENTORIES -> HolyWorldFeatureControl.INVENTORY_MANAGER;
+                case MACROS -> ServerRestrictions.MACROS_TOOL;
+                case INVENTORIES -> "tool:inventory_manager";
                 case COSMETICS -> "tool:cosmetics";
                 case EVENTS -> "tool:events";
             };
@@ -114,7 +114,7 @@ public final class IntegratedToolPage {
     }
 
     public void activate(Type next) {
-        if (next == null || HolyWorldFeatureControl.getInstance().isToolBlocked(next.featureId())) return;
+        if (next == null || ServerRestrictions.isToolBlocked(next.featureId())) return;
         if (type != next) {
             if (type == Type.COSMETICS) cosmeticsPage.deactivate();
             type = next;

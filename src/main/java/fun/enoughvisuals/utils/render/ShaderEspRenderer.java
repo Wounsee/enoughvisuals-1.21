@@ -99,6 +99,11 @@ public final class ShaderEspRenderer {
                 depthCopied = true;
             }
 
+            // Entity layers bind MinecraftClient#getFramebuffer when they flush. Held items and
+            // armor use other layers, and switching layers flushes the model buffer mid-capture,
+            // so the mask must be the client framebuffer for the whole capture, not just the end.
+            ((MinecraftClientAccessor) client).enough$setFramebuffer(mask);
+            mainFramebufferSwapped = true;
             mask.beginWrite(false);
             RenderSystem.enableDepthTest();
             RenderSystem.depthFunc(GL11.GL_LEQUAL);
@@ -115,9 +120,6 @@ public final class ShaderEspRenderer {
                 feature.render(matrices, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE,
                         state, state.limbFrequency, state.limbAmplitudeMultiplier);
             }
-            // Entity layers write to MinecraftClient#getFramebuffer; point it at the mask while flushing.
-            ((MinecraftClientAccessor) client).enough$setFramebuffer(mask);
-            mainFramebufferSwapped = true;
             mask.beginWrite(false);
             consumers.draw();
             captured = true;

@@ -1,9 +1,8 @@
 package fun.enoughvisuals.systems.modules.api;
 
 import fun.enoughvisuals.systems.modules.Module;
-import fun.enoughvisuals.systems.network.HolyWorldFeatureControl;
 import fun.enoughvisuals.systems.network.RemoteConfig;
-import fun.enoughvisuals.utils.player.ServerScopeUtil;
+import fun.enoughvisuals.utils.player.ServerRestrictions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,8 +20,6 @@ public class ModuleManager {
     private final Map<Class<? extends Module>, Module> byClass = new LinkedHashMap<>();
 
     private boolean initialized = false;
-    private final Set<String> hiddenModules = new HashSet<>();
-    private ServerScopeUtil.Scope lastScope = ServerScopeUtil.Scope.FULL;
 
     private ModuleManager() {}
 
@@ -67,7 +64,6 @@ public class ModuleManager {
 
     public List<Module> getModules() {
         return modules.stream()
-                .filter(m -> !isHidden(m))
                 .filter(m -> !isBlocked(m))
                 .collect(Collectors.toUnmodifiableList());
     }
@@ -79,7 +75,6 @@ public class ModuleManager {
     public List<Module> getModulesByCategory(Category category) {
         return modules.stream()
                 .filter(m -> m.getCategory() == category)
-                .filter(m -> !isHidden(m))
                 .filter(m -> !isBlocked(m))
                 .collect(Collectors.toList());
     }
@@ -99,14 +94,7 @@ public class ModuleManager {
     }
 
     public void onTick() {
-        updateHiddenModules();
         for (Module mod : modules) {
-            if (isHidden(mod)) {
-                if (mod.isEnabled()) {
-                    try { mod.disableSilent(); } catch (Exception ignored) {}
-                }
-                continue;
-            }
             if (mod.isEnabled() && isBlocked(mod)) {
                 try { mod.disableSilent(); } catch (Exception ignored) {}
                 continue;
@@ -123,7 +111,6 @@ public class ModuleManager {
 
     public void onRender(float tickDelta) {
         for (Module mod : modules) {
-            if (isHidden(mod)) continue;
             if (mod.isEnabled() && !isBlocked(mod)) {
                 try {
                     mod.onRender(tickDelta);
@@ -137,7 +124,6 @@ public class ModuleManager {
     public void onKeyPress(int keyCode) {
         if (keyCode < 0) return;
         for (Module mod : modules) {
-            if (isHidden(mod)) continue;
             if (isBlocked(mod)) continue;
             try {
                 mod.onKeyPress(keyCode);
@@ -158,7 +144,6 @@ public class ModuleManager {
 
     public int enabledCount() {
         return (int) modules.stream()
-                .filter(m -> !isHidden(m))
                 .filter(Module::isEnabled)
                 .filter(m -> !isBlocked(m))
                 .count();
@@ -166,49 +151,18 @@ public class ModuleManager {
 
     public List<Module> getEnabledModules() {
         return modules.stream()
-                .filter(m -> !isHidden(m))
                 .filter(Module::isEnabled)
                 .filter(m -> !isBlocked(m))
                 .collect(Collectors.toList());
-    }
-
-    public boolean isHidden(Module module) {
-        return module != null && hiddenModules.contains(module.getId());
-    }
-
-    private void updateHiddenModules() {
-        ServerScopeUtil.Scope scope = ServerScopeUtil.getCurrentScope();
-        if (scope == lastScope) return;
-        lastScope = scope;
-        hiddenModules.clear();
-        hiddenModules.addAll(ServerScopeUtil.getHiddenModules());
-        for (Module mod : modules) {
-            if (isHidden(mod) && mod.isEnabled()) {
-                try { mod.disableSilent(); } catch (Exception ignored) {}
-            }
-        }
-        LOGGER.info("Server scope changed to {}. Hidden modules: {}", scope, hiddenModules);
     }
 
     public boolean isBlocked(Module module) {
         if (module == null) return false;
         try {
             return RemoteConfig.getInstance().isModuleBlocked(module.getId())
-                    || HolyWorldFeatureControl.getInstance().isModuleBlocked(module);
+                    || ServerRestrictions.isModuleBlocked(module);
         } catch (Throwable t) {
             return false;
-        }
-    }
-
-    public void applyFeatureRestrictions() {
-        for (Module module : modules) {
-            if (isBlocked(module) && module.isEnabled()) {
-                try {
-                    module.disableSilent();
-                } catch (RuntimeException exception) {
-                    LOGGER.warn("Failed to disable blocked module {}", module.getId(), exception);
-                }
-            }
         }
     }
 }

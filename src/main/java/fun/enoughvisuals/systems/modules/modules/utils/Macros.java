@@ -44,6 +44,7 @@ public class Macros extends Module {
 
     public static void onKey(int key) {
         if (INSTANCE == null || !ClientActionUtil.inGame()) return;
+        if (fun.enoughvisuals.utils.player.ServerRestrictions.isRestrictedServer()) return;
         if (INSTANCE.openMenuBind.isKey(key)) {
             INSTANCE.openMenu();
             return;

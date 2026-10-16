@@ -88,14 +88,6 @@ public class ServerUtil {
         return FUNTIME_EVENTS_HOST.matcher(getCurrentServerHost()).matches();
     }
 
-    public static boolean isFunTrainerServer() {
-        return hasServerSegment("funtrainer");
-    }
-
-    public static boolean isFillCubeServer() {
-        return hasServerSegment("fillcube");
-    }
-
     public static boolean isHolyWorldServer() {
         return hasServerSegment("holyworld");
     }
@@ -104,77 +96,8 @@ public class ServerUtil {
         return hasServerSegment("reallyworld");
     }
 
-    public static boolean isHolyOrReallyWorldServer() {
-        return isHolyWorldServer() || isReallyWorldServer();
-    }
-
     public static boolean isHolyWorldEventsServer() {
         return HOLYWORLD_HOST.matcher(getCurrentServerHost()).matches();
-    }
-
-    public static boolean isShiftTapSupported() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null) return false;
-        if (mc.isInSingleplayer()) return true;
-
-        return isFunTimeServer()
-                || hasServerSegment("funmoon")
-                || hasServerSegment("prostotrainer");
-    }
-
-    public static boolean isAutoSwapSupported() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null) return false;
-        if (mc.isInSingleplayer()) return true;
-
-        return hasServerSegment("funtime")
-                || hasServerSegment("funsky")
-                || hasServerSegment("holytime")
-                || hasServerSegment("spookytime")
-                || hasServerSegment("prostotrainer")
-                || hasServerSegment("funtrainer");
-    }
-
-    public static boolean isAutoPotionSupported() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null) return false;
-        if (mc.isInSingleplayer()) return true;
-
-        return hasServerSegment("funtime")
-                || hasServerSegment("funsky")
-                || hasServerSegment("holytime")
-                || hasServerSegment("space-times")
-                || hasServerSegment("spookytime")
-                || hasServerSegment("fillcube");
-    }
-
-    public static boolean isItemScrollerSupported() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null) return false;
-        if (mc.isInSingleplayer()) return true;
-
-        return hasServerSegment("funtime")
-                || hasServerSegment("holyworld")
-                || hasServerSegment("holytime")
-                || hasServerSegment("funsky")
-                || hasServerSegment("space-times")
-                || hasServerSegment("spookytime")
-                || hasServerSegment("stray")
-                || hasServerSegment("funmoon");
-    }
-
-    public static boolean isMouseClickerSupported() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null) return false;
-        if (mc.isInSingleplayer()) return true;
-
-        return hasServerSegment("funtime")
-                || hasServerSegment("funsky")
-                || hasServerSegment("holytime")
-                || hasServerSegment("space-times")
-                || hasServerSegment("spookytime")
-                || hasServerSegment("funmoon")
-                || hasServerSegment("fillcube");
     }
 
     public static String getServerAddress() {

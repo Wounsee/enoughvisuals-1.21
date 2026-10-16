@@ -10,7 +10,6 @@ import fun.enoughvisuals.systems.modules.modules.visual.*;
 import fun.enoughvisuals.systems.network.RemoteConfig;
 import fun.enoughvisuals.systems.network.DiscordPresenceService;
 import fun.enoughvisuals.systems.events.EventFeedService;
-import fun.enoughvisuals.systems.network.HolyWorldFeatureControl;
 import fun.enoughvisuals.ui.gate.GateScreen;
 import fun.enoughvisuals.ui.mainmenu.WindowTitleAnimator;
 import fun.enoughvisuals.ui.hud.BindsHud;
@@ -181,7 +180,6 @@ public final class EnoughCore {
         );
 
         manager.init();
-        HolyWorldFeatureControl.getInstance().initialize();
 
         WorldRenderEvents.BEFORE_ENTITIES.register(ShaderEspRenderer::beginWorldFrame);
         WorldRenderEvents.LAST.register(ShaderEspRenderer::renderInWorld);

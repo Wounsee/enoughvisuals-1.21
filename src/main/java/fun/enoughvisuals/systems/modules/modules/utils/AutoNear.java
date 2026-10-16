@@ -4,7 +4,6 @@ import fun.enoughvisuals.systems.modules.Module;
 import fun.enoughvisuals.systems.modules.api.Category;
 import fun.enoughvisuals.systems.modules.api.Register;
 import fun.enoughvisuals.systems.modules.settings.SliderSetting;
-import fun.enoughvisuals.utils.player.ServerUtil;
 import net.minecraft.client.MinecraftClient;
 
 @Register(name = "Auto Near", id = "autonear", description = "Автоматически отправляет команду /near max через заданный интервал", category = Category.UTILS)
@@ -24,16 +23,9 @@ public class AutoNear extends Module {
         return INSTANCE;
     }
 
-    private boolean isServerAllowed() {
-        if (mc.isInSingleplayer()) {
-            return true;
-        }
-        return ServerUtil.isFunTimeServer();
-    }
-
     @Override
     public void onTick() {
-        if (!isInGame() || mc.getNetworkHandler() == null || !isServerAllowed()) {
+        if (!isInGame() || mc.getNetworkHandler() == null) {
             return;
         }
 

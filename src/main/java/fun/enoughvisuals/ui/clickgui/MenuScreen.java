@@ -13,7 +13,7 @@ import fun.enoughvisuals.systems.modules.settings.BindSetting;
 import fun.enoughvisuals.systems.modules.settings.ColorSetting;
 import fun.enoughvisuals.ui.clickgui.components.ColorPickerPopup;
 import fun.enoughvisuals.ui.clickgui.components.IntegratedToolPage;
-import fun.enoughvisuals.systems.network.HolyWorldFeatureControl;
+import fun.enoughvisuals.utils.player.ServerRestrictions;
 import fun.enoughvisuals.ui.clickgui.components.ModuleCard;
 import fun.enoughvisuals.utils.font.CustomFontRenderer;
 import fun.enoughvisuals.utils.font.CustomFontRenderer.FontWeight;
@@ -99,7 +99,6 @@ public class MenuScreen extends Screen {
     private static final String ICON_SEARCH = SolarIcons.SEARCH;
     private static final Set<String> TOOL_MODULES = Set.of("configs", "friends", "gps", "macros");
     private final Category[] categories = Arrays.stream(Category.values())
-            .filter(category -> !HolyWorldFeatureControl.getInstance().isCategoryBlocked(category))
             .toArray(Category[]::new);
     private final Map<Module, ModuleCard> cardCache = new LinkedHashMap<>();
     private final List<ModuleCard> cards = new ArrayList<>();
@@ -801,7 +800,7 @@ public class MenuScreen extends Screen {
     }
 
     private static boolean isToolVisible(IntegratedToolPage.Type type) {
-        return !HolyWorldFeatureControl.getInstance().isToolBlocked(type.featureId());
+        return !ServerRestrictions.isToolBlocked(type.featureId());
     }
 
     private static List<IntegratedToolPage.Type> visibleTools() {
