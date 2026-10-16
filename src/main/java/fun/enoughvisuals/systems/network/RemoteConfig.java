@@ -65,6 +65,7 @@ public final class RemoteConfig {
     private volatile Set<String> enoughUsers = Collections.emptySet();
     private volatile Set<String> enoughUuids = Collections.emptySet();
     private volatile List<AutoServer> autoServers = Collections.emptyList();
+    private volatile boolean autoServersApplied;
     private volatile String launcherRole = "User";
 
     public record AutoServer(String name, String address) {
@@ -253,8 +254,12 @@ public final class RemoteConfig {
                 }
             }
         }
-        if (!servers.equals(autoServers)) {
+        // Only a response that actually carries the list may remove servers;
+        // the first one is applied even when empty so stale entries go away.
+        if (serverArray != null && serverArray.isJsonArray()
+                && (!autoServersApplied || !servers.equals(autoServers))) {
             autoServers = List.copyOf(servers);
+            autoServersApplied = true;
             AutoServerSync.apply(autoServers);
         }
 

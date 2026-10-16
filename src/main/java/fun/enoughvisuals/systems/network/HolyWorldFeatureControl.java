@@ -49,17 +49,12 @@ public final class HolyWorldFeatureControl {
             "tool:configs", "tool:friends", "tool:gps", "tool:macros", INVENTORY_MANAGER);
     private static final Set<String> LOCAL_COMPETITIVE_BLOCKLIST = Set.of(
             "friend_marker",
-            "glow_esp",
+            "shader_player",
             "hit_range",
-            "auto_eat",
-            "auto_resell",
             "auto_sprint",
             "item_swap",
-            "auto_potion",
             "fast_swap",
-            "fast_xp",
-            "item_scroller",
-            "shift_tap"
+            "item_scroller"
     );
 
     private final Set<String> pendingRequests = ConcurrentHashMap.newKeySet();

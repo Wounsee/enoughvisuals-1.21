@@ -21,21 +21,21 @@ import java.util.regex.Pattern;
 /**
  * Shared access to network operations normally owned by EnoughLauncher.
  *
- * <p>Production always uses the authenticated loopback bridge injected by the
- * protected loader. A direct backend request, or a developer-supplied provider
- * key, is accepted only when Fabric Loader marks the process as a development
- * environment (the normal Loom {@code runClient} path).
+ * <p>The authenticated loopback bridge injected by the protected loader is
+ * preferred. When it is unavailable (a plain built jar, or Loom's
+ * {@code runClient}) the client talks to the backend directly and reads the
+ * FunTime Events key from local, never-committed sources.
  */
 public final class LauncherNetworkClient {
     public static final String FUNTIME_EVENTS_BASE_URL = "https://api.funtimeevents.su/v1";
 
     private static final URI SYNC_ENDPOINT = URI.create("https://api.enoughvisuals.fun/v1/sync");
-    private static final String DEV_FUNTIME_KEY_ENV = "ENOUGH_FUNTIME_EVENTS_API_KEY";
-    private static final String DEV_FUNTIME_KEY_PROPERTY = "enoughvisuals.funtimeEvents.apiKey";
+    private static final String FUNTIME_KEY_ENV = "ENOUGH_FUNTIME_EVENTS_API_KEY";
+    private static final String FUNTIME_KEY_PROPERTY = "enoughvisuals.funtimeEvents.apiKey";
     private static final Pattern FUNTIME_HOST = Pattern.compile(
             "^(?:(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)*)funtime\\.(?:su|sh)$",
             Pattern.CASE_INSENSITIVE);
-    private static final HttpClient DEV_HTTP = HttpClient.newBuilder()
+    private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(8))
             .version(HttpClient.Version.HTTP_1_1)
             .build();
@@ -48,17 +48,19 @@ public final class LauncherNetworkClient {
         try {
             return bridgeRequest(body);
         } catch (Exception bridgeFailure) {
-            if (!isDevelopmentEnvironment()) {
-                throw bridgeFailure;
+            try {
+                return directSync(body);
+            } catch (Exception directFailure) {
+                directFailure.addSuppressed(bridgeFailure);
+                throw directFailure;
             }
-            return directDevelopmentSync(body);
         }
     }
 
     /**
      * Obtains the FunTime Events credential without embedding it in the mod.
-     * Production leases it through the authenticated launcher session; Loom
-     * runs may inject it through an environment variable or JVM property.
+     * The launcher session leases it when present; otherwise it comes from an
+     * environment variable, a JVM property or {@code enoughvisuals-dev.properties}.
      */
     public static String funtimeEventsApiKey(String serverHost) throws Exception {
         String host = serverHost == null ? "" : serverHost.trim().toLowerCase(Locale.ROOT);
@@ -72,16 +74,13 @@ public final class LauncherNetworkClient {
             request.addProperty("server", host);
             return parseFuntimeKey(bridgeRequest(request.toString()));
         } catch (Exception bridgeFailure) {
-            if (!isDevelopmentEnvironment()) {
-                throw bridgeFailure;
-            }
             String key = firstNonBlank(
-                    System.getenv(DEV_FUNTIME_KEY_ENV),
-                    firstNonBlank(System.getProperty(DEV_FUNTIME_KEY_PROPERTY), readDevelopmentKeyFile()));
+                    System.getenv(FUNTIME_KEY_ENV),
+                    firstNonBlank(System.getProperty(FUNTIME_KEY_PROPERTY), readLocalKeyFile()));
             if (key.isBlank()) {
                 throw new IllegalStateException(
-                        "FunTime Events development key is missing; set " + DEV_FUNTIME_KEY_ENV
-                                + " or -D" + DEV_FUNTIME_KEY_PROPERTY + " without committing the value",
+                        "FunTime Events key is missing; set " + FUNTIME_KEY_ENV
+                                + " or -D" + FUNTIME_KEY_PROPERTY + " without committing the value",
                         bridgeFailure);
             }
             return validateFuntimeKey(key);
@@ -105,16 +104,16 @@ public final class LauncherNetworkClient {
         }
     }
 
-    private static String directDevelopmentSync(String body) throws Exception {
+    private static String directSync(String body) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(SYNC_ENDPOINT)
                 .timeout(Duration.ofSeconds(10))
                 .header("Content-Type", "application/json")
-                .header("User-Agent", "EnoughVisuals/" + Info.VERSION + " (development)")
+                .header("User-Agent", "EnoughVisuals/" + Info.VERSION)
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
-        HttpResponse<String> response = DEV_HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() / 100 != 2) {
-            throw new IllegalStateException("development sync returned HTTP " + response.statusCode());
+            throw new IllegalStateException("backend sync returned HTTP " + response.statusCode());
         }
         return response.body();
     }
@@ -135,20 +134,8 @@ public final class LauncherNetworkClient {
         return key;
     }
 
-    private static boolean isDevelopmentEnvironment() {
-        try {
-            return FabricLoader.getInstance().isDevelopmentEnvironment();
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
-    /**
-     * Optional ignored run-directory secret used by Loom's runClient. It is
-     * deliberately unavailable in production and never packaged in the JAR.
-     */
-    private static String readDevelopmentKeyFile() {
-        if (!isDevelopmentEnvironment()) return "";
+    /** Optional git-ignored key file in the game directory; never packaged in the JAR. */
+    private static String readLocalKeyFile() {
         try {
             Path path = FabricLoader.getInstance().getGameDir().resolve("enoughvisuals-dev.properties");
             if (!Files.isRegularFile(path)) return "";

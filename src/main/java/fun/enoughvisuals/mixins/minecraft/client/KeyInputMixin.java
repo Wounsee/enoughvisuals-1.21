@@ -3,7 +3,6 @@ package fun.enoughvisuals.mixins.minecraft.client;
 import fun.enoughvisuals.mixins.accessors.GameOptionsAccessor;
 import fun.enoughvisuals.systems.gps.GpsSystem;
 import fun.enoughvisuals.systems.modules.api.ModuleManager;
-import fun.enoughvisuals.systems.modules.modules.utils.ClickPearl;
 import fun.enoughvisuals.systems.modules.modules.utils.FastSearch;
 import fun.enoughvisuals.systems.modules.modules.utils.FastSwap;
 import fun.enoughvisuals.systems.modules.modules.utils.ItemSwap;
@@ -75,7 +74,6 @@ public abstract class KeyInputMixin {
             FastSearch.onKey(key);
             Macros.onKey(key);
             FastSwap.onKey(key);
-            ClickPearl.onKey(key);
             ItemSwap.onKey(key);
             SpecBind.onKey(key);
             SendCord.onKey(key);

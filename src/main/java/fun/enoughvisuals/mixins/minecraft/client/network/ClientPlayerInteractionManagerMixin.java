@@ -3,7 +3,6 @@ package fun.enoughvisuals.mixins.minecraft.client.network;
 import fun.enoughvisuals.systems.modules.modules.utils.LockSlot;
 import fun.enoughvisuals.systems.modules.modules.utils.PvPSave;
 import fun.enoughvisuals.systems.modules.modules.utils.FakePlayer;
-import fun.enoughvisuals.systems.modules.modules.utils.ShiftTap;
 import fun.enoughvisuals.systems.modules.modules.utils.TrapTimer;
 import fun.enoughvisuals.systems.modules.modules.visual.HealthIndicator;
 import fun.enoughvisuals.systems.modules.modules.visual.AttackEffect;
@@ -35,7 +34,6 @@ public class ClientPlayerInteractionManagerMixin {
         PvPSave.recordAttack(target);
         CombatSoundService.recordAttackTarget(target);
         TargetESP.onAttackAttempt(target);
-        ShiftTap.onAttack();
 
         if (target instanceof PlayerEntity victim) {
             HealthIndicator indicator = HealthIndicator.getInstance();

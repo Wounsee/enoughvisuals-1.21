@@ -75,7 +75,7 @@ public class FakePlayer extends Module {
 
     public static boolean handleLocalAttack(Entity target) {
         FakePlayer module = INSTANCE;
-        if (module == null || !module.isEnabled()) return false;
+        if (module == null || !module.isEnabled() || !isLocalWorld()) return false;
         return module.handleLocalAttackInternal(target);
     }
 
@@ -87,10 +87,20 @@ public class FakePlayer extends Module {
         return suppressSwingHitModules;
     }
 
+    /** The fake player only exists in a singleplayer (integrated server) world. */
+    public static boolean isLocalWorld() {
+        return mc.world != null && mc.isIntegratedServerRunning();
+    }
+
+    @Override
+    protected boolean canEnable() {
+        return mc.world == null || isLocalWorld();
+    }
+
     @Override
     protected void onEnable() {
         fakeDead = false;
-        ensureFakePlayer();
+        if (isLocalWorld()) ensureFakePlayer();
     }
 
     @Override
@@ -102,7 +112,7 @@ public class FakePlayer extends Module {
 
     @Override
     public void onTick() {
-        if (!isInGame()) {
+        if (!isInGame() || !isLocalWorld()) {
             removeFakePlayer(false);
             fakeDead = false;
             return;

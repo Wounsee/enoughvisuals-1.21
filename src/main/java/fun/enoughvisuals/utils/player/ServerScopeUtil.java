@@ -10,8 +10,7 @@ public final class ServerScopeUtil {
 
     // Список модулей, которые скрываются только на holyworld
     private static final Set<String> HOLYWORLD_HIDDEN = Set.of(
-            "fake_player", "auto_resell", "auto_potion", "fast_swap",
-            "item_swap", "fast_xp", "ft_helper", "item_scroller", "click_pearl", "shift_tap"
+            "fake_player", "fast_swap", "item_swap", "ft_helper", "item_scroller"
     );
 
     private ServerScopeUtil() {}
