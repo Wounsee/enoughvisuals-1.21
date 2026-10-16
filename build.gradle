@@ -62,8 +62,8 @@ if (!embeddedCosmeticJar.isFile()) {
         workingDir cosmeticRuntimeDir
         environment "JAVA_HOME", System.getProperty("java.home")
         commandLine(windows
-                ? ["cmd", "/c", "gradlew.bat", ":fabric:remapJar", "--no-daemon"]
-                : ["./gradlew", ":fabric:remapJar", "--no-daemon"])
+                ? [new File(cosmeticRuntimeDir, "gradlew.bat").absolutePath, ":fabric:remapJar", "--no-daemon"]
+                : [new File(cosmeticRuntimeDir, "gradlew").absolutePath, ":fabric:remapJar", "--no-daemon"])
     }.result.get()
 }
 
